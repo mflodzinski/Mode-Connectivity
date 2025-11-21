@@ -1,0 +1,9 @@
+{
+  "python.defaultInterpreterPath": "/Users/mflodzinski/Projects/Mode-Connectivity/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "terminal.integrated.env.osx": {
+    "VIRTUAL_ENV": "/Users/mflodzinski/Projects/Mode-Connectivity/.venv",
+    "PATH": "/Users/mflodzinski/Projects/Mode-Connectivity/.venv/bin:${env:PATH}",
+    "PYTHONPATH": "${workspaceFolder}"
+  }
+}
