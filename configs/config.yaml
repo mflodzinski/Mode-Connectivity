@@ -1,0 +1,16 @@
+defaults:
+  - dataset: toy
+  - model: mlp
+  - train: default
+  - experiment: baseline
+
+project_name: "thesis-mode-connectivity"
+run_name: "debug"
+seed: 0
+
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}/${experiment.name}/seed_${seed}
+  sweep:
+    dir: multirun
+    subdir: ${hydra.job.num}

@@ -1,0 +1,6 @@
+[submodule "external/PyTorch-AutoNEB"]
+	path = external/PyTorch-AutoNEB
+	url = https://github.com/mflodzinski/PyTorch-AutoNEB
+[submodule "external/dnn-mode-connectivity"]
+	path = external/dnn-mode-connectivity
+	url = https://github.com/mflodzinski/dnn-mode-connectivity

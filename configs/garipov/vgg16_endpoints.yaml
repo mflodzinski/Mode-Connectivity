@@ -1,0 +1,20 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_endpoints"
+
+output_root: "results/garipov/vgg16/endpoints"
+
+dataset: "CIFAR10"
+data_path: "/path/to/cifar"
+transform: "VGG"
+model: "VGG16"
+
+epochs: 200
+lr: 0.05
+wd: 5e-4
+use_test: true
+
+seeds: [0, 1, 2, 3, 4]
+
+use_wandb: true
+project_name: "thesis-mode-connectivity"
