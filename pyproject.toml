@@ -13,6 +13,7 @@ dependencies = [
     "hydra-core",
     "wandb",
     "numpy",
+    "scipy",
     "matplotlib",
     "rich",
     "tabulate",
