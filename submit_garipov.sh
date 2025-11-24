@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --partition=gpu          # Request GPU partition
+#SBATCH --partition=general          # Request GPU partition
 #SBATCH --qos=long               # Long job (up to 48 hours)
 #SBATCH --time=24:00:00          # Request 24 hours (adjust if needed)
 #SBATCH --ntasks=1               # Single task
@@ -11,26 +11,11 @@
 #SBATCH --error=slurm_%j.err     # Error log
 #SBATCH --job-name=garipov_vgg16 # Job name
 
-# Load modules (adjust based on DAIC's available modules)
-module load cuda/11.8            # Or latest CUDA version
-module load python/3.10          # Or use conda
+# Activate virtual environment
+source $HOME/venvs/mode-connectivity/bin/activate
 
 # Navigate to project directory
 cd $HOME/Mode-Connectivity
 
-# Set up Python environment (choose ONE option):
-
-# Option A: Using Poetry
-poetry install
-srun poetry run python run_garipov_endpoints.py
-
-# Option B: Using pip/venv (if poetry doesn't work)
-# python -m venv venv
-# source venv/bin/activate
-# pip install -r requirements.txt  # You'll need to create this
-# srun python run_garipov_endpoints.py
-
-# Option C: Using conda (if available)
-# conda env create -f environment.yml
-# conda activate mode-connectivity
-# srun python run_garipov_endpoints.py
+# Run the training script
+srun python run_garipov_endpoints.py

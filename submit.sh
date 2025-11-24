@@ -1,17 +1,21 @@
-#!/bin/sh
-   #SBATCH --partition=general   # Request partition. Default is 'general'. Select the best partition following the advice on  https://daic.tudelft.nl/docs/manual/job-submission/priorities/#priority-tiers
-   #SBATCH --qos=short           # Request Quality of Service. Default is 'short' (maximum run time: 4 hours)
-   #SBATCH --time=0:05:00        # Request run time (wall-clock). Default is 1 minute
-   #SBATCH --ntasks=1            # Request number of parallel tasks per job. Default is 1
-   #SBATCH --cpus-per-task=2     # Request number of CPUs (threads) per task. Default is 1 (note: CPUs are always allocated to jobs per 2).
-   #SBATCH --mem=1GB             # Request memory (MB) per node. Default is 1024MB (1GB). For multiple tasks, specify --mem-per-cpu instead
-   #SBATCH --mail-type=END       # Set mail type to 'END' to receive a mail when the job finishes. 
-   #SBATCH --output=slurm_%j.out # Set name of output log. %j is the Slurm jobId
-   #SBATCH --error=slurm_%j.err  # Set name of error log. %j is the Slurm jobId
-   
-   # Some debugging logs
-   which python 1>&2  # Write path to Python binary to standard error
-   python --version   # Write Python version to standard error
-   
-   # Run your script with the `srun` command:
-   srun python script.py
+#!/bin/bash
+#SBATCH --partition=general      # Use general partition (contains GPU nodes)
+#SBATCH --qos=long               # Long job (up to 48 hours)
+#SBATCH --time=24:00:00          # Request 24 hours
+#SBATCH --ntasks=1               # Single task
+#SBATCH --cpus-per-task=4        # 4 CPU cores
+#SBATCH --gpus=1                 # Request 1 GPU (will get a gpu## node)
+#SBATCH --mem=16GB               # 16GB RAM
+#SBATCH --mail-type=END,FAIL     # Email on completion/failure
+#SBATCH --output=slurm_%j.out    # Output log
+#SBATCH --error=slurm_%j.err     # Error log
+#SBATCH --job-name=garipov_vgg16 # Job name
+
+# Activate virtual environment
+source $HOME/venvs/mode-connectivity/bin/activate
+
+# Navigate to project directory
+cd $HOME/Mode-Connectivity
+
+# Run the training script
+srun python script.py
