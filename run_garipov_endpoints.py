@@ -3,9 +3,8 @@ import subprocess
 import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
-import wandb
 
-from src.utils import set_global_seed, get_git_commit
+from src.utils import set_global_seed
 
 @hydra.main(
     version_base=None,
@@ -17,7 +16,6 @@ def main(cfg: DictConfig):
 
     repo_root = to_absolute_path("external/dnn-mode-connectivity")
     train_script = os.path.join(repo_root, "train.py")
-    garipov_commit = get_git_commit(repo_root)
 
     for seed in cfg.seeds:
         run_dir = to_absolute_path(
@@ -40,6 +38,8 @@ def main(cfg: DictConfig):
             cfg.model,
             "--epochs",
             str(cfg.epochs),
+            "--save_freq",
+            str(cfg.save_freq),
             "--lr",
             str(cfg.lr),
             "--wd",
@@ -48,32 +48,20 @@ def main(cfg: DictConfig):
         if cfg.use_test:
             cmd.append("--use_test")
 
-        # if your fork has a --seed / --wandb flag, add:
-        # cmd += ["--seed", str(seed)]
-        # if cfg.use_wandb:
-        #     cmd.append("--wandb")
+        # Add seed
+        cmd += ["--seed", str(seed)]
+
+        # Add wandb flags
+        if cfg.use_wandb:
+            run_name = f"garipov_{cfg.model}_endpoint_seed{seed}"
+            cmd.append("--wandb")
+            cmd += ["--wandb_project", cfg.project_name]
+            cmd += ["--wandb_name", run_name]
 
         print("Running:", " ".join(cmd))
 
-        # Optional: wrap in a wandb run just to track metadata & final results
-        if cfg.use_wandb:
-            run_name = f"garipov_vgg16_endpoint_seed{seed}"
-            wandb.init(
-                project=cfg.project_name,
-                name=run_name,
-                config={
-                    "external_repo": "dnn-mode-connectivity",
-                    "external_commit": garipov_commit,
-                    "seed": seed,
-                    "dataset": cfg.dataset,
-                    "model": cfg.model,
-                },
-            )
-
+        # Training script now handles wandb internally, so no need to wrap here
         subprocess.run(cmd, check=True)
-
-        if cfg.use_wandb:
-            wandb.finish()
 
 if __name__ == "__main__":
     main()
