@@ -8,7 +8,7 @@ from src.utils import set_global_seed
 
 @hydra.main(
     version_base=None,
-    config_path="configs/garipov",
+    config_path="../../configs/garipov",
     config_name="vgg16_endpoints",
 )
 def main(cfg: DictConfig):
@@ -19,7 +19,7 @@ def main(cfg: DictConfig):
 
     for seed in cfg.seeds:
         run_dir = to_absolute_path(
-            os.path.join(cfg.output_root, f"{cfg.model}_seed{seed}")
+            os.path.join(cfg.output_root, f"seed{seed}")
         )
         os.makedirs(run_dir, exist_ok=True)
 
@@ -38,13 +38,16 @@ def main(cfg: DictConfig):
             cfg.model,
             "--epochs",
             str(cfg.epochs),
-            "--save_freq",
-            str(cfg.save_freq),
             "--lr",
             str(cfg.lr),
             "--wd",
             str(cfg.wd),
         ]
+
+        # Only save intermediate checkpoints if requested
+        if cfg.get("save_intermediate", True):
+            cmd += ["--save_freq", str(cfg.save_freq)]
+
         if cfg.use_test:
             cmd.append("--use_test")
 
@@ -65,8 +68,3 @@ def main(cfg: DictConfig):
 
 if __name__ == "__main__":
     main()
-
-
-# poetry run run_garipov_endpoints
-# # or
-# poetry run run_garipov_endpoints seeds=[0,1,2]
