@@ -17,5 +17,8 @@ source $HOME/venvs/mode-connectivity/bin/activate
 # Navigate to project directory
 cd $HOME/Mode-Connectivity
 
+# Add project root to Python path so scripts can import from src/
+export PYTHONPATH=$HOME/Mode-Connectivity:$PYTHONPATH
+
 # Run the training script
 srun python scripts/train/run_garipov_endpoints.py

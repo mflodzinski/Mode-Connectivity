@@ -17,6 +17,9 @@ source $HOME/venvs/mode-connectivity/bin/activate
 # Navigate to project directory
 cd $HOME/Mode-Connectivity
 
+# Add project root to Python path so scripts can import from src/
+export PYTHONPATH=$HOME/Mode-Connectivity:$PYTHONPATH
+
 echo "========================================"
 echo "STEP 1: Training Bezier Curve"
 echo "========================================"
