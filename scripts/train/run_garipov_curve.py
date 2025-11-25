@@ -8,7 +8,7 @@ from src.utils import set_global_seed
 
 @hydra.main(
     version_base=None,
-    config_path="configs/garipov",
+    config_path="../../configs/garipov",
     config_name="vgg16_curve",
 )
 def main(cfg: DictConfig):

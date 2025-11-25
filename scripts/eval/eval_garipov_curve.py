@@ -6,7 +6,7 @@ from omegaconf import DictConfig
 
 @hydra.main(
     version_base=None,
-    config_path="configs/garipov",
+    config_path="../../configs/garipov",
     config_name="vgg16_curve",
 )
 def main(cfg: DictConfig):
