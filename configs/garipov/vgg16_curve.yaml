@@ -1,0 +1,29 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_curve"
+
+output_root: "results/garipov/vgg16/curve"
+
+# Endpoints
+endpoint0: "results/garipov/vgg16/endpoints/VGG16_seed0/checkpoint-200.pt"
+endpoint1: "results/garipov/vgg16/endpoints/VGG16_seed1/checkpoint-200.pt"
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+
+# Curve parameters
+curve: "Bezier"  # or "PolyChain"
+num_bends: 3  # 3 = start, middle, end
+
+# Training
+epochs: 600
+save_intermediate: true  # If true, save checkpoints every save_freq epochs
+save_freq: 200           # Only used if save_intermediate=true
+lr: 0.015  # Recommended LR for VGG16 curve training
+wd: 5e-4
+
+use_test: true
+use_wandb: true
+project_name: "thesis-mode-connectivity"

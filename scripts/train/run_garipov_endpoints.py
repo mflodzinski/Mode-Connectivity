@@ -38,13 +38,16 @@ def main(cfg: DictConfig):
             cfg.model,
             "--epochs",
             str(cfg.epochs),
-            "--save_freq",
-            str(cfg.save_freq),
             "--lr",
             str(cfg.lr),
             "--wd",
             str(cfg.wd),
         ]
+
+        # Only save intermediate checkpoints if requested
+        if cfg.get("save_intermediate", True):
+            cmd += ["--save_freq", str(cfg.save_freq)]
+
         if cfg.use_test:
             cmd.append("--use_test")
 
