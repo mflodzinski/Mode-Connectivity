@@ -48,9 +48,9 @@ echo "========================================"
 echo "STEP 3: Evaluating Linear Interpolation"
 echo "========================================"
 srun python scripts/eval/eval_linear.py \
-    --dir results/garipov/vgg16/curve/linear \
-    --init_start results/garipov/vgg16/endpoints/VGG16_seed0/checkpoint-200.pt \
-    --init_end results/garipov/vgg16/endpoints/VGG16_seed1/checkpoint-200.pt \
+    --dir results/vgg16/cifar10/curve/evaluations \
+    --init_start results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt \
+    --init_end results/vgg16/cifar10/endpoints/checkpoints/seed1/checkpoint-200.pt \
     --num_points 61 \
     --dataset CIFAR10 \
     --data_path ./data \
@@ -72,11 +72,11 @@ echo "PIPELINE COMPLETED SUCCESSFULLY"
 echo "========================================"
 echo ""
 echo "Results saved to:"
-echo "  - Bezier curve: results/garipov/vgg16/curve/curve.npz"
-echo "  - Linear path: results/garipov/vgg16/curve/linear/linear.npz"
+echo "  - Bezier curve: results/vgg16/cifar10/curve/evaluations/curve.npz"
+echo "  - Linear path: results/vgg16/cifar10/curve/evaluations/linear.npz"
 echo ""
 echo "To download results:"
-echo "  scp -r mlodzinski@login.daic.tudelft.nl:~/Mode-Connectivity/results/garipov/vgg16/curve ."
+echo "  scp mlodzinski@login.daic.tudelft.nl:~/Mode-Connectivity/results/vgg16/cifar10/curve/evaluations/*.npz ."
 echo ""
-echo "To plot comparison:"
-echo "  python scripts/plot/plot_connectivity.py --linear results/garipov/vgg16/curve/linear/linear.npz --curve results/garipov/vgg16/curve/curve.npz"
+echo "To plot comparison (creates figure in results/vgg16/cifar10/curve/figures/):"
+echo "  python scripts/plot/plot_connectivity.py --linear evaluations/linear.npz --curve evaluations/curve.npz"

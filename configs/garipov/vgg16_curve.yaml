@@ -2,11 +2,11 @@ defaults: []
 
 experiment_name: "garipov_vgg16_curve"
 
-output_root: "results/garipov/vgg16/curve"
+output_root: "results/vgg16/cifar10/curve/checkpoints"
 
 # Endpoints
-endpoint0: "results/garipov/vgg16/endpoints/VGG16_seed0/checkpoint-200.pt"
-endpoint1: "results/garipov/vgg16/endpoints/VGG16_seed1/checkpoint-200.pt"
+endpoint0: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/checkpoints/seed1/checkpoint-200.pt"
 
 dataset: "CIFAR10"
 data_path: "./data"

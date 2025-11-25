@@ -10,7 +10,8 @@ seed: 0
 
 hydra:
   run:
-    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}/${experiment.name}/seed_${seed}
+    dir: .
   sweep:
-    dir: multirun
+    dir: .
     subdir: ${hydra.job.num}
+  output_subdir: null  # Disable .hydra subdirectory creation

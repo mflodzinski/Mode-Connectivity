@@ -19,7 +19,7 @@ def main(cfg: DictConfig):
 
     for seed in cfg.seeds:
         run_dir = to_absolute_path(
-            os.path.join(cfg.output_root, f"{cfg.model}_seed{seed}")
+            os.path.join(cfg.output_root, f"seed{seed}")
         )
         os.makedirs(run_dir, exist_ok=True)
 

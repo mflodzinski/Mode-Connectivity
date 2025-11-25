@@ -2,7 +2,7 @@ defaults: []
 
 experiment_name: "garipov_vgg16_endpoints"
 
-output_root: "results/garipov/vgg16/endpoints"
+output_root: "results/vgg16/cifar10/endpoints/checkpoints"
 
 dataset: "CIFAR10"
 data_path: "./data"
