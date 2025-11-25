@@ -2,7 +2,7 @@ defaults: []
 
 experiment_name: "garipov_vgg16_curve"
 
-output_root: "results/garipov/vgg16/curve"
+output_root: "checkpoints/curve/"
 
 # Endpoints
 endpoint0: "results/garipov/vgg16/endpoints/VGG16_seed0/checkpoint-200.pt"
