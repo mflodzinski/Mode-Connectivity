@@ -1,0 +1,24 @@
+#!/bin/bash
+#SBATCH --partition=general
+#SBATCH --qos=long
+#SBATCH --time=12:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --gpus=1
+#SBATCH --mem=16GB
+#SBATCH --mail-type=END,FAIL
+#SBATCH --output=slurm_curve_mirror_%j.out
+#SBATCH --error=slurm_curve_mirror_%j.err
+#SBATCH --job-name=garipov_curve_mirror
+
+# Activate virtual environment
+source $HOME/venvs/mode-connectivity/bin/activate
+
+# Navigate to project directory
+cd $HOME/Mode-Connectivity
+
+# Add project root to Python path so scripts can import from src/
+export PYTHONPATH=$HOME/Mode-Connectivity:$PYTHONPATH
+
+# Run the curve training script with mirror config
+srun python scripts/train/run_garipov_curve.py --config-name vgg16_curve_mirror
