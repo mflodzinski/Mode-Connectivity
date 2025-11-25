@@ -18,7 +18,7 @@ curve: "Bezier"  # or "PolyChain"
 num_bends: 3  # 3 = start, middle, end
 
 # Training
-epochs: 600
+epochs: 200  # Using checkpoint-200 (checkpoint-400 corrupted, training crashed at epoch 476 due to disk quota)
 save_intermediate: true  # If true, save checkpoints every save_freq epochs
 save_freq: 200           # Only used if save_intermediate=true
 lr: 0.015  # Recommended LR for VGG16 curve training

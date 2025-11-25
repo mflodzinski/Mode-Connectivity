@@ -108,7 +108,7 @@ Download results and plot:
 
 ```bash
 # Download from cluster
-scp -r mlodzinski@linux-bastion-ex.tudelft.nl:Mode-Connectivity/results/garipov/vgg16/curve .
+scp -r mlodzinski@login.daic.tudelft.nl:~/Mode-Connectivity/results/garipov/vgg16/curve .
 
 # Plot comparison
 python scripts/plot/plot_connectivity.py \

@@ -214,3 +214,6 @@ wandb/
 *.tar.gz
 slurm_*.out
 slurm_*.err
+
+# Downloaded checkpoints
+checkpoints/

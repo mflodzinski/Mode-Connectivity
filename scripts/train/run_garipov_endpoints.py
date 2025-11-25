@@ -68,8 +68,3 @@ def main(cfg: DictConfig):
 
 if __name__ == "__main__":
     main()
-
-
-# poetry run run_garipov_endpoints
-# # or
-# poetry run run_garipov_endpoints seeds=[0,1,2]

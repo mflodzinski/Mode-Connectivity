@@ -1,15 +1,15 @@
 #!/bin/bash
 #SBATCH --partition=general
-#SBATCH --qos=long
-#SBATCH --time=48:00:00
+#SBATCH --qos=short
+#SBATCH --time=2:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gpus=1
 #SBATCH --mem=16GB
 #SBATCH --mail-type=END,FAIL
-#SBATCH --output=slurm_full_pipeline_%j.out
-#SBATCH --error=slurm_full_pipeline_%j.err
-#SBATCH --job-name=garipov_full
+#SBATCH --output=slurm_eval_%j.out
+#SBATCH --error=slurm_eval_%j.err
+#SBATCH --job-name=garipov_eval
 
 # Activate virtual environment
 source $HOME/venvs/mode-connectivity/bin/activate
@@ -21,19 +21,7 @@ cd $HOME/Mode-Connectivity
 export PYTHONPATH=$HOME/Mode-Connectivity:$PYTHONPATH
 
 echo "========================================"
-echo "STEP 1: Training Bezier Curve"
-echo "========================================"
-srun python scripts/train/run_garipov_curve.py
-
-# Check if curve training succeeded
-if [ $? -ne 0 ]; then
-    echo "ERROR: Curve training failed!"
-    exit 1
-fi
-
-echo ""
-echo "========================================"
-echo "STEP 2: Evaluating Bezier Curve"
+echo "STEP 1: Evaluating Bezier Curve"
 echo "========================================"
 srun python scripts/eval/eval_garipov_curve.py
 
@@ -45,7 +33,7 @@ fi
 
 echo ""
 echo "========================================"
-echo "STEP 3: Evaluating Linear Interpolation"
+echo "STEP 2: Evaluating Linear Interpolation"
 echo "========================================"
 srun python scripts/eval/eval_linear.py \
     --dir results/garipov/vgg16/curve/linear \
@@ -57,7 +45,6 @@ srun python scripts/eval/eval_linear.py \
     --model VGG16 \
     --transform VGG \
     --batch_size 128 \
-    --num_workers 4 \
     --use_test
 
 # Check if linear evaluation succeeded
@@ -68,7 +55,7 @@ fi
 
 echo ""
 echo "========================================"
-echo "PIPELINE COMPLETED SUCCESSFULLY"
+echo "EVALUATION COMPLETE!"
 echo "========================================"
 echo ""
 echo "Results saved to:"
@@ -76,7 +63,8 @@ echo "  - Bezier curve: results/garipov/vgg16/curve/curve.npz"
 echo "  - Linear path: results/garipov/vgg16/curve/linear/linear.npz"
 echo ""
 echo "To download results:"
-echo "  scp -r mlodzinski@login.daic.tudelft.nl:~/Mode-Connectivity/results/garipov/vgg16/curve ."
+echo "  scp mlodzinski@login.daic.tudelft.nl:~/Mode-Connectivity/results/garipov/vgg16/curve/curve.npz ."
+echo "  scp mlodzinski@login.daic.tudelft.nl:~/Mode-Connectivity/results/garipov/vgg16/curve/linear/linear.npz ."
 echo ""
 echo "To plot comparison:"
-echo "  python scripts/plot/plot_connectivity.py --linear results/garipov/vgg16/curve/linear/linear.npz --curve results/garipov/vgg16/curve/curve.npz"
+echo "  python scripts/plot/plot_connectivity.py --linear linear/linear.npz --curve curve.npz --output connectivity_comparison.png"
