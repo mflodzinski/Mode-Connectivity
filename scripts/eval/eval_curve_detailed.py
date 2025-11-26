@@ -1,10 +1,7 @@
 """Evaluate curve and save per-sample predictions and features.
 
-This script extends eval_curve.py to save detailed per-sample information:
-- Predictions at each t value
-- Penultimate layer features at t=0 and t=1 (endpoints)
-- Ground truth labels
-- Raw images
+Collects predictions at each t value along the curve, and extracts features
+from the trained endpoint checkpoints (seed0 and seed1).
 """
 import argparse
 import numpy as np
@@ -19,13 +16,11 @@ sys.path.insert(0, 'external/dnn-mode-connectivity')
 import data
 import models
 import curves
+import utils
 
 
 def extract_features(model, loader, device):
-    """Extract penultimate layer features and predictions from model.
-
-    For VGG16, penultimate features are the 512-d vector before the final linear layer.
-    """
+    """Extract penultimate layer features from a standard (non-curve) model."""
     model.eval()
 
     all_features = []
@@ -37,7 +32,6 @@ def extract_features(model, loader, device):
     features_hook = []
 
     def hook_fn(module, input, output):
-        # Capture output of second-to-last ReLU in classifier
         features_hook.append(output.detach())
 
     # Register hook on the classifier's penultimate ReLU (index 5)
@@ -52,7 +46,7 @@ def extract_features(model, loader, device):
             outputs = model(images)
 
             preds = outputs.argmax(dim=1)
-            features = features_hook[0]  # Get captured features
+            features = features_hook[0]
 
             all_features.append(features.cpu())
             all_preds.append(preds.cpu())
@@ -69,28 +63,45 @@ def extract_features(model, loader, device):
     }
 
 
-def evaluate_at_t(model, loader, device, t_value):
-    """Evaluate model at specific t value and return predictions."""
-    model.eval()
+def evaluate_curve_predictions(curve_model, loader, device, ts):
+    """Evaluate curve model at multiple t values and return predictions."""
+    curve_model.eval()
 
-    all_preds = []
+    num_points = len(ts)
+    num_samples = len(loader.dataset)
 
-    t = torch.FloatTensor([t_value]).to(device)
+    predictions = np.zeros((num_points, num_samples), dtype=np.int64)
 
-    with torch.no_grad():
-        for images, _ in loader:
-            images = images.to(device)
-            outputs = model(images, t)
-            preds = outputs.argmax(dim=1)
-            all_preds.append(preds.cpu())
+    t_tensor = torch.FloatTensor([0.0]).to(device)
 
-    return torch.cat(all_preds, dim=0).numpy()
+    for i, t_value in enumerate(ts):
+        print(f"  Evaluating t={t_value:.3f} ({i+1}/{num_points})")
+        t_tensor.data.fill_(t_value)
+
+        # Update batch norm statistics
+        utils.update_bn(loader, curve_model, t=t_tensor)
+
+        all_preds = []
+        with torch.no_grad():
+            for images, _ in loader:
+                images = images.to(device)
+                outputs = curve_model(images, t_tensor)
+                preds = outputs.argmax(dim=1)
+                all_preds.append(preds.cpu())
+
+        predictions[i] = torch.cat(all_preds, dim=0).numpy()
+
+    return predictions
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Detailed curve evaluation with predictions and features')
+    parser = argparse.ArgumentParser(description='Detailed curve evaluation')
     parser.add_argument('--curve_ckpt', type=str, required=True,
                         help='Path to curve checkpoint')
+    parser.add_argument('--endpoint0_ckpt', type=str, required=True,
+                        help='Path to endpoint 0 checkpoint (seed0)')
+    parser.add_argument('--endpoint1_ckpt', type=str, required=True,
+                        help='Path to endpoint 1 checkpoint (seed1)')
     parser.add_argument('--output', type=str, required=True,
                         help='Output path for predictions_detailed.npz')
     parser.add_argument('--dataset', type=str, default='CIFAR10')
@@ -99,18 +110,15 @@ def main():
     parser.add_argument('--transform', type=str, default='VGG')
     parser.add_argument('--curve', type=str, default='Bezier')
     parser.add_argument('--num_bends', type=int, default=3)
-    parser.add_argument('--num_points', type=int, default=61,
-                        help='Number of evaluation points along curve')
+    parser.add_argument('--num_points', type=int, default=61)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--use_test', action='store_true')
 
     args = parser.parse_args()
 
-    # Create output directory
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
-    # Setup device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
@@ -127,42 +135,47 @@ def main():
     )
 
     test_loader = loaders['test']
+    train_loader = loaders['train']
 
     # Load curve model
     print(f"\nLoading curve model from {args.curve_ckpt}...")
     architecture = getattr(models, args.model)
     curve_cls = getattr(curves, args.curve)
-    model = curves.CurveNet(
+    curve_model = curves.CurveNet(
         num_classes,
         curve_cls,
         architecture.curve,
         args.num_bends,
         architecture_kwargs=architecture.kwargs,
     )
-    model.to(device)
+    curve_model.to(device)
+    curve_checkpoint = torch.load(args.curve_ckpt, map_location=device)
+    curve_model.load_state_dict(curve_checkpoint['model_state'])
 
-    checkpoint = torch.load(args.curve_ckpt, map_location=device)
-    model.load_state_dict(checkpoint['model_state'])
+    # Load endpoint models
+    print(f"\nLoading endpoint 0 from {args.endpoint0_ckpt}...")
+    model_t0 = architecture.base(num_classes=num_classes, **architecture.kwargs)
+    model_t0.to(device)
+    endpoint0_checkpoint = torch.load(args.endpoint0_ckpt, map_location=device)
+    model_t0.load_state_dict(endpoint0_checkpoint['model_state'])
 
-    print(f"\nExtracting features and predictions at endpoints...")
+    print(f"Loading endpoint 1 from {args.endpoint1_ckpt}...")
+    model_t1 = architecture.base(num_classes=num_classes, **architecture.kwargs)
+    model_t1.to(device)
+    endpoint1_checkpoint = torch.load(args.endpoint1_ckpt, map_location=device)
+    model_t1.load_state_dict(endpoint1_checkpoint['model_state'])
 
-    # Extract features at t=0 (endpoint 0)
-    print("\nEndpoint 0 (t=0):")
-    t0 = torch.FloatTensor([0.0]).to(device)
-    model_t0 = model.export_base(t0)
+    # Extract features from endpoints
+    print(f"\nExtracting features from endpoints...")
+    print("Endpoint 0 (t=0):")
     endpoint0_data = extract_features(model_t0, test_loader, device)
 
-    # Extract features at t=1 (endpoint 1)
-    print("\nEndpoint 1 (t=1):")
-    t1 = torch.FloatTensor([1.0]).to(device)
-    model_t1 = model.export_base(t1)
+    print("Endpoint 1 (t=1):")
     endpoint1_data = extract_features(model_t1, test_loader, device)
 
-    # Verify targets match
+    # Verify consistency
     assert np.array_equal(endpoint0_data['targets'], endpoint1_data['targets']), \
         "Targets don't match between endpoints!"
-
-    # Verify images match
     assert np.allclose(endpoint0_data['images'], endpoint1_data['images']), \
         "Images don't match between endpoints!"
 
@@ -171,16 +184,10 @@ def main():
     features_t0 = endpoint0_data['features']
     features_t1 = endpoint1_data['features']
 
+    # Collect predictions along curve
     print(f"\nCollecting predictions along curve at {args.num_points} points...")
-
-    # Collect predictions at all t values
     ts = np.linspace(0.0, 1.0, args.num_points)
-    num_samples = len(targets)
-
-    predictions = np.zeros((args.num_points, num_samples), dtype=np.int64)
-
-    for i, t_value in enumerate(ts):
-        predictions[i] = evaluate_at_t(model, test_loader, device, t_value)
+    predictions = evaluate_curve_predictions(curve_model, test_loader, device, ts)
 
     # Save all data
     print(f"\nSaving results to {args.output}...")
@@ -195,7 +202,7 @@ def main():
     )
 
     print("\nDataset info:")
-    print(f"  Number of samples: {num_samples}")
+    print(f"  Number of samples: {len(targets)}")
     print(f"  Number of evaluation points: {args.num_points}")
     print(f"  Feature dimension: {features_t0.shape[1]}")
     print(f"  Image shape: {images.shape[1:]}")
