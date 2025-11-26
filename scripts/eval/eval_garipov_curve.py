@@ -17,11 +17,17 @@ def main(cfg: DictConfig):
         os.path.join(cfg.output_root, f"checkpoint-{cfg.epochs}.pt")
     )
 
+    # Save evaluation results to evaluations/ directory
+    eval_dir = to_absolute_path(
+        cfg.output_root.replace('/checkpoints', '/evaluations')
+    )
+    os.makedirs(eval_dir, exist_ok=True)
+
     cmd = [
         "python",
         eval_script,
         "--dir",
-        to_absolute_path(cfg.output_root),
+        eval_dir,
         "--dataset",
         cfg.dataset,
         "--data_path",
