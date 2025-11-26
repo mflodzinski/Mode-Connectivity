@@ -69,8 +69,14 @@ def plot_changing_samples(embeddings, targets, change_counts, output_path, title
     class_names = ['airplane', 'automobile', 'bird', 'cat', 'deer',
                    'dog', 'frog', 'horse', 'ship', 'truck']
 
-    # Color scheme for CIFAR-10 classes
-    colors = plt.cm.tab10(np.arange(10))
+    # 5 colors shared across 10 classes
+    color_palette = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+
+    # Shapes: circles for 0-4, triangles for 5-9
+    markers = {
+        0: 'o', 1: 'o', 2: 'o', 3: 'o', 4: 'o',
+        5: '^', 6: '^', 7: '^', 8: '^', 9: '^'
+    }
 
     fig, ax = plt.subplots(figsize=(14, 10))
 
@@ -84,16 +90,21 @@ def plot_changing_samples(embeddings, targets, change_counts, output_path, title
         class_changes = change_counts[mask]
 
         # Size based on number of changes (larger = more unstable)
-        sizes = 20 + class_changes * 15
+        sizes = 30 + class_changes * 20
+
+        # Color: class_idx % 5 gives us 5 colors
+        color = color_palette[class_idx % 5]
+        marker = markers[class_idx]
 
         scatter = ax.scatter(
             class_embeddings[:, 0],
             class_embeddings[:, 1],
-            c=[colors[class_idx]],
+            c=color,
             s=sizes,
+            marker=marker,
             alpha=0.7,
             edgecolors='black',
-            linewidths=0.5,
+            linewidths=0.8,
             label=f'{class_names[class_idx]} ({np.sum(mask)})'
         )
 
@@ -250,20 +261,46 @@ def main():
     print(f"  Changing samples: {len(features_changing)} "
           f"({len(features_changing)/len(features_for_visualization)*100:.2f}%)")
 
-    # Reduce dimensions for changing samples
-    embeddings_changing = reduce_dimensions(
+    # STEP 1: Reduce dimensions for ALL changing samples first
+    print("\nReducing dimensions for all changing samples...")
+    embeddings_changing_full = reduce_dimensions(
         features_changing,
         method=args.method,
         random_state=args.random_state
     )
 
+    # STEP 2: Subsample 10% from each class for cleaner visualization
+    np.random.seed(args.random_state)
+    subsample_idx = []
+
+    print("\nSubsampling 10% from each class:")
+    for class_idx in range(10):
+        class_mask = targets_changing == class_idx
+        class_indices = np.where(class_mask)[0]
+        n_class = len(class_indices)
+
+        if n_class > 0:
+            n_subsample_class = max(1, int(n_class * 0.1))
+            sampled = np.random.choice(class_indices, size=n_subsample_class, replace=False)
+            subsample_idx.extend(sampled)
+            print(f"  Class {class_idx}: {n_class} → {n_subsample_class} samples")
+
+    subsample_idx = np.array(subsample_idx)
+
+    # Extract subsampled data
+    embeddings_subsample = embeddings_changing_full[subsample_idx]
+    targets_subsample = targets_changing[subsample_idx]
+    counts_subsample = changing_counts[subsample_idx]
+
+    print(f"\nTotal subsampled: {len(subsample_idx)} (from {len(features_changing)})")
+
     # Plot changing samples
     plot_changing_samples(
-        embeddings_changing,
-        targets_changing,
-        changing_counts,
+        embeddings_subsample,
+        targets_subsample,
+        counts_subsample,
         output_dir / 'prediction_changes_2d.png',
-        title='Samples that Change Predictions Along Bezier Curve\n(Using Endpoint 0 Features)'
+        title='Samples that Change Predictions Along Bezier Curve\n(Using Endpoint 0 Features, 10% Per-Class Subsample)'
     )
 
     # Optionally plot all samples

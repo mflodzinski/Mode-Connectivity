@@ -57,7 +57,15 @@ def create_frame(embeddings, current_preds, true_labels, prev_preds, t_value,
     """
     class_names = ['airplane', 'automobile', 'bird', 'cat', 'deer',
                    'dog', 'frog', 'horse', 'ship', 'truck']
-    colors = plt.cm.tab10(np.arange(10))
+
+    # 5 colors shared across 10 classes
+    color_palette = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+
+    # Shapes: circles for 0-4, triangles for 5-9
+    markers = {
+        0: 'o', 1: 'o', 2: 'o', 3: 'o', 4: 'o',
+        5: '^', 6: '^', 7: '^', 8: '^', 9: '^'
+    }
 
     fig, ax = plt.subplots(figsize=(14, 10))
 
@@ -76,19 +84,24 @@ def create_frame(embeddings, current_preds, true_labels, prev_preds, t_value,
         class_true_labels = true_labels[mask]
         class_just_changed = just_changed[mask]
 
-        # Determine edge colors: black if correct, red if incorrect
+        # Determine edge colors: green if correct, red if incorrect
         edge_colors = ['green' if true_labels[i] == class_idx else 'red'
                        for i in np.where(mask)[0]]
 
         # Make recently changed samples larger and with thicker edges
-        sizes = np.where(class_just_changed, 100, 30)
-        linewidths = np.where(class_just_changed, 2.0, 0.5)
+        sizes = np.where(class_just_changed, 150, 50)
+        linewidths = np.where(class_just_changed, 3.0, 1.0)
+
+        # Color: class_idx % 5 gives us 5 colors
+        color = color_palette[class_idx % 5]
+        marker = markers[class_idx]
 
         ax.scatter(
             class_embeddings[:, 0],
             class_embeddings[:, 1],
-            c=[colors[class_idx]],
+            c=color,
             s=sizes,
+            marker=marker,
             alpha=0.8,
             edgecolors=edge_colors,
             linewidths=linewidths,
@@ -171,13 +184,38 @@ def main():
     print(f"  Number of time points: {num_points}")
     print(f"  t range: {ts[0]:.3f} to {ts[-1]:.3f}")
 
-    # Reduce dimensions once (fixed embedding for all frames)
-    # Using endpoint 0 features for consistent representation
-    embeddings = reduce_dimensions(
+    # STEP 1: Reduce dimensions for ALL changing samples first
+    print("\nReducing dimensions for all changing samples...")
+    embeddings_full = reduce_dimensions(
         features_changing,
         method=args.method,
         random_state=args.random_state
     )
+
+    # STEP 2: Subsample 10% from each class for cleaner visualization
+    np.random.seed(args.random_state)
+    subsample_idx = []
+
+    print("\nSubsampling 10% from each class:")
+    for class_idx in range(10):
+        class_mask = targets_changing == class_idx
+        class_indices = np.where(class_mask)[0]
+        n_class = len(class_indices)
+
+        if n_class > 0:
+            n_subsample_class = max(1, int(n_class * 0.1))
+            sampled = np.random.choice(class_indices, size=n_subsample_class, replace=False)
+            subsample_idx.extend(sampled)
+            print(f"  Class {class_idx}: {n_class} → {n_subsample_class} samples")
+
+    subsample_idx = np.array(subsample_idx)
+
+    # Extract subsampled data
+    embeddings = embeddings_full[subsample_idx]
+    targets_subsample = targets_changing[subsample_idx]
+    predictions_subsample = predictions_changing[:, subsample_idx]  # [num_points, n_subsample]
+
+    print(f"\nTotal subsampled: {len(subsample_idx)} (from {num_changing})")
 
     # Generate frames
     print(f"\nGenerating frames...")
@@ -188,13 +226,13 @@ def main():
     prev_preds = None
     for i in tqdm(indices_to_render, desc="Creating frames"):
         t_value = ts[i]
-        current_preds = predictions_changing[i]
+        current_preds = predictions_subsample[i]
 
         frame_path = frames_dir / f'frame_{i:03d}.png'
         create_frame(
             embeddings,
             current_preds,
-            targets_changing,
+            targets_subsample,
             prev_preds,
             t_value,
             i,
