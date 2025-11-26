@@ -30,7 +30,7 @@ echo "at 61 points along the Bezier curve for prediction change analysis."
 echo ""
 
 # Check if checkpoint exists
-CHECKPOINT="results/vgg16/cifar10/curve/checkpoints/checkpoint-150.pt"
+CHECKPOINT="results/vgg16/cifar10/curve/checkpoints/checkpoint-200.pt"
 if [ ! -f "$CHECKPOINT" ]; then
     echo "ERROR: Checkpoint not found at $CHECKPOINT"
     exit 1
@@ -44,7 +44,7 @@ echo "Starting detailed evaluation..."
 echo ""
 
 srun python scripts/eval/eval_curve_detailed.py \
-    --curve_ckpt results/vgg16/cifar10/curve/checkpoints/checkpoint-150.pt \
+    --curve_ckpt results/vgg16/cifar10/curve/checkpoints/checkpoint-200.pt \
     --output results/vgg16/cifar10/curve/evaluations/predictions_detailed.npz \
     --dataset CIFAR10 \
     --data_path ./data \
