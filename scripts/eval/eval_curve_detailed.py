@@ -12,7 +12,6 @@ import os
 import torch
 import torch.nn.functional as F
 import sys
-from tqdm import tqdm
 
 # Add external repo to path
 sys.path.insert(0, 'external/dnn-mode-connectivity')
@@ -45,7 +44,7 @@ def extract_features(model, loader, device):
     hook = model.classifier[5].register_forward_hook(hook_fn)
 
     with torch.no_grad():
-        for images, targets in tqdm(loader, desc="Extracting features", leave=False):
+        for images, targets in loader:
             images, targets = images.to(device), targets.to(device)
 
             # Forward pass (hook will capture features)
@@ -79,7 +78,7 @@ def evaluate_at_t(model, loader, device, t_value):
     t = torch.FloatTensor([t_value]).to(device)
 
     with torch.no_grad():
-        for images, _ in tqdm(loader, desc=f"Evaluating t={t_value:.3f}", leave=False):
+        for images, _ in loader:
             images = images.to(device)
             outputs = model(images, t)
             preds = outputs.argmax(dim=1)
