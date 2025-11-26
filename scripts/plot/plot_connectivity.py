@@ -97,44 +97,58 @@ os.makedirs(os.path.dirname(args.output), exist_ok=True)
 plt.savefig(args.output, dpi=300, bbox_inches='tight')
 print(f"Figure saved to: {args.output}")
 
-# Print summary statistics
-print("\n" + "="*70)
-print("CONNECTIVITY COMPARISON SUMMARY")
-print("="*70)
+# Generate summary statistics text
+summary_lines = []
+summary_lines.append("="*70)
+summary_lines.append("CONNECTIVITY COMPARISON SUMMARY")
+summary_lines.append("="*70)
+summary_lines.append("")
 
-print(f"\nLinear Interpolation:")
-print(f"  Train metrics:")
-print(f"    Endpoint 1 train error: {linear_tr_err[0]:.2f}%")
-print(f"    Endpoint 2 train error: {linear_tr_err[-1]:.2f}%")
-print(f"    Max train error: {np.max(linear_tr_err):.2f}% at t={linear_ts[np.argmax(linear_tr_err)]:.3f}")
-print(f"    Barrier height: {np.max(linear_tr_err) - max(linear_tr_err[0], linear_tr_err[-1]):.2f}%")
-print(f"  Test metrics:")
-print(f"    Endpoint 1 test error: {linear_te_err[0]:.2f}%")
-print(f"    Endpoint 2 test error: {linear_te_err[-1]:.2f}%")
-print(f"    Max test error: {np.max(linear_te_err):.2f}% at t={linear_ts[np.argmax(linear_te_err)]:.3f}")
-print(f"    Barrier height: {np.max(linear_te_err) - max(linear_te_err[0], linear_te_err[-1]):.2f}%")
+summary_lines.append("Linear Interpolation:")
+summary_lines.append("  Train metrics:")
+summary_lines.append(f"    Endpoint 1 train error: {linear_tr_err[0]:.2f}%")
+summary_lines.append(f"    Endpoint 2 train error: {linear_tr_err[-1]:.2f}%")
+summary_lines.append(f"    Max train error: {np.max(linear_tr_err):.2f}% at t={linear_ts[np.argmax(linear_tr_err)]:.3f}")
+summary_lines.append(f"    Barrier height: {np.max(linear_tr_err) - max(linear_tr_err[0], linear_tr_err[-1]):.2f}%")
+summary_lines.append("  Test metrics:")
+summary_lines.append(f"    Endpoint 1 test error: {linear_te_err[0]:.2f}%")
+summary_lines.append(f"    Endpoint 2 test error: {linear_te_err[-1]:.2f}%")
+summary_lines.append(f"    Max test error: {np.max(linear_te_err):.2f}% at t={linear_ts[np.argmax(linear_te_err)]:.3f}")
+summary_lines.append(f"    Barrier height: {np.max(linear_te_err) - max(linear_te_err[0], linear_te_err[-1]):.2f}%")
+summary_lines.append("")
 
-print(f"\nBezier Curve:")
-print(f"  Train metrics:")
-print(f"    Endpoint 1 train error: {curve_tr_err[0]:.2f}%")
-print(f"    Endpoint 2 train error: {curve_tr_err[-1]:.2f}%")
-print(f"    Max train error: {np.max(curve_tr_err):.2f}% at t={curve_ts[np.argmax(curve_tr_err)]:.3f}")
-print(f"    Barrier height: {np.max(curve_tr_err) - max(curve_tr_err[0], curve_tr_err[-1]):.2f}%")
-print(f"  Test metrics:")
-print(f"    Endpoint 1 test error: {curve_te_err[0]:.2f}%")
-print(f"    Endpoint 2 test error: {curve_te_err[-1]:.2f}%")
-print(f"    Max test error: {np.max(curve_te_err):.2f}% at t={curve_ts[np.argmax(curve_te_err)]:.3f}")
-print(f"    Barrier height: {np.max(curve_te_err) - max(curve_te_err[0], curve_te_err[-1]):.2f}%")
+summary_lines.append("Bezier Curve:")
+summary_lines.append("  Train metrics:")
+summary_lines.append(f"    Endpoint 1 train error: {curve_tr_err[0]:.2f}%")
+summary_lines.append(f"    Endpoint 2 train error: {curve_tr_err[-1]:.2f}%")
+summary_lines.append(f"    Max train error: {np.max(curve_tr_err):.2f}% at t={curve_ts[np.argmax(curve_tr_err)]:.3f}")
+summary_lines.append(f"    Barrier height: {np.max(curve_tr_err) - max(curve_tr_err[0], curve_tr_err[-1]):.2f}%")
+summary_lines.append("  Test metrics:")
+summary_lines.append(f"    Endpoint 1 test error: {curve_te_err[0]:.2f}%")
+summary_lines.append(f"    Endpoint 2 test error: {curve_te_err[-1]:.2f}%")
+summary_lines.append(f"    Max test error: {np.max(curve_te_err):.2f}% at t={curve_ts[np.argmax(curve_te_err)]:.3f}")
+summary_lines.append(f"    Barrier height: {np.max(curve_te_err) - max(curve_te_err[0], curve_te_err[-1]):.2f}%")
+summary_lines.append("")
 
 barrier_reduction = (np.max(linear_te_err) - max(linear_te_err[0], linear_te_err[-1])) - \
                     (np.max(curve_te_err) - max(curve_te_err[0], curve_te_err[-1]))
-print(f"\nBarrier reduction by Bezier curve: {barrier_reduction:.2f}%")
+summary_lines.append(f"Barrier reduction by Bezier curve: {barrier_reduction:.2f}%")
+summary_lines.append("")
 
 if barrier_reduction > 1.0:
-    print("\n✓ Mode connectivity confirmed: Bezier curve significantly reduces barrier")
+    summary_lines.append("✓ Mode connectivity confirmed: Bezier curve significantly reduces barrier")
 elif barrier_reduction > 0.1:
-    print("\n✓ Partial mode connectivity: Bezier curve reduces barrier")
+    summary_lines.append("✓ Partial mode connectivity: Bezier curve reduces barrier")
 else:
-    print("\n✗ Limited mode connectivity: Barrier remains high")
+    summary_lines.append("✗ Limited mode connectivity: Barrier remains high")
 
-print("="*70)
+summary_lines.append("="*70)
+
+# Print to stdout
+print("\n" + "\n".join(summary_lines))
+
+# Save summary to text file
+summary_path = args.output.replace('.png', '_summary.txt')
+with open(summary_path, 'w') as f:
+    f.write("\n".join(summary_lines))
+print(f"\nSummary saved to: {summary_path}")
