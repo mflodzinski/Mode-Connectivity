@@ -21,7 +21,7 @@ early_stopping: true
 patience: 50             # Stop if no improvement for 20 epochs
 min_delta: 0.0           # Minimum improvement to count as better (0.0 = any improvement)
 
-seeds: [1, 0]
+seeds: [2, 0]
 
 use_wandb: true
 project_name: "thesis-mode-connectivity"
