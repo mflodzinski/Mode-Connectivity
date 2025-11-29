@@ -4,12 +4,12 @@
 #SBATCH --time=1:00:00          # Request 24 hours (adjust if needed)
 #SBATCH --ntasks=1               # Single task
 #SBATCH --cpus-per-task=4        # 4 CPU cores
-#SBATCH --gpus=1                 # Request 1 GPU
 #SBATCH --mem=4GB               # 16GB RAM
 #SBATCH --mail-type=END,FAIL     # Email on completion/failure
 #SBATCH --output=slurm_regularized_endpoints_%j.out    # Output log
 #SBATCH --error=slurm_regularized_endpoints_%j.err     # Error log
 #SBATCH --job-name=garipov_regularized_endpoints # Job name
+#SBATCH --gres=gpu:a40:1
 
 # Activate virtual environment
 source $HOME/venvs/mode-connectivity/bin/activate
