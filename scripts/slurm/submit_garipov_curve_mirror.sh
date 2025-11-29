@@ -15,10 +15,10 @@
 source $HOME/venvs/mode-connectivity/bin/activate
 
 # Navigate to project directory
-cd $HOME/Mode-Connectivity
+cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 
 # Add project root to Python path so scripts can import from src/
-export PYTHONPATH=$HOME/Mode-Connectivity:$PYTHONPATH
+export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
 # Run the curve training script with mirror config
 srun python scripts/train/run_garipov_curve.py --config-name vgg16_curve_mirror

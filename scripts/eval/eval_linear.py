@@ -64,6 +64,7 @@ T = args.num_points
 ts = np.linspace(0.0, 1.0, T)
 tr_loss, tr_nll, tr_acc, tr_err = np.zeros(T), np.zeros(T), np.zeros(T), np.zeros(T)
 te_loss, te_nll, te_acc, te_err = np.zeros(T), np.zeros(T), np.zeros(T), np.zeros(T)
+l2_norm = np.zeros(T)
 
 columns = ['t', 'Train loss', 'Train nll', 'Train error (%)', 'Test nll', 'Test error (%)']
 
@@ -90,6 +91,12 @@ for i, t_value in enumerate(ts):
     te_acc[i] = te_res['accuracy']
     te_err[i] = 100.0 - te_acc[i]
 
+    # Compute L2 norm of weights at this point
+    l2 = 0.0
+    for param in model.parameters():
+        l2 += torch.sum(param ** 2).item()
+    l2_norm[i] = np.sqrt(l2)
+
     values = [t_value, tr_loss[i], tr_nll[i], tr_err[i], te_nll[i], te_err[i]]
     table = tabulate.tabulate([values], columns, tablefmt='simple', floatfmt='10.4f')
     if i % 40 == 0:
@@ -103,6 +110,7 @@ for i, t_value in enumerate(ts):
 np.savez(
     os.path.join(args.dir, 'linear.npz'),
     ts=ts,
+    l2_norm=l2_norm,
     tr_loss=tr_loss,
     tr_nll=tr_nll,
     tr_acc=tr_acc,

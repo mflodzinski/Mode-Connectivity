@@ -29,15 +29,22 @@ linear_tr_err = linear_data['tr_err']
 linear_tr_loss = linear_data['tr_loss']
 linear_te_err = linear_data['te_err']
 linear_te_loss = linear_data['te_loss']
+linear_l2_norm = linear_data.get('l2_norm', None)
 
 curve_ts = curve_data['ts']
 curve_tr_err = curve_data['tr_err']
 curve_tr_loss = curve_data['tr_loss']
 curve_te_err = curve_data['te_err']
 curve_te_loss = curve_data['te_loss']
+curve_l2_norm = curve_data.get('l2_norm', None)
 
-# Create figure with 4 subplots (2x2)
-fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 10))
+# Create figure with 5 subplots (3x2 layout, with last row having only 1 plot)
+fig = plt.figure(figsize=(14, 15))
+ax1 = plt.subplot(3, 2, 1)
+ax2 = plt.subplot(3, 2, 2)
+ax3 = plt.subplot(3, 2, 3)
+ax4 = plt.subplot(3, 2, 4)
+ax5 = plt.subplot(3, 2, (5, 6))  # L2 norm plot spans both columns
 
 # Plot test error
 ax1.plot(linear_ts, linear_te_err, 'o-', label='Linear Interpolation',
@@ -86,6 +93,19 @@ ax4.set_title('Train Loss along Path', fontsize=13)
 ax4.legend(fontsize=11)
 ax4.grid(True, alpha=0.3)
 ax4.set_xlim(-0.05, 1.05)
+
+# Plot L2 norm (if available)
+if linear_l2_norm is not None and curve_l2_norm is not None:
+    ax5.plot(linear_ts, linear_l2_norm, 'o-', label='Linear Interpolation',
+             color='#d62728', linewidth=2, markersize=4, alpha=0.7)
+    ax5.plot(curve_ts, curve_l2_norm, 's-', label='Bezier Curve',
+             color='#2ca02c', linewidth=2, markersize=4, alpha=0.7)
+    ax5.set_xlabel('t (interpolation parameter)', fontsize=12)
+    ax5.set_ylabel('L2 Norm of Weights', fontsize=12)
+    ax5.set_title('L2 Norm along Path', fontsize=13)
+    ax5.legend(fontsize=11)
+    ax5.grid(True, alpha=0.3)
+    ax5.set_xlim(-0.05, 1.05)
 
 plt.suptitle(args.title, fontsize=14, fontweight='bold')
 plt.tight_layout()

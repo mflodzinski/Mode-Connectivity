@@ -15,10 +15,10 @@
 source $HOME/venvs/mode-connectivity/bin/activate
 
 # Navigate to project directory
-cd $HOME/Mode-Connectivity
+cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 
 # Add project root to Python path
-export PYTHONPATH=$HOME/Mode-Connectivity:$PYTHONPATH
+export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
 echo ""
 echo "========================================"

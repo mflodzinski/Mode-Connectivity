@@ -1,0 +1,164 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{amsmath}
+\usepackage{graphicx}
+
+\setstretch{1.15}
+
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+\title{Mode Connectivity in Neural Networks: \\ Understanding Loss Landscapes \& Prediction Stability \\ \vspace{0.3cm}}
+\author{Maciek Lodzinski}
+\date{November 26, 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This project investigates mode connectivity in neural networks, specifically analyzing whether independently trained models can be connected by low-loss paths in parameter space. Using VGG16 on CIFAR-10, we trained Bezier curve paths between two endpoints (seed0 $\leftrightarrow$ seed1) and analyzed how predictions change along these paths. Our analysis reveals that 14.82\% of test samples change predictions along the curve, with certain classes (cat: 29.9\%, dog: 20.2\%) being significantly more unstable than others (automobile: 5.4\%, truck: 8.2\%). The discovered curves exhibit U-shaped accuracy profiles, with overall accuracy dropping from 93\% at endpoints to 90.3\% at $t \approx 0.5$, suggesting that mode connectivity paths traverse near decision boundaries for certain sample subsets.
+\end{abstract}
+
+\section{General idea of the project}
+
+\subsection*{Research questions}
+
+\textbf{Primary:} Can independently trained neural networks (different random seeds) be connected by low-loss continuous paths in parameter space?
+
+\textbf{Secondary questions:}
+\begin{itemize}
+    \item How do predictions change along these paths? Which samples are most unstable?
+    \item Do certain classes exhibit more prediction instability than others?
+    \item What is the relationship between feature space geometry (from endpoint representations) and prediction changes?
+    \item How does the loss landscape barrier height relate to prediction change patterns?
+\end{itemize}
+
+\section{Where are we?}
+
+\subsection*{Experimental setup}
+\textbf{Model:} VGG16 trained on CIFAR-10 (10 classes, 10,000 test samples)
+
+\textbf{Endpoints:} Two independently trained models (seed0, seed1), both achieving $\sim$93\% test accuracy, plus a mirror image model (seed0\_mirrored) with sign-flipped weights
+
+\textbf{Curves trained:}
+\begin{itemize}
+    \item seed0 $\leftrightarrow$ seed1 (3-bend Bezier, 200 epochs)
+    \item seed0 $\leftrightarrow$ seed0\_mirrored (3-bend Bezier, 150 epochs)
+\end{itemize}
+
+\textbf{Evaluation:} Predictions collected at 61 points ($t \in [0, 1]$) along curves, with penultimate layer features extracted from endpoints. Detailed analysis performed on seed0 $\leftrightarrow$ seed1 curve.
+
+\subsection*{Completed work}
+\begin{enumerate}
+    \item \textbf{Endpoint training:} Three VGG16 models trained on CIFAR-10 (seed0, seed1, seed0\_mirrored)
+    \item \textbf{Curve training:} Two successful Bezier paths connecting:
+    \begin{itemize}
+        \item seed0 $\leftrightarrow$ seed1 (200 epochs) -- primary analysis target
+        \item seed0 $\leftrightarrow$ seed0\_mirrored (150 epochs) -- confirms geometric connectivity
+    \end{itemize}
+    \item \textbf{Detailed evaluation:} Collected predictions at 61 points and features from endpoints
+    \item \textbf{Endpoint comparison:} Quantified agreement between seed0/seed1 (94.26\% overall, 87.8\% for cat class)
+    \item \textbf{Analysis pipeline:} 4-step workflow (eval $\rightarrow$ analysis $\rightarrow$ visualization $\rightarrow$ animation)
+    \item \textbf{Visualization suite:}
+    \begin{itemize}
+        \item Per-class accuracy vs $t$ curves (identifies U-shaped profiles)
+        \item 2D UMAP scatter plots of changing samples (10\% per-class subsample)
+        \item Animated GIF showing prediction evolution (14 seconds, 5 fps)
+    \end{itemize}
+\end{enumerate}
+
+\section{Recent progress}
+
+\subsection*{Key findings}
+
+\textbf{1. Mode connectivity confirmed:} Successfully connected two independently trained models (seed0 $\leftrightarrow$ seed1) via 3-bend Bezier curve. Endpoints highly similar: 93.01\% vs 93.06\% test accuracy, with 94.26\% prediction agreement (only 574/10,000 samples disagree). Split evenly across classes: 5 classes favor seed0, 5 favor seed1.
+
+\textbf{2. Mirror image connectivity:} A model trained with sign-flipped weights (mirror image) is also connected to the original via 3-bend Bezier curve, demonstrating that mode connectivity extends beyond random seed variations to geometric transformations of the loss surface.
+
+\textbf{3. Loss landscape exploration finds lower minima:} Bezier curve training discovers intermediate points with \textit{lower training loss} than either endpoint. However, these low-loss regions exhibit \textit{worse generalization} -- the curve interior shows degraded test accuracy (90.3\% minimum at $t=0.533$) despite lower training loss, indicating overfitting to the training manifold.
+
+\textbf{4. Prediction stability along curves:} 14.82\% (1,482/10,000) of test samples change predictions along the seed0 $\leftrightarrow$ seed1 curve, with most exhibiting 1-2 changes (mean: 2.38, max: 10 changes). All classes show U-shaped accuracy profiles with dips around $t \approx 0.4$-$0.6$.
+
+\textbf{5. Class-dependent stability:}
+\begin{itemize}
+    \item \textbf{Most unstable:} cat (29.9\%), dog (20.2\%), bird (19.8\%), airplane (18.9\%)
+    \item \textbf{Most stable:} automobile (5.4\%), truck (8.2\%), horse (9.4\%), frog (10.6\%)
+    \item Vehicle classes (automobiles, trucks) maintain $>$94\% accuracy throughout, while animal/aircraft classes drop 4-9\%
+\end{itemize}
+
+\textbf{Visualization design:} Implemented 5-color + 2-shape scheme (circles for classes 0-4, triangles for 5-9) to distinguish all 10 classes clearly. UMAP dimensionality reduction performed on full changing sample set (1,482 samples), then 10\% per-class subsampling for cleaner visualization while preserving global manifold structure.
+
+\subsection*{Implementation highlights}
+\begin{itemize}
+    \item \textbf{Feature extraction strategy:} Using endpoint 0 features for UMAP to avoid averaging artifacts between potentially different learned representations
+    \item \textbf{Evaluation infrastructure:} Modified eval script to load separate curve checkpoint (for predictions along path) and endpoint checkpoints (for feature extraction)
+    \item \textbf{Visualization pipeline:} Automated 3-script workflow (analysis $\rightarrow$ 2D plot $\rightarrow$ animation) with consistent color/shape scheme
+\end{itemize}
+
+\section{Open issues and next steps}
+
+\subsection*{Immediate analysis tasks}
+\begin{enumerate}
+    \item \textbf{Feature space analysis:} Investigate whether changing samples cluster near class boundaries in endpoint 0's feature space (UMAP already computed)
+    \item \textbf{Prediction trajectory patterns:} Analyze common transition patterns (e.g., cat $\leftrightarrow$ dog, airplane $\leftrightarrow$ ship)
+    \item \textbf{Loss barrier quantification:} Correlate per-sample loss increase along curve with prediction change frequency
+\end{enumerate}
+
+\subsection*{Extended experiments}
+\begin{enumerate}
+    \item \textbf{Compare curve types:} Evaluate linear interpolation vs Bezier curve to quantify benefit of curved paths
+    \item \textbf{Training time analysis:} Test curves at different training checkpoints (50, 100, 150, 200 epochs) to see how connectivity evolves
+    \item \textbf{Architecture dependence:} Repeat analysis with ResNet to test whether findings generalize beyond VGG16
+    \item \textbf{Dataset scaling:} Test on larger datasets (e.g., CIFAR-100) to see if class confusion patterns change with increased class count
+\end{enumerate}
+
+\subsection*{Theoretical questions}
+\begin{itemize}
+    \item Why are vehicle classes (automobile, truck) so stable while animal classes are unstable?
+    \item Does the U-shape reflect traversal through a ``saddle region'' in loss landscape?
+    \item Can we predict which samples will change predictions based on endpoint confidence scores?
+\end{itemize}
+
+\section{Hypotheses}
+
+\textbf{H1: Class stability correlates with visual distinctiveness.} \textit{Confirmed.} Vehicle classes (automobile, truck) have clear geometric features and backgrounds, making them easier to classify consistently (5-8\% instability). Animal classes share fur textures and poses, leading to confusion (20-30\% instability).
+
+\textbf{H2: Changing samples lie near decision boundaries in feature space.} \textit{To be tested.} UMAP visualization should show changing samples clustered at class boundaries rather than class centers. Cat class shows lowest endpoint agreement (87.8\%), matching highest instability (29.9\%).
+
+\textbf{H3: Prediction changes concentrate around $t=0.5$.} \textit{Confirmed.} The U-shaped accuracy curve shows minimum at $t=0.533$ (90.3\%), with all classes exhibiting maximum instability around $t \approx 0.4$-$0.6$, suggesting the curve middle traverses closest to decision boundaries.
+
+\textbf{H4: Curve interior overfits to training manifold.} \textit{Confirmed.} Bezier curve training finds lower training loss than endpoints but achieves worse test accuracy (90.3\% vs 93\%), demonstrating classic overfitting behavior during path optimization.
+
+\textbf{H5: Geometric transformations preserve connectivity.} \textit{Confirmed.} Mirror image model (sign-flipped weights) connects to original via 3-bend Bezier curve, suggesting mode connectivity is robust to loss surface symmetries.
+
+\section{Useful papers}
+
+\begin{itemize}
+    \item \textbf{Garipov et al. (2018):} ``Loss Surfaces, Mode Connectivity, and Fast Ensembling of DNNs'' -- Original mode connectivity work, introduced Bezier curve training
+    \item \textbf{Draxler et al. (2018):} ``Essentially No Barriers in Neural Network Energy Landscape'' -- Showed that barriers between minima are often surmountable
+    \item \textbf{Fort \& Jastrzebski (2019):} ``Large Scale Structure of Neural Network Loss Landscapes'' -- Analyzed global geometry of loss surfaces
+    \item \textbf{Frankle et al. (2020):} ``Linear Mode Connectivity and the Lottery Ticket Hypothesis'' -- Showed pruned networks can be linearly connected
+\end{itemize}
+
+% Figures would go here with actual paths:
+% \begin{figure}
+%     \centering
+%     \includegraphics[width=0.8\linewidth]{results/vgg16/cifar10/curve/figures/class_accuracy_vs_t.png}
+%     \caption{Per-class accuracy along Bezier curve from seed0 to seed1. All classes exhibit U-shaped profiles with varying degrees of accuracy drop around $t \approx 0.5$.}
+%     \label{fig:accuracy_vs_t}
+% \end{figure}
+
+% \begin{figure}
+%     \centering
+%     \includegraphics[width=0.8\linewidth]{results/vgg16/cifar10/curve/figures/prediction_changes_2d.png}
+%     \caption{UMAP visualization of 143 changing samples (10\% per-class subsample). Colors indicate true class, shapes distinguish class groups (circles: 0-4, triangles: 5-9), size indicates number of prediction changes.}
+%     \label{fig:umap}
+% \end{figure}
+
+\end{document}
