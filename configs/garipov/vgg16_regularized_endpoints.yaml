@@ -12,13 +12,13 @@ model: "VGG16"
 epochs: 200
 save_intermediate: true   # If true, save checkpoints every save_freq epochs
 save_freq: 50            # Only used if save_intermediate=true
-lr: 0.05
+lr: 0.04
 wd: 5e-4                 # Increased from 5e-4 for better regularization
 use_test: false          # Use train/val/test split from training data
 
 # Early stopping parameters
 early_stopping: true
-patience: 20             # Stop if no improvement for 20 epochs
+patience: 50             # Stop if no improvement for 20 epochs
 min_delta: 0.0           # Minimum improvement to count as better (0.0 = any improvement)
 
 seeds: [0, 1]
