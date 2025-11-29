@@ -14,7 +14,7 @@ save_intermediate: true   # If true, save checkpoints every save_freq epochs
 save_freq: 50            # Only used if save_intermediate=true
 lr: 0.05
 wd: 5e-4                 # Increased from 5e-4 for better regularization
-use_test: false          # Use train/val/test split from training data
+use_test: true          # Use train/val/test split from training data
 
 # Early stopping parameters
 early_stopping: true
