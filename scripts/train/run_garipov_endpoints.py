@@ -54,9 +54,18 @@ def main(cfg: DictConfig):
         # Add seed
         cmd += ["--seed", str(seed)]
 
+        # Add early stopping parameters if enabled
+        if cfg.get("early_stopping", False):
+            cmd.append("--early_stopping")
+            cmd += ["--patience", str(cfg.get("patience", 20))]
+            cmd += ["--min_delta", str(cfg.get("min_delta", 0.0))]
+            cmd.append("--split_test_from_train")
+
         # Add wandb flags
         if cfg.use_wandb:
             run_name = f"garipov_{cfg.model}_endpoint_seed{seed}"
+            if cfg.get("early_stopping", False):
+                run_name += "_early_stop"
             cmd.append("--wandb")
             cmd += ["--wandb_project", cfg.project_name]
             cmd += ["--wandb_name", run_name]
