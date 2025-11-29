@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=2:00:00
+#SBATCH --time=00:30:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gpus=1
-#SBATCH --mem=16GB
+#SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_eval_%j.out
 #SBATCH --error=slurm_eval_%j.err
