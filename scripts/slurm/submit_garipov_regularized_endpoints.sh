@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --partition=general          # Request GPU partition
 #SBATCH --qos=long               # Long job (up to 48 hours)
-#SBATCH --time=24:00:00          # Request 24 hours (adjust if needed)
+#SBATCH --time=1:00:00          # Request 24 hours (adjust if needed)
 #SBATCH --ntasks=1               # Single task
 #SBATCH --cpus-per-task=4        # 4 CPU cores
 #SBATCH --gpus=1                 # Request 1 GPU
-#SBATCH --mem=16GB               # 16GB RAM
+#SBATCH --mem=4GB               # 16GB RAM
 #SBATCH --mail-type=END,FAIL     # Email on completion/failure
 #SBATCH --output=slurm_regularized_endpoints_%j.out    # Output log
 #SBATCH --error=slurm_regularized_endpoints_%j.err     # Error log
