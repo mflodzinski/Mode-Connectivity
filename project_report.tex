@@ -162,3 +162,16 @@ This project investigates mode connectivity in neural networks, specifically ana
 % \end{figure}
 
 \end{document}
+
+Why Lower L2 Norm Doesn't Mean Better Generalization
+This is the key insight: The curve was optimized to minimize loss + λ||θ||², so it naturally found a path with:
+✓ Low training loss (nearly 0% train error)
+✓ Smaller L2 norm (due to regularization penalty during training)
+✗ But not low test loss (still ~10% test error)
+The Real Lesson
+Your observation actually reveals something profound:
+During training: L2 regularization helps by preventing overfitting (keep weights small while learning)
+After training: L2 norm alone tells you nothing about whether a point in weight space will generalize
+
+Why are they claining they found low loss path when its not generalizing as well on test data
+VGG16 (Bezier) 	0.14 	0.24 	6.79 	7.75
