@@ -9,12 +9,12 @@ data_path: "./data"
 transform: "VGG"
 model: "VGG16"
 
-epochs: 400
+epochs: 600
 save_intermediate: true   # If true, save checkpoints every save_freq epochs
 save_freq: 100            # Only used if save_intermediate=true
-lr: 0.05
-wd: 1e-3
-use_test: true
+lr: 0.04
+wd: 5e-3
+use_test: false
 
 # Early stopping parameters
 early_stopping: true
