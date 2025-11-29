@@ -14,7 +14,7 @@ save_intermediate: true   # If true, save checkpoints every save_freq epochs
 save_freq: 50            # Only used if save_intermediate=true
 lr: 0.05
 wd: 5e-4
-use_test: true
+use_test: false
 
 # Early stopping parameters
 early_stopping: false
