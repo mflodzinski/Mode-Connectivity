@@ -1,0 +1,24 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_curve_l2_test"
+
+output_root: "results/vgg16/cifar10/curve_l2_test/checkpoints"
+
+# Endpoints - seed0 and seed0_mirrored (testing L2 norm measurement)
+endpoint0: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt"
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+
+# Curve parameters
+curve: "Bezier"
+num_bends: 3
+
+# For evaluation only - no training needed since endpoints are identical
+epochs: 0
+use_test: true
+use_wandb: false
+project_name: "thesis-mode-connectivity"
