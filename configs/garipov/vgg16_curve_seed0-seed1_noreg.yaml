@@ -1,8 +1,8 @@
 defaults: []
 
-experiment_name: "garipov_vgg16_curve"
+experiment_name: "garipov_vgg16_curve_seed0-seed1_noreg"
 
-output_root: "results/vgg16/cifar10/curve/checkpoints"
+output_root: "results/vgg16/cifar10/curve_seed0-seed1_noreg/checkpoints"
 
 # Endpoints
 endpoint0: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
@@ -18,11 +18,11 @@ curve: "Bezier"  # or "PolyChain"
 num_bends: 3  # 3 = start, middle, end
 
 # Training
-epochs: 200  # Using checkpoint-200 (checkpoint-400 corrupted, training crashed at epoch 476 due to disk quota)
+epochs: 200
 save_intermediate: true  # If true, save checkpoints every save_freq epochs
 save_freq: 200           # Only used if save_intermediate=true
 lr: 0.015  # Recommended LR for VGG16 curve training
-wd: 5e-4
+wd: 0.0    # NO REGULARIZATION - set to 0
 
 use_test: true
 use_wandb: true

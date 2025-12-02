@@ -1,0 +1,29 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_curve_seed0-mirror_noreg"
+
+output_root: "results/vgg16/cifar10/curve_seed0-mirror_noreg/checkpoints"
+
+# Endpoints: seed0 original and its mirrored version
+endpoint0: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt"
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+
+# Curve parameters
+curve: "Bezier"  # Bezier curve for mode connectivity
+num_bends: 3  # 3 = start, middle, end
+
+# Training
+epochs: 200
+save_intermediate: true
+save_freq: 200
+lr: 0.015  # Recommended LR for VGG16 curve training
+wd: 0.0    # NO REGULARIZATION - set to 0
+
+use_test: true
+use_wandb: true
+project_name: "thesis-mode-connectivity"
