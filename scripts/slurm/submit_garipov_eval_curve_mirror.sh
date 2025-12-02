@@ -1,15 +1,15 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=02:00:00
+#SBATCH --time=01:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --gpus=1
-#SBATCH --mem=16GB
+#SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_eval_curve_mirror_%j.out
 #SBATCH --error=slurm_eval_curve_mirror_%j.err
 #SBATCH --job-name=eval_curve_mirror
+#SBATCH --gres=gpu:a40:1
 
 # Activate virtual environment
 source $HOME/venvs/mode-connectivity/bin/activate

@@ -1,15 +1,15 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=02:00:00
+#SBATCH --time=01:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --gpus=1
-#SBATCH --mem=16GB
+#SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_pred_changes_eval_%j.out
 #SBATCH --error=slurm_pred_changes_eval_%j.err
 #SBATCH --job-name=pred_changes_eval
+#SBATCH --gres=gpu:a40:1
 
 # Activate virtual environment
 source $HOME/venvs/mode-connectivity/bin/activate

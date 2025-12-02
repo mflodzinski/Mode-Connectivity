@@ -4,12 +4,12 @@
 #SBATCH --time=00:30:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --gpus=1
-#SBATCH --mem=4GB
+#SBATCH --mem=2GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_eval_l2_test_%j.out
 #SBATCH --error=slurm_eval_l2_test_%j.err
 #SBATCH --job-name=garipov_eval_l2_test
+#SBATCH --gres=gpu:a40:1
 
 # Activate virtual environment
 source $HOME/venvs/mode-connectivity/bin/activate
@@ -58,4 +58,4 @@ echo "  scp mlodzinski@login.daic.tudelft.nl:~/Mode-Connectivity/results/vgg16/c
 echo ""
 echo "To plot comparison (creates figure with L2 norm):"
 echo "  cd results/vgg16/cifar10/curve_l2_test"
-echo "  python scripts/plot/plot_connectivity.py --linear evaluations/linear.npz --curve evaluations/curve.npz"
+echo "  python scripts/plot/plot_connectivity.py --linear evaluations/linear.npz --curve evaluations/curve.npz --l2_evolution evaluations/middle_point_l2_norms.npz"

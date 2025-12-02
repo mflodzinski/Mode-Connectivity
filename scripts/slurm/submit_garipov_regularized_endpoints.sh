@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH --partition=general          # Request GPU partition
-#SBATCH --qos=long               # Long job (up to 48 hours)
-#SBATCH --time=1:00:00          # Request 24 hours (adjust if needed)
-#SBATCH --ntasks=1               # Single task
-#SBATCH --cpus-per-task=4        # 4 CPU cores
-#SBATCH --mem=4GB               # 16GB RAM
-#SBATCH --mail-type=END,FAIL     # Email on completion/failure
-#SBATCH --output=slurm_regularized_endpoints_%j.out    # Output log
-#SBATCH --error=slurm_regularized_endpoints_%j.err     # Error log
-#SBATCH --job-name=garipov_regularized_endpoints # Job name
+#SBATCH --partition=general
+#SBATCH --qos=short
+#SBATCH --time=01:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=4GB
+#SBATCH --mail-type=END,FAIL
+#SBATCH --output=slurm_regularized_endpoints_%j.out
+#SBATCH --error=slurm_regularized_endpoints_%j.err
+#SBATCH --job-name=garipov_regularized_endpoints
 #SBATCH --gres=gpu:a40:1
 
 # Activate virtual environment

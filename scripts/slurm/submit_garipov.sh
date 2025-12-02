@@ -1,15 +1,15 @@
 #!/bin/bash
-#SBATCH --partition=general          # Request GPU partition
-#SBATCH --qos=long               # Long job (up to 48 hours)
-#SBATCH --time=24:00:00          # Request 24 hours (adjust if needed)
-#SBATCH --ntasks=1               # Single task
-#SBATCH --cpus-per-task=4        # 4 CPU cores
-#SBATCH --gpus=1                 # Request 1 GPU
-#SBATCH --mem=16GB               # 16GB RAM
-#SBATCH --mail-type=END,FAIL     # Email on completion/failure
-#SBATCH --output=slurm_%j.out    # Output log
-#SBATCH --error=slurm_%j.err     # Error log
-#SBATCH --job-name=garipov_vgg16 # Job name
+#SBATCH --partition=general
+#SBATCH --qos=short
+#SBATCH --time=02:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=4GB
+#SBATCH --mail-type=END,FAIL
+#SBATCH --output=slurm_%j.out
+#SBATCH --error=slurm_%j.err
+#SBATCH --job-name=garipov_vgg16
+#SBATCH --gres=gpu:a40:1
 
 # Activate virtual environment
 source $HOME/venvs/mode-connectivity/bin/activate
