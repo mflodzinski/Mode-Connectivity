@@ -12,7 +12,7 @@
 #SBATCH --gres=gpu:a40:1
 
 # Activate virtual environment
-source $HOME/venvs/mode-connectivity/bin/activate
+source $HOME/venvs/mode-connectivity/bin/activate || . $HOME/venvs/mode-connectivity/bin/activate
 
 # Navigate to project directory
 cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
