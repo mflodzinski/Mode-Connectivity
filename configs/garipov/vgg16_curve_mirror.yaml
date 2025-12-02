@@ -18,9 +18,9 @@ curve: "Bezier"  # Bezier curve for mode connectivity
 num_bends: 3  # 3 = start, middle, end
 
 # Training
-epochs: 150  # Using 150 (checkpoint-200 corrupted)
+epochs: 200  # Using 150 (checkpoint-200 corrupted)
 save_intermediate: true
-save_freq: 50
+save_freq: 200
 lr: 0.015  # Recommended LR for VGG16 curve training
 wd: 5e-4
 
