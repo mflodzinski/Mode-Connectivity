@@ -20,6 +20,10 @@ cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 # Add project root to Python path
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
+# Create output directories if they don't exist
+mkdir -p results/vgg16/cifar10/curve_seed0-mirror_noreg/evaluations
+mkdir -p results/vgg16/cifar10/curve_seed0-mirror_noreg/figures
+
 echo ""
 echo "========================================"
 echo "STEP 1: Evaluating Linear Interpolation"

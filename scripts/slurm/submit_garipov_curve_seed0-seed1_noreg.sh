@@ -20,5 +20,10 @@ cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 # Add project root to Python path so scripts can import from src/
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
+# Create output directories if they don't exist
+mkdir -p results/vgg16/cifar10/curve_seed0-seed1_noreg/checkpoints
+mkdir -p results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations
+mkdir -p results/vgg16/cifar10/curve_seed0-seed1_noreg/figures
+
 # Run the curve training script (NO REGULARIZATION)
 srun python scripts/train/run_garipov_curve.py --config-name vgg16_curve_seed0-seed1_noreg
