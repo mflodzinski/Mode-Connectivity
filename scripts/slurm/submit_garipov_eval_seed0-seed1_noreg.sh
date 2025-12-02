@@ -6,9 +6,9 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=2GB
 #SBATCH --mail-type=END,FAIL
-#SBATCH --output=slurm_eval_%j.out
-#SBATCH --error=slurm_eval_%j.err
-#SBATCH --job-name=garipov_eval
+#SBATCH --output=slurm_eval_seed0-seed1_noreg_%j.out
+#SBATCH --error=slurm_eval_seed0-seed1_noreg_%j.err
+#SBATCH --job-name=eval_seed0-seed1_noreg
 #SBATCH --gres=gpu:a40:1
 
 # Activate virtual environment
@@ -23,7 +23,7 @@ export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mod
 echo "========================================"
 echo "STEP 1: Evaluating Bezier Curve"
 echo "========================================"
-srun python scripts/eval/eval_garipov_curve.py
+srun python scripts/eval/eval_garipov_curve.py --config-name vgg16_curve_seed0-seed1_noreg
 
 # Check if curve evaluation succeeded
 if [ $? -ne 0 ]; then
@@ -36,7 +36,7 @@ echo "========================================"
 echo "STEP 2: Evaluating Linear Interpolation"
 echo "========================================"
 srun python scripts/eval/eval_linear.py \
-    --dir results/vgg16/cifar10/curve/evaluations \
+    --dir results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations \
     --init_start results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt \
     --init_end results/vgg16/cifar10/endpoints/checkpoints/seed1/checkpoint-200.pt \
     --num_points 61 \
@@ -59,11 +59,11 @@ echo "EVALUATION COMPLETE!"
 echo "========================================"
 echo ""
 echo "Results saved to:"
-echo "  - Bezier curve: results/vgg16/cifar10/curve/evaluations/curve.npz"
-echo "  - Linear path: results/vgg16/cifar10/curve/evaluations/linear.npz"
+echo "  - Bezier curve: results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/curve.npz"
+echo "  - Linear path: results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/linear.npz"
 echo ""
 echo "To download results:"
-echo "  scp mlodzinski@login.daic.tudelft.nl:~/Mode-Connectivity/results/vgg16/cifar10/curve/evaluations/*.npz ."
+echo "  scp mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/*.npz ."
 echo ""
-echo "To plot comparison (creates figure in results/vgg16/cifar10/curve/figures/):"
-echo "  python scripts/plot/plot_connectivity.py --linear evaluations/linear.npz --curve evaluations/curve.npz --l2_evolution evaluations/middle_point_l2_norms.npz"
+echo "To plot comparison (creates figure in results/vgg16/cifar10/curve_seed0-seed1_noreg/figures/):"
+echo "  python scripts/plot/plot_connectivity.py --linear results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/linear.npz --curve results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/curve.npz --l2_evolution results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/middle_point_l2_norms.npz --output results/vgg16/cifar10/curve_seed0-seed1_noreg/figures/connectivity_comparison.png"

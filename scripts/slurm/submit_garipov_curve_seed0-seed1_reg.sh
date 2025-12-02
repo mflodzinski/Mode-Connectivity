@@ -6,9 +6,9 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
-#SBATCH --output=slurm_curve_%j.out
-#SBATCH --error=slurm_curve_%j.err
-#SBATCH --job-name=garipov_curve
+#SBATCH --output=slurm_curve_seed0-seed1_reg_%j.out
+#SBATCH --error=slurm_curve_seed0-seed1_reg_%j.err
+#SBATCH --job-name=curve_seed0-seed1_reg
 #SBATCH --gres=gpu:a40:1
 
 # Activate virtual environment
@@ -21,4 +21,4 @@ cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
 # Run the curve training script
-srun python scripts/train/run_garipov_curve.py
+srun python scripts/train/run_garipov_curve.py --config-name vgg16_curve_seed0-seed1_reg

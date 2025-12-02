@@ -46,7 +46,7 @@ if args.l2_evolution is not None:
     l2_evolution_data = np.load(args.l2_evolution)
 
 # Create figure with 6 subplots (3x2 layout)
-fig = plt.figure(figsize=(14, 18))
+fig = plt.figure(figsize=(18, 18))
 ax1 = plt.subplot(3, 2, 1)
 ax2 = plt.subplot(3, 2, 2)
 ax3 = plt.subplot(3, 2, 3)
@@ -148,10 +148,10 @@ if l2_evolution_data is not None:
             curve_mid_idx = len(curve_ts) // 2
 
             # Add horizontal lines showing where training started/ended
-            ax6.axhline(interpolated_l2_norms[0], color='#d62728', linestyle='--',
+            ax6.axhline(linear_l2_norm[linear_mid_idx], color='#d62728', linestyle='--',
                        alpha=0.5, linewidth=1.5,
                        label=f'Linear t=0.5: {linear_l2_norm[linear_mid_idx]:.2f}')
-            ax6.axhline(interpolated_l2_norms[-1], color='#2ca02c', linestyle='--',
+            ax6.axhline(curve_l2_norm[curve_mid_idx], color='#2ca02c', linestyle='--',
                        alpha=0.5, linewidth=1.5,
                        label=f'Bezier t=0.5: {curve_l2_norm[curve_mid_idx]:.2f}')
 

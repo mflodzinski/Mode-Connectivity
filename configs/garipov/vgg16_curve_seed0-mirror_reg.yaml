@@ -1,8 +1,8 @@
 defaults: []
 
-experiment_name: "garipov_vgg16_curve_mirror"
+experiment_name: "garipov_vgg16_curve_seed0-mirror_reg"
 
-output_root: "results/vgg16/cifar10/curve_mirror/checkpoints"
+output_root: "results/vgg16/cifar10/curve_seed0-mirror_reg/checkpoints"
 
 # Endpoints: seed0 original and its mirrored version
 endpoint0: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"

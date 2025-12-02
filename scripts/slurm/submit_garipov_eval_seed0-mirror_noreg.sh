@@ -6,9 +6,9 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
-#SBATCH --output=slurm_eval_curve_mirror_%j.out
-#SBATCH --error=slurm_eval_curve_mirror_%j.err
-#SBATCH --job-name=eval_curve_mirror
+#SBATCH --output=slurm_eval_seed0-mirror_noreg_%j.out
+#SBATCH --error=slurm_eval_seed0-mirror_noreg_%j.err
+#SBATCH --job-name=eval_seed0-mirror_noreg
 #SBATCH --gres=gpu:a40:1
 
 # Activate virtual environment
@@ -25,7 +25,7 @@ echo "========================================"
 echo "STEP 1: Evaluating Linear Interpolation"
 echo "========================================"
 srun python scripts/eval/eval_linear.py \
-    --dir results/vgg16/cifar10/curve_mirror/evaluations \
+    --dir results/vgg16/cifar10/curve_seed0-mirror_noreg/evaluations \
     --init_start results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt \
     --init_end results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt \
     --num_points 61 \
@@ -46,7 +46,7 @@ echo ""
 echo "========================================"
 echo "STEP 2: Evaluating Bezier Curve"
 echo "========================================"
-srun python scripts/eval/eval_garipov_curve.py --config-name vgg16_curve_mirror
+srun python scripts/eval/eval_garipov_curve.py --config-name vgg16_curve_seed0-mirror_noreg
 
 if [ $? -ne 0 ]; then
     echo "Bezier curve evaluation failed!"
@@ -59,10 +59,9 @@ echo "EVALUATION COMPLETED SUCCESSFULLY"
 echo "========================================"
 echo ""
 echo "Results saved to:"
-echo "  - Linear path: results/vgg16/cifar10/curve_mirror/evaluations/linear.npz"
-echo "  - Bezier curve: results/vgg16/cifar10/curve_mirror/checkpoints/curve.npz"
+echo "  - Linear path: results/vgg16/cifar10/curve_seed0-mirror_noreg/evaluations/linear.npz"
+echo "  - Bezier curve: results/vgg16/cifar10/curve_seed0-mirror_noreg/evaluations/curve.npz"
 echo ""
 echo "To download results:"
-echo "  scp mlodzinski@login.daic.tudelft.nl:~/Mode-Connectivity/results/vgg16/cifar10/curve_mirror/evaluations/*.npz ."
-echo "  scp mlodzinski@login.daic.tudelft.nl:~/Mode-Connectivity/results/vgg16/cifar10/curve_mirror/checkpoints/curve.npz ."
+echo "  scp mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/results/vgg16/cifar10/curve_seed0-mirror_noreg/evaluations/*.npz ."
 echo ""
