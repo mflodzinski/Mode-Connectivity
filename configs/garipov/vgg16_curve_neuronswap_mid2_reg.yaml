@@ -1,0 +1,29 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_curve_neuronswap_mid2_reg"
+
+output_root: "results/vgg16/cifar10/curve_neuronswap_mid2_reg/checkpoints"
+
+# Endpoints
+endpoint0: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints_neuronswap/mid2/checkpoint-200.pt"
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+
+# Curve parameters
+curve: "Bezier"
+num_bends: 3
+
+# Training
+epochs: 200
+save_intermediate: true
+save_freq: 50
+lr: 0.015
+wd: 5e-4
+
+use_test: true
+use_wandb: true
+project_name: "thesis-mode-connectivity"
