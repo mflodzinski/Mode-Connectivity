@@ -42,7 +42,7 @@ def calculate_endpoint_l2(checkpoint1_path, checkpoint2_path):
 @hydra.main(
     version_base=None,
     config_path="../../configs/garipov",
-    config_name="vgg16_curve",
+    config_name="curves/vgg16_curve_seed0-seed1_reg",
 )
 def main(cfg: DictConfig):
     set_global_seed(0)

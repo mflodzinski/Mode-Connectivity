@@ -25,7 +25,7 @@ echo "L2 Norm Test: Evaluating Bezier Curve"
 echo "Endpoints: seed0 and seed0_mirrored"
 echo "Config: vgg16_curve_l2_test"
 echo "========================================"
-srun python scripts/eval/eval_garipov_curve.py --config-name=vgg16_curve_l2_test
+srun python scripts/eval/eval_garipov_curve.py --config-name=curves/vgg16_curve_l2_test
 
 # Check if curve evaluation succeeded
 if [ $? -ne 0 ]; then
@@ -37,7 +37,17 @@ echo ""
 echo "========================================"
 echo "L2 Norm Test: Evaluating Linear Path"
 echo "========================================"
-srun python scripts/eval/eval_garipov_linear.py --config-name=vgg16_curve_l2_test
+srun python scripts/eval/eval_linear.py \
+    --dir results/vgg16/cifar10/curve_l2_test/evaluations \
+    --init_start results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt \
+    --init_end results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt \
+    --num_points 61 \
+    --dataset CIFAR10 \
+    --data_path ./data \
+    --model VGG16 \
+    --transform VGG \
+    --batch_size 128 \
+    --use_test
 
 # Check if linear evaluation succeeded
 if [ $? -ne 0 ]; then

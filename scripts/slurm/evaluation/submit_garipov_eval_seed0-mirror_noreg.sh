@@ -50,7 +50,7 @@ echo ""
 echo "========================================"
 echo "STEP 2: Evaluating Bezier Curve"
 echo "========================================"
-srun python scripts/eval/eval_garipov_curve.py --config-name vgg16_curve_seed0-mirror_noreg
+srun python scripts/eval/eval_garipov_curve.py --config-name curves/vgg16_curve_seed0-mirror_noreg
 
 if [ $? -ne 0 ]; then
     echo "Bezier curve evaluation failed!"

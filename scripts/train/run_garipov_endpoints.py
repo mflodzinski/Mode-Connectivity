@@ -9,7 +9,7 @@ from src.utils import set_global_seed
 @hydra.main(
     version_base=None,
     config_path="../../configs/garipov",
-    config_name="vgg16_endpoints",
+    config_name="endpoints/vgg16_endpoints",
 )
 def main(cfg: DictConfig):
     set_global_seed(0)  # just for wrapper

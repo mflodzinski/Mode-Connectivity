@@ -22,4 +22,4 @@ export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mod
 
 # Run the training script with regularized endpoints config
 srun python scripts/train/run_garipov_endpoints.py \
-    --config-name=vgg16_regularized_endpoints
+    --config-name=endpoints/vgg16_regularized_endpoints

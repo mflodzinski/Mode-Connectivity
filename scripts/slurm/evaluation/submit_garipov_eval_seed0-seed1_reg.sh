@@ -23,7 +23,7 @@ export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mod
 echo "========================================"
 echo "STEP 1: Evaluating Bezier Curve"
 echo "========================================"
-srun python scripts/eval/eval_garipov_curve.py --config-name vgg16_curve_seed0-seed1_reg
+srun python scripts/eval/eval_garipov_curve.py --config-name curves/vgg16_curve_seed0-seed1_reg
 
 # Check if curve evaluation succeeded
 if [ $? -ne 0 ]; then
