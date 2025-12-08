@@ -12,9 +12,9 @@ model: "VGG16"
 epochs: 600
 save_intermediate: true   # If true, save checkpoints every save_freq epochs
 save_freq: 100            # Only used if save_intermediate=true
-lr: 0.03
-wd: 2e-3
-use_test: false
+lr: 0.02
+wd: 1e-3
+use_test: true
 
 # Early stopping parameters
 early_stopping: false
