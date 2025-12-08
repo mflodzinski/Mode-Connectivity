@@ -287,4 +287,4 @@ ls scripts/slurm/evaluation/*seed0-mirror*.sh
 - **[NEURON_SWAP_QUICKSTART.md](NEURON_SWAP_QUICKSTART.md)** - Quick start guide
 - **[NEURON_SWAP_RESULTS.md](NEURON_SWAP_RESULTS.md)** - Results viewing guide
 - **[L2_DISTANCE_TRACKING.md](L2_DISTANCE_TRACKING.md)** - L2 distance documentation
-- **[README.md](README.md)** - Main project documentation
+- **[README.md](../README.md)** - Main project documentation

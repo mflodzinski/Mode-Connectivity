@@ -2,34 +2,34 @@
 
 Implementation of mode connectivity experiments for neural networks, based on [DNN Mode Connectivity](https://github.com/timgaripov/dnn-mode-connectivity) (Garipov et al., 2018).
 
-## Project Structure
+## Documentation
 
+Complete documentation is available in the [`docs/`](docs/) folder:
+
+- **[ORGANIZATION.md](docs/ORGANIZATION.md)** - Complete project structure and file organization
+- **[NEURON_SWAP_QUICKSTART.md](docs/NEURON_SWAP_QUICKSTART.md)** - Quick start guide for neuron swap experiments
+- **[NEURON_SWAP_EXPERIMENTS.md](docs/NEURON_SWAP_EXPERIMENTS.md)** - Detailed neuron swap documentation
+- **[NEURON_SWAP_RESULTS.md](docs/NEURON_SWAP_RESULTS.md)** - How to view and interpret results
+- **[L2_DISTANCE_TRACKING.md](docs/L2_DISTANCE_TRACKING.md)** - L2 distance calculation and interpretation
+- **[PREDICTION_CHANGES_WORKFLOW.md](docs/PREDICTION_CHANGES_WORKFLOW.md)** - Prediction change analysis
+- **[EXPERIMENTS.md](docs/EXPERIMENTS.md)** - Experiment tracking and results
+- **[MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md)** - Guide for updated file paths
+- **[IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md)** - Implementation overview
+
+## Quick Start
+
+```bash
+# Train endpoint models
+sbatch scripts/slurm/endpoints/submit_garipov.sh
+
+# Train curve between endpoints
+sbatch scripts/slurm/curves/submit_garipov_curve_seed0-seed1_noreg.sh
+
+# Evaluate curve
+sbatch scripts/slurm/evaluation/submit_garipov_eval_seed0-seed1_noreg.sh
 ```
-Mode-Connectivity/
-├── configs/                    # Hydra configuration files
-│   └── garipov/
-│       ├── vgg16_endpoints.yaml    # Endpoint training config
-│       └── vgg16_curve.yaml        # Curve training config
-├── src/                        # Source code
-│   └── utils.py               # Utility functions
-├── external/                   # External repositories
-│   └── dnn-mode-connectivity/ # Forked mode connectivity implementation
-└── scripts/
-    ├── slurm/                 # SLURM job submission scripts
-    │   ├── submit_garipov.sh              # Submit endpoint training
-    │   ├── submit_garipov_curve.sh        # Submit curve training
-    │   └── submit_garipov_full_pipeline.sh # Submit full pipeline
-    ├── train/                 # Training scripts
-    │   ├── run_garipov_endpoints.py       # Train two endpoint models
-    │   └── run_garipov_curve.py           # Train Bezier curve
-    ├── eval/                  # Evaluation scripts
-    │   ├── eval_garipov_curve.py          # Evaluate trained curve
-    │   └── eval_linear.py                 # Evaluate linear interpolation
-    ├── plot/                  # Plotting scripts
-    │   └── plot_connectivity.py           # Plot connectivity comparison
-    └── utils/                 # Utility scripts
-        └── download_cifar10.py            # Download CIFAR-10 dataset
-```
+
+See [ORGANIZATION.md](docs/ORGANIZATION.md) for complete workflow and file structure.
 
 ## Setup
 
