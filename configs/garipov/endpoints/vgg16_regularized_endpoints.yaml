@@ -12,16 +12,16 @@ model: "VGG16"
 epochs: 600
 save_intermediate: true   # If true, save checkpoints every save_freq epochs
 save_freq: 100            # Only used if save_intermediate=true
-lr: 0.04
-wd: 1e-3
+lr: 0.03
+wd: 2e-3
 use_test: false
 
 # Early stopping parameters
-early_stopping: true
+early_stopping: false
 patience: 100             # Stop if no improvement for 50 epochs
 min_delta: 0.0           # Minimum improvement to count as better (0.0 = any improvement)
 
-seeds: [0, 1]
+seeds: [2]
 
 use_wandb: true
 project_name: "thesis-mode-connectivity"
