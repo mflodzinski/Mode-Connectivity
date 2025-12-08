@@ -27,7 +27,7 @@ mkdir -p results/vgg16/cifar10/curve_seed0-seed1_noreg/figures
 echo "========================================"
 echo "STEP 1: Evaluating Bezier Curve"
 echo "========================================"
-srun python scripts/eval/eval_garipov_curve.py --config-name curves/vgg16_curve_seed0-seed1_noreg
+srun python scripts/eval/eval_garipov_curve.py --config-name vgg16_curve_seed0-seed1_noreg
 
 # Check if curve evaluation succeeded
 if [ $? -ne 0 ]; then

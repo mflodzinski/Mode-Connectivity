@@ -21,4 +21,4 @@ cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
 # Run the curve training script
-srun python scripts/train/run_garipov_curve.py --config-name curves/vgg16_curve_seed0-seed1_reg
+srun python scripts/train/run_garipov_curve.py --config-name vgg16_curve_seed0-seed1_reg

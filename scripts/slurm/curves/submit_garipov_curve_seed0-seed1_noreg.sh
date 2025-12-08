@@ -26,4 +26,4 @@ mkdir -p results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations
 mkdir -p results/vgg16/cifar10/curve_seed0-seed1_noreg/figures
 
 # Run the curve training script (NO REGULARIZATION)
-srun python scripts/train/run_garipov_curve.py --config-name curves/vgg16_curve_seed0-seed1_noreg
+srun python scripts/train/run_garipov_curve.py --config-name vgg16_curve_seed0-seed1_noreg

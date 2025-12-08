@@ -6,8 +6,8 @@ from omegaconf import DictConfig
 
 @hydra.main(
     version_base=None,
-    config_path="../../configs/garipov",
-    config_name="curves/vgg16_curve_seed0-seed1_reg",
+    config_path="../../configs/garipov/curves",
+    config_name="vgg16_curve_seed0-seed1_reg",
 )
 def main(cfg: DictConfig):
     repo_root = to_absolute_path("external/dnn-mode-connectivity")

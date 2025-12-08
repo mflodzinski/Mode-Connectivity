@@ -25,7 +25,7 @@ echo "L2 Norm Test: Evaluating Bezier Curve"
 echo "Endpoints: seed0 and seed0_mirrored"
 echo "Config: vgg16_curve_l2_test"
 echo "========================================"
-srun python scripts/eval/eval_garipov_curve.py --config-name=curves/vgg16_curve_l2_test
+srun python scripts/eval/eval_garipov_curve.py --config-name vgg16_curve_l2_test
 
 # Check if curve evaluation succeeded
 if [ $? -ne 0 ]; then
