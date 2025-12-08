@@ -113,8 +113,9 @@ def load_curve_model_at_t(curve_model, curve_checkpoint, t_value):
     curve_model.load_state_dict(checkpoint['model_state'])
     curve_model.eval()
 
-    # Get coefficients for this t value
-    coeffs_t = curve_model.curve.coeffs_t(torch.tensor([t_value]))
+    # Get coefficients for this t value (use coeff_layer)
+    t_tensor = torch.tensor([t_value], dtype=torch.float32)
+    coeffs_t = curve_model.coeff_layer(t_tensor).unsqueeze(0)
 
     # Extract weights at this t
     state_dict_t = {}
