@@ -24,8 +24,8 @@ import torch
 import torch.nn.functional as F
 import tabulate
 
-# Add project root to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+# Add external repo to path
+sys.path.insert(0, 'external/dnn-mode-connectivity')
 
 import data
 import models
