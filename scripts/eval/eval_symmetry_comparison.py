@@ -112,8 +112,7 @@ def main(args):
         args.batch_size,
         args.num_workers,
         args.transform,
-        args.use_test,
-        split_classes=None
+        args.use_test
     )
 
     # Load model architecture
