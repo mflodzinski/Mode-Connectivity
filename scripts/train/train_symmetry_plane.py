@@ -293,15 +293,19 @@ def train_symmetry_plane(args):
                 w_t[key] = (1 - worst_t) * w1[key] + worst_t * theta_params[key]
             model.load_state_dict(w_t)
 
-            # Forward pass to compute loss
-            loss_sum = 0.0
+            # Forward pass to compute loss (accumulate gradients across batches)
+            num_batches = 0
             for input, target in loaders['train']:
                 input, target = input.to(device), target.to(device)
                 output = model(input)
-                loss_sum += criterion(output, target)
+                loss = criterion(output, target)
+                loss.backward()
+                num_batches += 1
 
-            loss = loss_sum / len(loaders['train'])
-            loss.backward()
+                # Free memory
+                del output, loss
+                if num_batches % 10 == 0 and torch.cuda.is_available():
+                    torch.cuda.empty_cache()
         else:
             # Worst point is on segment 2
             worst_t_idx = np.argmax(losses2)
@@ -313,18 +317,26 @@ def train_symmetry_plane(args):
                 w_t[key] = (1 - worst_t) * theta_params[key] + worst_t * w2[key]
             model.load_state_dict(w_t)
 
-            # Forward pass to compute loss
-            loss_sum = 0.0
+            # Forward pass to compute loss (accumulate gradients across batches)
+            num_batches = 0
             for input, target in loaders['train']:
                 input, target = input.to(device), target.to(device)
                 output = model(input)
-                loss_sum += criterion(output, target)
+                loss = criterion(output, target)
+                loss.backward()
+                num_batches += 1
 
-            loss = loss_sum / len(loaders['train'])
-            loss.backward()
+                # Free memory
+                del output, loss
+                if num_batches % 10 == 0 and torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
         # Gradient step (unconstrained)
         optimizer.step()
+
+        # Clear GPU memory after optimization step
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # Project back to symmetry plane
         with torch.no_grad():
