@@ -1,0 +1,32 @@
+defaults: []
+
+experiment_name: "seed0-mirror"
+
+# Endpoints
+init_start: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
+init_end: "results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt"
+
+# Output
+output_dir: "results/vgg16/cifar10/polygon_seed0-mirror"
+
+# Model and dataset
+model: "VGG16"
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+use_test: true
+
+# Training hyperparameters
+epochs: 150
+lr: 0.015
+momentum: 0.9
+wd: 5e-4
+batch_size: 128
+num_workers: 4
+
+# Checkpointing
+save_freq: 50
+
+# WandB
+use_wandb: true
+project_name: "thesis-mode-connectivity"
