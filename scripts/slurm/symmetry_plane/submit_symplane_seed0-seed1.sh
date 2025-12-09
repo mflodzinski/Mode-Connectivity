@@ -4,7 +4,7 @@
 #SBATCH --time=02:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=8GB
+#SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_symplane_seed0-seed1_%j.out
 #SBATCH --error=slurm_symplane_seed0-seed1_%j.err
@@ -17,36 +17,8 @@ source $HOME/venvs/mode-connectivity/bin/activate || . $HOME/venvs/mode-connecti
 # Navigate to project directory
 cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 
-# Add project root to Python path
+# Add project root to Python path so scripts can import from src/
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
-echo "========================================"
-echo "SYMMETRY PLANE OPTIMIZATION"
-echo "Endpoints: seed0 - seed1"
-echo "========================================"
-
-# Create output directory
-mkdir -p results/vgg16/cifar10/symmetry_plane_seed0-seed1
-
-# Run optimization
-srun python scripts/train/run_symmetry_plane.py \
-    --config-name vgg16_symplane_seed0-seed1
-
-# Check if optimization succeeded
-if [ $? -ne 0 ]; then
-    echo "ERROR: Optimization failed!"
-    exit 1
-fi
-
-echo ""
-echo "========================================"
-echo "OPTIMIZATION COMPLETE!"
-echo "========================================"
-echo ""
-echo "Results saved to: results/vgg16/cifar10/symmetry_plane_seed0-seed1/"
-echo "  - checkpoint_optimal.pt"
-echo "  - optimization_log.json"
-echo ""
-echo "Next step: Run evaluation script"
-echo "  sbatch scripts/slurm/symmetry_plane/submit_symplane_eval_seed0-seed1.sh"
-echo "========================================"
+# Run the symmetry plane optimization script
+srun python scripts/train/run_symmetry_plane.py --config-name vgg16_symplane_seed0-seed1
