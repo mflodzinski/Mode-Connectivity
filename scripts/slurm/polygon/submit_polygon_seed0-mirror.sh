@@ -6,9 +6,9 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
-#SBATCH --output=slurm_symplane_seed0-mirror_%j.out
-#SBATCH --error=slurm_symplane_seed0-mirror_%j.err
-#SBATCH --job-name=symplane_seed0-mirror
+#SBATCH --output=slurm_polygon_seed0-mirror_%j.out
+#SBATCH --error=slurm_polygon_seed0-mirror_%j.err
+#SBATCH --job-name=polygon_seed0-mirror
 #SBATCH --gres=gpu:a40:1
 
 # Activate virtual environment
@@ -20,6 +20,6 @@ cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 # Add project root to Python path so scripts can import from src/
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
-# Run the symmetry plane optimization script
+# Run the polygon chain optimization script
 srun python scripts/train/run_garipov_polygon.py --config-name vgg16_polygon_seed0-mirror
 

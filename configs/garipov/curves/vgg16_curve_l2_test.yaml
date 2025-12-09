@@ -19,6 +19,7 @@ num_bends: 3
 
 # For evaluation - use existing trained curve
 epochs: 150
+seed: 1    # Random seed (default from dnn-mode-connectivity)
 use_test: true
 use_wandb: false
 project_name: "thesis-mode-connectivity"

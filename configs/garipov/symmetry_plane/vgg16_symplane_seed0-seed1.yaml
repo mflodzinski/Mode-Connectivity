@@ -23,6 +23,7 @@ momentum: 0.9
 wd: 5e-4
 batch_size: 128
 num_workers: 4
+seed: 1  # Random seed (default from dnn-mode-connectivity)
 
 # Checkpointing
 save_freq: 50

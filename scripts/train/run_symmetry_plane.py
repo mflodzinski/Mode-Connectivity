@@ -45,7 +45,9 @@ def calculate_endpoint_l2(checkpoint1_path, checkpoint2_path):
     config_name="vgg16_symplane_seed0-seed1",
 )
 def main(cfg: DictConfig):
-    set_global_seed(0)
+    # Set seed from config (for Python/NumPy)
+    seed = cfg.get('seed', 1)
+    set_global_seed(seed)
 
     repo_root = to_absolute_path("external/dnn-mode-connectivity")
     train_script = os.path.join(repo_root, "train.py")
@@ -121,6 +123,8 @@ def main(cfg: DictConfig):
         str(cfg.num_workers),
         "--save_freq",
         str(cfg.get('save_freq', 50)),
+        "--seed",
+        str(seed),
         "--project_symmetry_plane",  # Enable projection
     ]
 

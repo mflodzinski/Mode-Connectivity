@@ -45,7 +45,9 @@ def calculate_endpoint_l2(checkpoint1_path, checkpoint2_path):
     config_name="vgg16_polygon_seed0-mirror",
 )
 def main(cfg: DictConfig):
-    set_global_seed(0)
+    # Set seed from config (for Python/NumPy)
+    seed = cfg.get('seed', 1)
+    set_global_seed(seed)
 
     repo_root = to_absolute_path("external/dnn-mode-connectivity")
     train_script = os.path.join(repo_root, "train.py")
@@ -59,7 +61,7 @@ def main(cfg: DictConfig):
 
     # Calculate and log L2 distance between endpoints
     print("\n" + "="*80)
-    print("SYMMETRY PLANE OPTIMIZATION")
+    print("POLYGON CHAIN OPTIMIZATION")
     print("="*80)
     print("Calculating L2 distance between endpoints...")
     l2_stats = calculate_endpoint_l2(init_start, init_end)
@@ -73,7 +75,7 @@ def main(cfg: DictConfig):
     # Save L2 distance to file
     l2_file = os.path.join(run_dir, "endpoint_l2_distance.txt")
     with open(l2_file, 'w') as f:
-        f.write(f"Symmetry Plane: L2 Distance Between Endpoints\n")
+        f.write(f"Polygon Chain: L2 Distance Between Endpoints\n")
         f.write(f"="*50 + "\n\n")
         f.write(f"Endpoint 1: {cfg.init_start}\n")
         f.write(f"Endpoint 2: {cfg.init_end}\n\n")
@@ -83,7 +85,7 @@ def main(cfg: DictConfig):
     print(f"✓ L2 distance saved to: {l2_file}")
     print("="*80 + "\n")
 
-    # Build command for symmetry plane training
+    # Build command for polygon chain training
     cmd = [
         "python",
         train_script,
@@ -98,9 +100,9 @@ def main(cfg: DictConfig):
         "--model",
         cfg.model,
         "--curve",
-        "PolyChain",  # Always use PolyChain for symmetry plane
+        "PolyChain",
         "--num_bends",
-        "3",  # Always 3 for symmetry plane
+        "3",
         "--init_start",
         init_start,
         "--fix_start",
@@ -121,13 +123,15 @@ def main(cfg: DictConfig):
         str(cfg.num_workers),
         "--save_freq",
         str(cfg.get('save_freq', 50)),
+        "--seed",
+        str(seed),
     ]
 
     if cfg.use_test:
         cmd.append("--use_test")
 
     if cfg.get('use_wandb', False):
-        run_name = f"symplane_{cfg.model}_{cfg.experiment_name}"
+        run_name = f"polygon_{cfg.model}_{cfg.experiment_name}"
         cmd.append("--wandb")
         cmd += ["--wandb_project", cfg.project_name]
         cmd += ["--wandb_name", run_name]
@@ -139,7 +143,7 @@ def main(cfg: DictConfig):
     subprocess.run(cmd, check=True)
 
     print("\n" + "="*80)
-    print("SYMMETRY PLANE OPTIMIZATION COMPLETE")
+    print("POLYGON CHAIN OPTIMIZATION COMPLETE")
     print("="*80)
     print(f"Results saved to: {run_dir}")
     print("="*80)
