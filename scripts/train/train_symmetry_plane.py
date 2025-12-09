@@ -52,19 +52,24 @@ def compute_path_loss(model, w_start, w_end, t_values, loaders, criterion, devic
     losses = []
     errors = []
 
-    for t in t_values:
-        # Interpolate weights
-        w_t = {}
-        for key in w_start.keys():
-            w_t[key] = (1 - t) * w_start[key] + t * w_end[key]
+    with torch.no_grad():
+        for t in t_values:
+            # Interpolate weights
+            w_t = {}
+            for key in w_start.keys():
+                w_t[key] = (1 - t) * w_start[key] + t * w_end[key]
 
-        # Load interpolated weights
-        model.load_state_dict(w_t)
+            # Load interpolated weights
+            model.load_state_dict(w_t)
 
-        # Evaluate
-        test_res = utils.test(loaders['test'], model, criterion, device=device)
-        losses.append(test_res['loss'])
-        errors.append(test_res['accuracy'])
+            # Evaluate
+            test_res = utils.test(loaders['test'], model, criterion, device=device)
+            losses.append(test_res['loss'])
+            errors.append(test_res['accuracy'])
+
+            # Clear GPU cache to prevent memory buildup
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     return np.array(losses), 100.0 - np.array(errors)
 
