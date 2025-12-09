@@ -23,6 +23,7 @@ save_intermediate: true
 save_freq: 200
 lr: 0.015  # Recommended LR for VGG16 curve training
 wd: 5e-4
+seed: 1    # Random seed (default from dnn-mode-connectivity)
 
 use_test: true
 use_wandb: true

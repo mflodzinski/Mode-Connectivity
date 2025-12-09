@@ -23,6 +23,7 @@ save_intermediate: true  # If true, save checkpoints every save_freq epochs
 save_freq: 200           # Only used if save_intermediate=true
 lr: 0.015  # Recommended LR for VGG16 curve training
 wd: 0.0    # NO REGULARIZATION - set to 0
+seed: 1    # Random seed (default from dnn-mode-connectivity)
 
 use_test: true
 use_wandb: true
