@@ -41,8 +41,8 @@ def calculate_endpoint_l2(checkpoint1_path, checkpoint2_path):
 
 @hydra.main(
     version_base=None,
-    config_path="../../configs/garipov/symmetry_plane",
-    config_name="vgg16_symplane_seed0-seed1",
+    config_path="../../configs/garipov/polygon",
+    config_name="vgg16_polygon_seed0-mirror",
 )
 def main(cfg: DictConfig):
     set_global_seed(0)
