@@ -1,0 +1,35 @@
+defaults: []
+
+experiment_name: "symmetry_plane_vgg16_seed0-seed1"
+
+# Endpoints
+init_start: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
+init_end: "results/vgg16/cifar10/endpoints/checkpoints/seed1/checkpoint-200.pt"
+
+# Output
+output_dir: "results/vgg16/cifar10/symmetry_plane_seed0-seed1"
+
+# Model and dataset
+model: "VGG16"
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+use_test: true
+
+# Optimization hyperparameters (based on dnn-mode-connectivity PolyChain)
+optimization_steps: 200
+lr: 0.015          # VGG16 curve learning rate from Garipov et al.
+momentum: 0.9
+init_mode: "midpoint"  # Options: "midpoint" or "random"
+
+# Evaluation
+eval_points_per_segment: 30  # 30 points per segment → 60 total + endpoints
+batch_size: 128
+num_workers: 4
+
+# Logging
+print_freq: 10
+
+# WandB (optional)
+use_wandb: true
+project_name: "thesis-mode-connectivity"
