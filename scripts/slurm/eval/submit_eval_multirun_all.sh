@@ -36,7 +36,7 @@ for SEED in "${SEEDS[@]}"; do
     echo "--------------------------------------------------------------------------------"
 
     # Check if checkpoint exists
-    CHECKPOINT="results/vgg16/cifar10/${EXPERIMENT}/checkpoints/checkpoint-50.pt"
+    CHECKPOINT="results/vgg16/cifar10/${EXPERIMENT}/checkpoints/checkpoint-200.pt"
     if [ ! -f "${CHECKPOINT}" ]; then
         echo "⚠️  WARNING: Checkpoint not found: ${CHECKPOINT}"
         echo "Skipping ${EXPERIMENT}"
