@@ -45,7 +45,8 @@ def calculate_endpoint_l2(checkpoint1_path, checkpoint2_path):
     config_name="vgg16_curve_seed0-seed1_reg",
 )
 def main(cfg: DictConfig):
-    set_global_seed(0)
+    seed = cfg.get('seed', 0)
+    set_global_seed(seed)
 
     repo_root = to_absolute_path("external/dnn-mode-connectivity")
     train_script = os.path.join(repo_root, "train.py")
@@ -111,6 +112,8 @@ def main(cfg: DictConfig):
         str(cfg.lr),
         "--wd",
         str(cfg.wd),
+        "--seed",
+        str(seed),
     ]
 
     # Only save intermediate checkpoints if requested
