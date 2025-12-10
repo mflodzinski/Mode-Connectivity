@@ -4,13 +4,21 @@
 #SBATCH --time=01:20:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --gres=gpu:a40:1
-#SBATCH --mem=4G
+#SBATCH --mem=8GB
+#SBATCH --mail-type=END,FAIL
+#SBATCH --output=slurm_eval_multirun_all_%j.out
+#SBATCH --error=slurm_eval_multirun_all_%j.err
 #SBATCH --job-name=eval_multirun_all
-#SBATCH --error=slurm_eval_polygon_seed0-mirror_%j.err
-#SBATCH --output=slurm_eval_polygon_seed0-mirror_%j.out
+#SBATCH --gres=gpu:a40:1
 
-export PYTHONPATH="${PYTHONPATH}:${PWD}"
+# Activate virtual environment
+source $HOME/venvs/mode-connectivity/bin/activate || . $HOME/venvs/mode-connectivity/bin/activate
+
+# Navigate to project directory
+cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
+
+# Add project root to Python path
+export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
 echo "================================================================================"
 echo "EVALUATING ALL MULTIRUN EXPERIMENTS"
