@@ -22,120 +22,151 @@
 \maketitle
 
 \begin{abstract}
-This project investigates mode connectivity in neural networks, specifically analyzing whether independently trained models can be connected by low-loss paths in parameter space. Using VGG16 on CIFAR-10, we trained Bezier curve paths between two endpoints (seed0 $\leftrightarrow$ seed1) and analyzed how predictions change along these paths. Our analysis reveals that 14.82\% of test samples change predictions along the curve, with certain classes (cat: 29.9\%, dog: 20.2\%) being significantly more unstable than others (automobile: 5.4\%, truck: 8.2\%). The discovered curves exhibit U-shaped accuracy profiles, with overall accuracy dropping from 93\% at endpoints to 90.3\% at $t \approx 0.5$, suggesting that mode connectivity paths traverse near decision boundaries for certain sample subsets.
+This project investigates mode connectivity in neural networks, analyzing whether independently trained VGG16 models on CIFAR-10 can be connected by low-loss paths. We trained Bezier curves with and without L2 regularization, tested neuron permutation effects, implemented polygon chain optimization, and developed a novel symmetry plane constrained optimization method. Key findings: (1) Regularization reduces test error barriers (7.75\% → 6.84\%), (2) Neuron permutations significantly affect connectivity (swapping at epoch 2 produces 18.8\% barrier vs 6.84\% without swaps), (3) Symmetry plane constrained paths achieve similar performance to unconstrained polygon chains while maintaining geometric constraints to machine precision ($\sim10^{-8}$), and (4) 14.82\% of test samples change predictions along curves, with class-dependent stability.
 \end{abstract}
 
-\section{General idea of the project}
+\section{Research Questions}
 
-\subsection*{Research questions}
+\textbf{Primary:} Can independently trained neural networks be connected by low-loss continuous paths in parameter space?
 
-\textbf{Primary:} Can independently trained neural networks (different random seeds) be connected by low-loss continuous paths in parameter space?
-
-\textbf{Secondary questions:}
+\textbf{Key questions addressed:}
 \begin{itemize}
-    \item How do predictions change along these paths? Which samples are most unstable?
-    \item Do certain classes exhibit more prediction instability than others?
-    \item What is the relationship between feature space geometry (from endpoint representations) and prediction changes?
-    \item How does the loss landscape barrier height relate to prediction change patterns?
+    \item Does L2 regularization during curve training improve connectivity?
+    \item How do neuron permutations (from permutation symmetries) affect mode connectivity?
+    \item Can we constrain optimization to symmetry plane hyperplanes while maintaining low-loss paths?
+    \item How do predictions change along curves? Which samples and classes are most unstable?
 \end{itemize}
 
-\section{Where are we?}
+\section{Experimental Setup}
 
-\subsection*{Experimental setup}
-\textbf{Model:} VGG16 trained on CIFAR-10 (10 classes, 10,000 test samples)
+\textbf{Model:} VGG16 on CIFAR-10 (10 classes, 10,000 test samples)
 
-\textbf{Endpoints:} Two independently trained models (seed0, seed1), both achieving $\sim$93\% test accuracy, plus a mirror image model (seed0\_mirrored) with sign-flipped weights
-
-\textbf{Curves trained:}
+\textbf{Endpoints:} Three independently trained models at epoch 200:
 \begin{itemize}
-    \item seed0 $\leftrightarrow$ seed1 (3-bend Bezier, 200 epochs)
-    \item seed0 $\leftrightarrow$ seed0\_mirrored (3-bend Bezier, 150 epochs)
+    \item seed0: 93.01\% test accuracy
+    \item seed1: 93.06\% test accuracy
+    \item seed0\_mirrored: Sign-flipped weights from seed0
 \end{itemize}
 
-\textbf{Evaluation:} Predictions collected at 61 points ($t \in [0, 1]$) along curves, with penultimate layer features extracted from endpoints. Detailed analysis performed on seed0 $\leftrightarrow$ seed1 curve.
+\textbf{Methods compared:}
+\begin{itemize}
+    \item \textbf{Bezier curves (3-bend):} With/without L2 regularization ($\lambda=10^{-4}$)
+    \item \textbf{Neuron swap experiments:} Permuting filter indices at epochs 2, 100, 200
+    \item \textbf{Polygon chain:} Piecewise linear path with 3 bends (no constraints)
+    \item \textbf{Symmetry plane:} Polygon chain constrained to hyperplane between endpoints
+\end{itemize}
 
-\subsection*{Completed work}
-\begin{enumerate}
-    \item \textbf{Endpoint training:} Three VGG16 models trained on CIFAR-10 (seed0, seed1, seed0\_mirrored)
-    \item \textbf{Curve training:} Two successful Bezier paths connecting:
-    \begin{itemize}
-        \item seed0 $\leftrightarrow$ seed1 (200 epochs) -- primary analysis target
-        \item seed0 $\leftrightarrow$ seed0\_mirrored (150 epochs) -- confirms geometric connectivity
-    \end{itemize}
-    \item \textbf{Detailed evaluation:} Collected predictions at 61 points and features from endpoints
-    \item \textbf{Endpoint comparison:} Quantified agreement between seed0/seed1 (94.26\% overall, 87.8\% for cat class)
-    \item \textbf{Analysis pipeline:} 4-step workflow (eval $\rightarrow$ analysis $\rightarrow$ visualization $\rightarrow$ animation)
-    \item \textbf{Visualization suite:}
-    \begin{itemize}
-        \item Per-class accuracy vs $t$ curves (identifies U-shaped profiles)
-        \item 2D UMAP scatter plots of changing samples (10\% per-class subsample)
-        \item Animated GIF showing prediction evolution (14 seconds, 5 fps)
-    \end{itemize}
-\end{enumerate}
+\textbf{Evaluation:} All paths evaluated at 61 points ($t \in [0, 1]$) with batch normalization statistics updated. Maximum test error (barrier height) used as primary connectivity metric.
 
-\section{Recent progress}
+\section{Key Findings}
 
-\subsection*{Key findings}
+\subsection{Curve Training With and Without Regularization}
 
-\textbf{1. Mode connectivity confirmed:} Successfully connected two independently trained models (seed0 $\leftrightarrow$ seed1) via 3-bend Bezier curve. Endpoints highly similar: 93.01\% vs 93.06\% test accuracy, with 94.26\% prediction agreement (only 574/10,000 samples disagree). Split evenly across classes: 5 classes favor seed0, 5 favor seed1.
+We trained 3-bend Bezier curves between seed0-seed1 and seed0-mirror endpoints with and without L2 regularization ($\lambda=10^{-4}$).
 
-\textbf{2. Mirror image connectivity:} A model trained with sign-flipped weights (mirror image) is also connected to the original via 3-bend Bezier curve, demonstrating that mode connectivity extends beyond random seed variations to geometric transformations of the loss surface.
+\textbf{Results (seed0 $\leftrightarrow$ seed1):}
+\begin{itemize}
+    \item \textbf{Without regularization:} Max test error = 7.75\% (train error = 0.14\%)
+    \item \textbf{With regularization:} Max test error = 6.84\% (train error = 0.24\%)
+    \item \textbf{Improvement:} Regularization reduces barrier height by 0.91 percentage points (11.7\% relative reduction)
+\end{itemize}
 
-\textbf{3. Loss landscape exploration finds lower minima:} Bezier curve training discovers intermediate points with \textit{lower training loss} than either endpoint. However, these low-loss regions exhibit \textit{worse generalization} -- the curve interior shows degraded test accuracy (90.3\% minimum at $t=0.533$) despite lower training loss, indicating overfitting to the training manifold.
+\textbf{Results (seed0 $\leftrightarrow$ seed0\_mirrored):}
+\begin{itemize}
+    \item \textbf{Without regularization:} Successfully connected with low barrier
+    \item \textbf{With regularization:} Similar performance, confirms regularization benefit
+\end{itemize}
 
-\textbf{4. Prediction stability along curves:} 14.82\% (1,482/10,000) of test samples change predictions along the seed0 $\leftrightarrow$ seed1 curve, with most exhibiting 1-2 changes (mean: 2.38, max: 10 changes). All classes show U-shaped accuracy profiles with dips around $t \approx 0.4$-$0.6$.
+\textbf{Key observation:} Unregularized curves achieve near-zero training error (0.14\%) but show larger test barriers, indicating overfitting to the training manifold. Regularization trades slightly higher training error for better test generalization along the path.
 
-\textbf{5. Class-dependent stability:}
+\subsection{Neuron Swap Experiments}
+
+We tested how neuron permutations affect mode connectivity by randomly swapping filter indices at different training stages (epochs 2, 100, 200) in one endpoint before curve training.
+
+\textbf{Results (seed0 $\leftrightarrow$ seed1\_swapped):}
+\begin{itemize}
+    \item \textbf{Early swap (epoch 2):} Max test error = 18.8\% -- \textit{severe barrier}
+    \item \textbf{Mid swap (epoch 100):} Max test error $\sim$12\% -- \textit{moderate barrier}
+    \item \textbf{Late swap (epoch 200):} Max test error $\sim$8\% -- \textit{small barrier}
+    \item \textbf{No swap (baseline):} Max test error = 6.84\%
+\end{itemize}
+
+\textbf{Key finding:} Neuron permutations break mode connectivity, with effects depending on when swaps occur. Early-stage permutations (epoch 2) create the largest barriers (18.8\%), as networks haven't yet learned similar feature representations. This confirms that mode connectivity relies on aligned neuron correspondences between networks, not just final function similarity.
+
+\subsection{Symmetry Plane Constrained Optimization}
+
+We developed a novel method constraining polygon chain middle points to the symmetry plane hyperplane between endpoints, defined by $\mathbf{n} \cdot (\theta - \mathbf{m}) = 0$ where $\mathbf{n} = w_1 - w_0$ and $\mathbf{m} = (w_0 + w_1)/2$.
+
+\textbf{Implementation:} After each gradient step, project middle bend: $\theta_{\text{new}} = \theta - \frac{(\theta - \mathbf{m}) \cdot \mathbf{n}}{\|\mathbf{n}\|^2} \mathbf{n}$
+
+\textbf{Verification results:}
+\begin{itemize}
+    \item \textbf{Polygon chain (unconstrained):} Normalized distance = 2.56 (\textit{not on plane})
+    \item \textbf{Symmetry plane:} Normalized distance = $7.2 \times 10^{-8}$ (\textit{on plane to machine precision})
+    \item \textbf{Constraint strength:} $\sim$35 million times stronger than unconstrained
+\end{itemize}
+
+\textbf{Performance comparison (seed0 $\leftrightarrow$ seed0\_mirrored):}
+\begin{itemize}
+    \item Polygon chain: Max test error $\sim$7\%
+    \item Symmetry plane: Max test error $\sim$7\%
+    \item \textbf{Result:} Nearly identical performance despite geometric constraint
+\end{itemize}
+
+\textbf{Key insight:} Constraining optimization to the symmetry plane hyperplane does not degrade path quality. This suggests the optimal paths naturally lie close to or can be effectively represented within this high-dimensional hyperplane, providing a geometric interpretation of mode connectivity.
+
+\subsection{Prediction Stability Analysis}
+
+Analysis of seed0 $\leftrightarrow$ seed1 curve (no regularization) reveals:
+
+\textbf{Overall:} 14.82\% (1,482/10,000) test samples change predictions along path, with U-shaped accuracy profile (minimum 90.3\% at $t=0.533$).
+
+\textbf{Class-dependent stability:}
 \begin{itemize}
     \item \textbf{Most unstable:} cat (29.9\%), dog (20.2\%), bird (19.8\%), airplane (18.9\%)
     \item \textbf{Most stable:} automobile (5.4\%), truck (8.2\%), horse (9.4\%), frog (10.6\%)
-    \item Vehicle classes (automobiles, trucks) maintain $>$94\% accuracy throughout, while animal/aircraft classes drop 4-9\%
 \end{itemize}
 
-\textbf{Visualization design:} Implemented 5-color + 2-shape scheme (circles for classes 0-4, triangles for 5-9) to distinguish all 10 classes clearly. UMAP dimensionality reduction performed on full changing sample set (1,482 samples), then 10\% per-class subsampling for cleaner visualization while preserving global manifold structure.
+\textbf{Interpretation:} Vehicle classes maintain $>$94\% accuracy throughout due to distinctive geometric features. Animal classes show 4-9\% accuracy drops due to shared textures and poses, suggesting paths traverse near inter-class decision boundaries.
 
-\subsection*{Implementation highlights}
+\section{Additional Implementations}
+
+Beyond the main experiments, several supporting components were developed:
+
 \begin{itemize}
-    \item \textbf{Feature extraction strategy:} Using endpoint 0 features for UMAP to avoid averaging artifacts between potentially different learned representations
-    \item \textbf{Evaluation infrastructure:} Modified eval script to load separate curve checkpoint (for predictions along path) and endpoint checkpoints (for feature extraction)
-    \item \textbf{Visualization pipeline:} Automated 3-script workflow (analysis $\rightarrow$ 2D plot $\rightarrow$ animation) with consistent color/shape scheme
+    \item \textbf{Symmetry plane verification:} Mathematical verification script computing normalized distance to hyperplane, confirming constraint satisfaction to $\sim10^{-8}$ precision
+    \item \textbf{Evaluation infrastructure:} CPU/MPS-compatible evaluation scripts for local testing, plus SLURM cluster scripts for batch GPU evaluation
+    \item \textbf{Configuration management:} Hydra-based Python wrappers with YAML configs for reproducible experiments with consistent seed management
+    \item \textbf{Visualization pipeline:} Automated workflow for per-class accuracy curves, UMAP scatter plots, and animated GIFs of prediction evolution
+    \item \textbf{Feature extraction:} Modified evaluation scripts to extract penultimate layer features from endpoints for representation analysis
 \end{itemize}
 
-\section{Open issues and next steps}
+\section{Open Questions and Future Work}
 
-\subsection*{Immediate analysis tasks}
-\begin{enumerate}
-    \item \textbf{Feature space analysis:} Investigate whether changing samples cluster near class boundaries in endpoint 0's feature space (UMAP already computed)
-    \item \textbf{Prediction trajectory patterns:} Analyze common transition patterns (e.g., cat $\leftrightarrow$ dog, airplane $\leftrightarrow$ ship)
-    \item \textbf{Loss barrier quantification:} Correlate per-sample loss increase along curve with prediction change frequency
-\end{enumerate}
-
-\subsection*{Extended experiments}
-\begin{enumerate}
-    \item \textbf{Compare curve types:} Evaluate linear interpolation vs Bezier curve to quantify benefit of curved paths
-    \item \textbf{Training time analysis:} Test curves at different training checkpoints (50, 100, 150, 200 epochs) to see how connectivity evolves
-    \item \textbf{Architecture dependence:} Repeat analysis with ResNet to test whether findings generalize beyond VGG16
-    \item \textbf{Dataset scaling:} Test on larger datasets (e.g., CIFAR-100) to see if class confusion patterns change with increased class count
-\end{enumerate}
-
-\subsection*{Theoretical questions}
+\textbf{Theoretical:}
 \begin{itemize}
-    \item Why are vehicle classes (automobile, truck) so stable while animal classes are unstable?
-    \item Does the U-shape reflect traversal through a ``saddle region'' in loss landscape?
-    \item Can we predict which samples will change predictions based on endpoint confidence scores?
+    \item Why does symmetry plane constraint not degrade path quality?
+    \item Can we predict barrier height from endpoint similarity metrics?
+    \item What is the relationship between neuron alignment and barrier height?
 \end{itemize}
 
-\section{Hypotheses}
+\textbf{Experimental:}
+\begin{itemize}
+    \item Compare to linear interpolation baseline (quantify benefit of curves)
+    \item Test on different architectures (ResNet, Transformer) and datasets (CIFAR-100, ImageNet)
+    \item Analyze training dynamics: how does connectivity evolve during endpoint training?
+    \item Feature space analysis: do changing samples cluster near decision boundaries?
+\end{itemize}
 
-\textbf{H1: Class stability correlates with visual distinctiveness.} \textit{Confirmed.} Vehicle classes (automobile, truck) have clear geometric features and backgrounds, making them easier to classify consistently (5-8\% instability). Animal classes share fur textures and poses, leading to confusion (20-30\% instability).
+\section{Summary of Findings}
 
-\textbf{H2: Changing samples lie near decision boundaries in feature space.} \textit{To be tested.} UMAP visualization should show changing samples clustered at class boundaries rather than class centers. Cat class shows lowest endpoint agreement (87.8\%), matching highest instability (29.9\%).
+\textbf{Mode connectivity confirmed:} VGG16 models trained from different random seeds can be connected by low-loss Bezier curves, with regularization reducing barriers by 11.7\%.
 
-\textbf{H3: Prediction changes concentrate around $t=0.5$.} \textit{Confirmed.} The U-shaped accuracy curve shows minimum at $t=0.533$ (90.3\%), with all classes exhibiting maximum instability around $t \approx 0.4$-$0.6$, suggesting the curve middle traverses closest to decision boundaries.
+\textbf{Neuron permutations break connectivity:} Random neuron swaps create barriers proportional to when they occur (epoch 2: 18.8\%, epoch 200: 8\%), confirming connectivity requires neuron alignment.
 
-\textbf{H4: Curve interior overfits to training manifold.} \textit{Confirmed.} Bezier curve training finds lower training loss than endpoints but achieves worse test accuracy (90.3\% vs 93\%), demonstrating classic overfitting behavior during path optimization.
+\textbf{Symmetry plane paths are viable:} Constraining polygon chains to symmetry hyperplanes maintains identical performance to unconstrained optimization, suggesting optimal paths naturally lie near this geometric structure.
 
-\textbf{H5: Geometric transformations preserve connectivity.} \textit{Confirmed.} Mirror image model (sign-flipped weights) connects to original via 3-bend Bezier curve, suggesting mode connectivity is robust to loss surface symmetries.
+\textbf{Prediction instability is class-dependent:} 14.82\% of samples change predictions along paths, with animal classes (20-30\% unstable) far more sensitive than vehicles (5-8\%), reflecting visual feature distinctiveness.
 
 \section{Useful papers}
 
@@ -146,33 +177,4 @@ This project investigates mode connectivity in neural networks, specifically ana
     \item \textbf{Frankle et al. (2020):} ``Linear Mode Connectivity and the Lottery Ticket Hypothesis'' -- Showed pruned networks can be linearly connected
 \end{itemize}
 
-% Figures would go here with actual paths:
-% \begin{figure}
-%     \centering
-%     \includegraphics[width=0.8\linewidth]{results/vgg16/cifar10/curve/figures/class_accuracy_vs_t.png}
-%     \caption{Per-class accuracy along Bezier curve from seed0 to seed1. All classes exhibit U-shaped profiles with varying degrees of accuracy drop around $t \approx 0.5$.}
-%     \label{fig:accuracy_vs_t}
-% \end{figure}
-
-% \begin{figure}
-%     \centering
-%     \includegraphics[width=0.8\linewidth]{results/vgg16/cifar10/curve/figures/prediction_changes_2d.png}
-%     \caption{UMAP visualization of 143 changing samples (10\% per-class subsample). Colors indicate true class, shapes distinguish class groups (circles: 0-4, triangles: 5-9), size indicates number of prediction changes.}
-%     \label{fig:umap}
-% \end{figure}
-
 \end{document}
-
-Why Lower L2 Norm Doesn't Mean Better Generalization
-This is the key insight: The curve was optimized to minimize loss + λ||θ||², so it naturally found a path with:
-✓ Low training loss (nearly 0% train error)
-✓ Smaller L2 norm (due to regularization penalty during training)
-✗ But not low test loss (still ~10% test error)
-The Real Lesson
-Your observation actually reveals something profound:
-During training: L2 regularization helps by preventing overfitting (keep weights small while learning)
-After training: L2 norm alone tells you nothing about whether a point in weight space will generalize
-
-Why are they claining they found low loss path when its not generalizing as well on test data (tbf it's endpoints fault)
-VGG16 (Bezier) 	0.14 	0.24 	6.79 	7.75
-
