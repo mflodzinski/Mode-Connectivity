@@ -42,7 +42,7 @@ for SEED in "${SEEDS[@]}"; do
 
     # Run evaluation
     echo "Running evaluation..."
-    srun poetry run python external/dnn-mode-connectivity/eval_curve.py \
+    srun python external/dnn-mode-connectivity/eval_curve.py \
       --dir "${EVAL_DIR}" \
       --dataset CIFAR10 \
       --data_path ./data \
