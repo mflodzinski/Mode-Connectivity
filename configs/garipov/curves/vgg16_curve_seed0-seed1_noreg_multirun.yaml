@@ -1,0 +1,30 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_curve_seed0-seed1_noreg_multirun"
+
+output_root: "results/vgg16/cifar10/curve_seed0-seed1_noreg_multirun/checkpoints"
+
+# Endpoints
+endpoint0: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/checkpoints/seed1/checkpoint-200.pt"
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+
+# Curve parameters
+curve: "Bezier"  # or "PolyChain"
+num_bends: 3  # 3 = start, middle, end
+
+# Training
+epochs: 50
+save_intermediate: true  # If true, save checkpoints every save_freq epochs
+save_freq: 50           # Only used if save_intermediate=true
+lr: 0.015  # Recommended LR for VGG16 curve training
+wd: 0.0    # NO REGULARIZATION - set to 0
+seed: 0    # Random seed for reproducibility
+
+use_test: true
+use_wandb: true
+project_name: "thesis-mode-connectivity"

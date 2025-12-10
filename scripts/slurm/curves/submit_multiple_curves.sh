@@ -20,13 +20,14 @@
 # =============================================================================
 
 # Base config to use (without .yaml extension)
-CONFIG_NAME="vgg16_curve_seed0-seed1_noreg"
+CONFIG_NAME="vgg16_curve_seed0-seed1_noreg_multirun"
 
 # Random seeds to use (space-separated)
 SEEDS="0 42 123"
 
 # Base output directory (will append _seedX for each run)
-BASE_OUTPUT_DIR="results/vgg16/cifar10/curve_seed0-seed1_noreg_multiseed"
+# IMPORTANT: Each seed gets its own directory to prevent overwriting
+BASE_OUTPUT_DIR="results/vgg16/cifar10/curve_seed0-seed1_noreg_multirun"
 
 # =============================================================================
 # SETUP
@@ -72,5 +73,5 @@ echo "python scripts/analysis/compare_curves.py \\"
 for seed in ${SEEDS}; do
     echo "    --checkpoint-dirs ${BASE_OUTPUT_DIR}_seed${seed}/checkpoints \\"
 done
-echo "    --checkpoint-name checkpoint-200.pt"
+echo "    --checkpoint-name checkpoint-50.pt"
 echo "================================================================================"
