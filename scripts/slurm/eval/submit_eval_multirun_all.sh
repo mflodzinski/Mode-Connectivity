@@ -5,9 +5,10 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:a40:1
-#SBATCH --mem=16G
+#SBATCH --mem=4G
 #SBATCH --job-name=eval_multirun_all
-#SBATCH --output=results/vgg16/cifar10/eval_multirun_all_%j.out
+#SBATCH --error=slurm_eval_polygon_seed0-mirror_%j.err
+#SBATCH --output=slurm_eval_polygon_seed0-mirror_%j.out
 
 export PYTHONPATH="${PYTHONPATH}:${PWD}"
 
@@ -27,7 +28,7 @@ for SEED in "${SEEDS[@]}"; do
     echo "--------------------------------------------------------------------------------"
 
     # Check if checkpoint exists
-    CHECKPOINT="results/vgg16/cifar10/${EXPERIMENT}/checkpoint-200.pt"
+    CHECKPOINT="results/vgg16/cifar10/${EXPERIMENT}/checkpoint-50.pt"
     if [ ! -f "${CHECKPOINT}" ]; then
         echo "⚠️  WARNING: Checkpoint not found: ${CHECKPOINT}"
         echo "Skipping ${EXPERIMENT}"
