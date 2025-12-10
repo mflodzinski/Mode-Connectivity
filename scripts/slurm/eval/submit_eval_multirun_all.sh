@@ -4,12 +4,21 @@
 #SBATCH --time=01:20:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --gres=gpu:a40:1
-#SBATCH --mem=16G
+#SBATCH --mem=8GB
+#SBATCH --mail-type=END,FAIL
+#SBATCH --output=slurm_eval_multirun_all_%j.out
+#SBATCH --error=slurm_eval_multirun_all_%j.err
 #SBATCH --job-name=eval_multirun_all
-#SBATCH --output=results/vgg16/cifar10/eval_multirun_all_%j.out
+#SBATCH --gres=gpu:a40:1
 
-export PYTHONPATH="${PYTHONPATH}:${PWD}"
+# Activate virtual environment
+source $HOME/venvs/mode-connectivity/bin/activate || . $HOME/venvs/mode-connectivity/bin/activate
+
+# Navigate to project directory
+cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
+
+# Add project root to Python path
+export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
 echo "================================================================================"
 echo "EVALUATING ALL MULTIRUN EXPERIMENTS"
@@ -27,7 +36,7 @@ for SEED in "${SEEDS[@]}"; do
     echo "--------------------------------------------------------------------------------"
 
     # Check if checkpoint exists
-    CHECKPOINT="results/vgg16/cifar10/${EXPERIMENT}/checkpoint-200.pt"
+    CHECKPOINT="results/vgg16/cifar10/${EXPERIMENT}/checkpoints/checkpoint-200.pt"
     if [ ! -f "${CHECKPOINT}" ]; then
         echo "⚠️  WARNING: Checkpoint not found: ${CHECKPOINT}"
         echo "Skipping ${EXPERIMENT}"
@@ -41,7 +50,7 @@ for SEED in "${SEEDS[@]}"; do
 
     # Run evaluation
     echo "Running evaluation..."
-    srun poetry run python external/dnn-mode-connectivity/eval_curve.py \
+    srun python external/dnn-mode-connectivity/eval_curve.py \
       --dir "${EVAL_DIR}" \
       --dataset CIFAR10 \
       --data_path ./data \
