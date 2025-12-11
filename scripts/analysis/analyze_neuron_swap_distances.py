@@ -60,14 +60,17 @@ def get_layer_names_and_params(model):
 
 
 def compute_layer_distance(weights_current, weights_reference):
-    """Compute normalized L2 distance between two sets of weights.
+    """Compute difference of L2 norms between two sets of weights.
+
+    This metric is permutation-invariant: swapping neurons doesn't change the result
+    since it measures ||w_t||₂ - ||w_0||₂ rather than ||w_t - w_0||₂.
 
     Args:
         weights_current: Current weights (tensor or dict of tensors)
         weights_reference: Reference weights (tensor or dict of tensors)
 
     Returns:
-        dict with various distance metrics
+        dict with various distance metrics (difference of norms)
     """
     # Handle both single tensors and state dicts
     if isinstance(weights_current, dict):
@@ -78,20 +81,22 @@ def compute_layer_distance(weights_current, weights_reference):
         current_flat = weights_current.flatten()
         ref_flat = weights_reference.flatten()
 
-    # Compute distances
-    diff = current_flat - ref_flat
     n_params = current_flat.numel()
 
-    raw_l2 = torch.norm(diff, p=2).item()
-    normalized_l2 = raw_l2 / np.sqrt(n_params)
-
-    # Relative distance (percentage change)
+    # Compute L2 norm of each parameter set
+    current_norm = torch.norm(current_flat, p=2).item()
     ref_norm = torch.norm(ref_flat, p=2).item()
-    relative_distance = raw_l2 / ref_norm if ref_norm > 0 else 0
+
+    # Difference of L2 norms (permutation-invariant)
+    raw_l2_diff = abs(current_norm - ref_norm)
+    normalized_l2_diff = raw_l2_diff / np.sqrt(n_params)
+
+    # Relative difference (percentage change in norm)
+    relative_distance = raw_l2_diff / ref_norm if ref_norm > 0 else 0
 
     return {
-        'raw_l2': raw_l2,
-        'normalized_l2': normalized_l2,
+        'raw_l2': raw_l2_diff,
+        'normalized_l2': normalized_l2_diff,
         'relative_distance': relative_distance,
         'n_params': n_params
     }
