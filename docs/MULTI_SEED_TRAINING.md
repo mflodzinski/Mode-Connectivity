@@ -19,7 +19,7 @@ Train multiple curves with a single command:
 python scripts/train/run_multiple_curves.py \
     --config-name vgg16_curve_seed0-seed1_noreg \
     --seeds 0 42 123 \
-    --base-output-dir results/vgg16/cifar10/curve_seed0-seed1_noreg_multiseed
+    --base-output-dir results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_multiseed
 ```
 
 **Arguments:**
@@ -55,19 +55,19 @@ Train curves individually with different seeds:
 python scripts/train/run_garipov_curve.py \
     --config-name=vgg16_curve_seed0-seed1_noreg \
     seed=0 \
-    output_root=results/vgg16/cifar10/curve_seed0-seed1_noreg_seed0/checkpoints
+    output_root=results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_seed0/checkpoints
 
 # Run 2 with seed=42
 python scripts/train/run_garipov_curve.py \
     --config-name=vgg16_curve_seed0-seed1_noreg \
     seed=42 \
-    output_root=results/vgg16/cifar10/curve_seed0-seed1_noreg_seed42/checkpoints
+    output_root=results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_seed42/checkpoints
 
 # Run 3 with seed=123
 python scripts/train/run_garipov_curve.py \
     --config-name=vgg16_curve_seed0-seed1_noreg \
     seed=123 \
-    output_root=results/vgg16/cifar10/curve_seed0-seed1_noreg_seed123/checkpoints
+    output_root=results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_seed123/checkpoints
 ```
 
 ## Verifying Results are Different
@@ -77,9 +77,9 @@ After training, verify that the curves are actually different:
 ```bash
 python scripts/analysis/compare_curves.py \
     --checkpoint-dirs \
-        results/vgg16/cifar10/curve_seed0-seed1_noreg_multiseed_seed0/checkpoints \
-        results/vgg16/cifar10/curve_seed0-seed1_noreg_multiseed_seed42/checkpoints \
-        results/vgg16/cifar10/curve_seed0-seed1_noreg_multiseed_seed123/checkpoints \
+        results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_multiseed_seed0/checkpoints \
+        results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_multiseed_seed42/checkpoints \
+        results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_multiseed_seed123/checkpoints \
     --checkpoint-name checkpoint-200.pt
 ```
 
@@ -111,16 +111,16 @@ python scripts/analysis/compare_curves.py \
 python scripts/train/run_multiple_curves.py \
     --config-name vgg16_curve_seed0-seed1_noreg \
     --seeds 0 42 123 \
-    --base-output-dir results/vgg16/cifar10/curve_seed0-seed1_noreg_multiseed
+    --base-output-dir results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_multiseed
 
 # 2. Wait for training to complete...
 
 # 3. Compare the resulting curves
 python scripts/analysis/compare_curves.py \
     --checkpoint-dirs \
-        results/vgg16/cifar10/curve_seed0-seed1_noreg_multiseed_seed0/checkpoints \
-        results/vgg16/cifar10/curve_seed0-seed1_noreg_multiseed_seed42/checkpoints \
-        results/vgg16/cifar10/curve_seed0-seed1_noreg_multiseed_seed123/checkpoints \
+        results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_multiseed_seed0/checkpoints \
+        results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_multiseed_seed42/checkpoints \
+        results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_multiseed_seed123/checkpoints \
     --checkpoint-name checkpoint-200.pt
 ```
 

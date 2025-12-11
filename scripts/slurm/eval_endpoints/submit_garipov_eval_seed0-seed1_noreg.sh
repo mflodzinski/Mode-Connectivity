@@ -21,8 +21,8 @@ cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
 # Create output directories if they don't exist
-mkdir -p results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations
-mkdir -p results/vgg16/cifar10/curve_seed0-seed1_noreg/figures
+mkdir -p results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/evaluations
+mkdir -p results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/figures
 
 echo "========================================"
 echo "STEP 1: Evaluating Bezier Curve"
@@ -40,9 +40,9 @@ echo "========================================"
 echo "STEP 2: Evaluating Linear Interpolation"
 echo "========================================"
 srun python scripts/eval/eval_linear.py \
-    --dir results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations \
-    --init_start results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt \
-    --init_end results/vgg16/cifar10/endpoints/checkpoints/seed1/checkpoint-200.pt \
+    --dir results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/evaluations \
+    --init_start results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt \
+    --init_end results/vgg16/cifar10/endpoints/standard/seed1/checkpoint-200.pt \
     --num_points 61 \
     --dataset CIFAR10 \
     --data_path ./data \
@@ -63,11 +63,11 @@ echo "EVALUATION COMPLETE!"
 echo "========================================"
 echo ""
 echo "Results saved to:"
-echo "  - Bezier curve: results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/curve.npz"
-echo "  - Linear path: results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/linear.npz"
+echo "  - Bezier curve: results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/evaluations/curve.npz"
+echo "  - Linear path: results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/evaluations/linear.npz"
 echo ""
 echo "To download results:"
-echo "  scp mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/*.npz ."
+echo "  scp mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/evaluations/*.npz ."
 echo ""
-echo "To plot comparison (creates figure in results/vgg16/cifar10/curve_seed0-seed1_noreg/figures/):"
-echo "  python scripts/plot/plot_connectivity.py --linear results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/linear.npz --curve results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/curve.npz --l2_evolution results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/middle_point_l2_norms.npz --output results/vgg16/cifar10/curve_seed0-seed1_noreg/figures/connectivity_comparison.png"
+echo "To plot comparison (creates figure in results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/figures/):"
+echo "  python scripts/plot/plot_connectivity.py --linear results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/evaluations/linear.npz --curve results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/evaluations/curve.npz --l2_evolution results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/evaluations/middle_point_l2_norms.npz --output results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/figures/connectivity_comparison.png"

@@ -25,9 +25,9 @@ echo "========================================"
 echo "STEP 1: Evaluating Linear Interpolation"
 echo "========================================"
 srun python scripts/eval/eval_linear.py \
-    --dir results/vgg16/cifar10/curve_seed0-mirror_reg/evaluations \
-    --init_start results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt \
-    --init_end results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt \
+    --dir results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations \
+    --init_start results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt \
+    --init_end results/vgg16/cifar10/endpoints/standard/seed0_mirrored/checkpoint-200.pt \
     --num_points 61 \
     --dataset CIFAR10 \
     --data_path ./data \
@@ -59,9 +59,9 @@ echo "EVALUATION COMPLETED SUCCESSFULLY"
 echo "========================================"
 echo ""
 echo "Results saved to:"
-echo "  - Linear path: results/vgg16/cifar10/curve_seed0-mirror_reg/evaluations/linear.npz"
-echo "  - Bezier curve: results/vgg16/cifar10/curve_seed0-mirror_reg/evaluations/curve.npz"
+echo "  - Linear path: results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations/linear.npz"
+echo "  - Bezier curve: results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations/curve.npz"
 echo ""
 echo "To download results:"
-echo "  scp mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/results/vgg16/cifar10/curve_seed0-mirror_reg/evaluations/*.npz ."
+echo "  scp mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations/*.npz ."
 echo ""

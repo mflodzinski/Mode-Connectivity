@@ -45,8 +45,8 @@ echo ""
 
 srun python scripts/eval/eval_curve_detailed.py \
     --curve_ckpt results/vgg16/cifar10/curve/checkpoints/checkpoint-200.pt \
-    --endpoint0_ckpt results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt \
-    --endpoint1_ckpt results/vgg16/cifar10/endpoints/checkpoints/seed1/checkpoint-200.pt \
+    --endpoint0_ckpt results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt \
+    --endpoint1_ckpt results/vgg16/cifar10/endpoints/standard/seed1/checkpoint-200.pt \
     --output results/vgg16/cifar10/curve/evaluations/predictions_detailed.npz \
     --dataset CIFAR10 \
     --data_path ./data \

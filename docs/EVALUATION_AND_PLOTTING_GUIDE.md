@@ -19,8 +19,8 @@ poetry run python external/dnn-mode-connectivity/eval_curve.py \
   --data_path ./data \
   --transform VGG \
   --model VGG16 \
-  --init_start results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt \
-  --init_end results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt \
+  --init_start results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt \
+  --init_end results/vgg16/cifar10/endpoints/standard/seed0_mirrored/checkpoint-200.pt \
   --num_points 61 \
   --use_test
 
@@ -31,8 +31,8 @@ poetry run python external/dnn-mode-connectivity/eval_curve.py \
   --data_path ./data \
   --transform VGG \
   --model VGG16 \
-  --init_start results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt \
-  --init_end results/vgg16/cifar10/endpoints/checkpoints/seed1/checkpoint-200.pt \
+  --init_start results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt \
+  --init_end results/vgg16/cifar10/endpoints/standard/seed1/checkpoint-200.pt \
   --num_points 61 \
   --use_test
 ```
@@ -44,40 +44,40 @@ Evaluate the optimized Bezier curve:
 ```bash
 # seed0 ↔ seed0_mirrored (with regularization)
 poetry run python external/dnn-mode-connectivity/eval_curve.py \
-  --dir results/vgg16/cifar10/curve_seed0-mirror_reg/evaluations \
+  --dir results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations \
   --dataset CIFAR10 \
   --data_path ./data \
   --transform VGG \
   --model VGG16 \
   --curve Bezier \
   --num_bends 3 \
-  --ckpt results/vgg16/cifar10/curve_seed0-mirror_reg/checkpoints/checkpoint-200.pt \
+  --ckpt results/vgg16/cifar10/curves/standard/seed0-mirror_reg/checkpoints/checkpoint-200.pt \
   --num_points 61 \
   --use_test
 
 # seed0 ↔ seed0_mirrored (no regularization)
 poetry run python external/dnn-mode-connectivity/eval_curve.py \
-  --dir results/vgg16/cifar10/curve_seed0-mirror_noreg/evaluations \
+  --dir results/vgg16/cifar10/curves/standard/seed0-mirror_noreg/evaluations \
   --dataset CIFAR10 \
   --data_path ./data \
   --transform VGG \
   --model VGG16 \
   --curve Bezier \
   --num_bends 3 \
-  --ckpt results/vgg16/cifar10/curve_seed0-mirror_noreg/checkpoints/checkpoint-200.pt \
+  --ckpt results/vgg16/cifar10/curves/standard/seed0-mirror_noreg/checkpoints/checkpoint-200.pt \
   --num_points 61 \
   --use_test
 
 # seed0 ↔ seed1 (no regularization)
 poetry run python external/dnn-mode-connectivity/eval_curve.py \
-  --dir results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations \
+  --dir results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/evaluations \
   --dataset CIFAR10 \
   --data_path ./data \
   --transform VGG \
   --model VGG16 \
   --curve Bezier \
   --num_bends 3 \
-  --ckpt results/vgg16/cifar10/curve_seed0-seed1_noreg/checkpoints/checkpoint-200.pt \
+  --ckpt results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/checkpoints/checkpoint-200.pt \
   --num_points 61 \
   --use_test
 ```
@@ -89,14 +89,14 @@ Evaluate the polygon chain (3-bend piecewise linear path):
 ```bash
 # seed0 ↔ seed0_mirrored
 poetry run python external/dnn-mode-connectivity/eval_curve.py \
-  --dir results/vgg16/cifar10/polygon_seed0-mirror/evaluations \
+  --dir results/vgg16/cifar10/advanced_geometry/polygon/seed0-mirror/evaluations \
   --dataset CIFAR10 \
   --data_path ./data \
   --transform VGG \
   --model VGG16 \
   --curve PolyChain \
   --num_bends 3 \
-  --ckpt results/vgg16/cifar10/polygon_seed0-mirror/checkpoint-150.pt \
+  --ckpt results/vgg16/cifar10/advanced_geometry/polygon/seed0-mirror/checkpoint-150.pt \
   --num_points 61 \
   --use_test
 ```
@@ -108,27 +108,27 @@ Evaluate the symmetry plane constrained path:
 ```bash
 # seed0 ↔ seed0_mirrored
 poetry run python external/dnn-mode-connectivity/eval_curve.py \
-  --dir results/vgg16/cifar10/symmetry_plane_seed0-mirror/evaluations \
+  --dir results/vgg16/cifar10/advanced_geometry/symmetry_plane/seed0-mirror/evaluations \
   --dataset CIFAR10 \
   --data_path ./data \
   --transform VGG \
   --model VGG16 \
   --curve PolyChain \
   --num_bends 3 \
-  --ckpt results/vgg16/cifar10/symmetry_plane_seed0-mirror/checkpoint-150.pt \
+  --ckpt results/vgg16/cifar10/advanced_geometry/symmetry_plane/seed0-mirror/checkpoint-150.pt \
   --num_points 61 \
   --use_test
 
 # seed0 ↔ seed1
 poetry run python external/dnn-mode-connectivity/eval_curve.py \
-  --dir results/vgg16/cifar10/symmetry_plane_seed0-seed1/evaluations \
+  --dir results/vgg16/cifar10/advanced_geometry/symmetry_plane/seed0-seed1/evaluations \
   --dataset CIFAR10 \
   --data_path ./data \
   --transform VGG \
   --model VGG16 \
   --curve PolyChain \
   --num_bends 3 \
-  --ckpt results/vgg16/cifar10/symmetry_plane_seed0-seed1/checkpoint-150.pt \
+  --ckpt results/vgg16/cifar10/advanced_geometry/symmetry_plane/seed0-seed1/checkpoint-150.pt \
   --num_points 61 \
   --use_test
 ```
@@ -145,14 +145,14 @@ Compare linear interpolation with a single curve:
 # Bezier curve vs linear (seed0-mirror with regularization)
 poetry run python scripts/plot/plot_connectivity.py \
   --linear results/vgg16/cifar10/linear_seed0-mirror/evaluations/curve.npz \
-  --curve results/vgg16/cifar10/curve_seed0-mirror_reg/evaluations/curve.npz \
+  --curve results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations/curve.npz \
   --output results/vgg16/cifar10/figures/connectivity_seed0-mirror_reg.png \
   --title "Mode Connectivity: Linear vs Bezier Curve (seed0-mirror, regularized)"
 
 # Bezier curve vs linear (seed0-mirror no regularization)
 poetry run python scripts/plot/plot_connectivity.py \
   --linear results/vgg16/cifar10/linear_seed0-mirror/evaluations/curve.npz \
-  --curve results/vgg16/cifar10/curve_seed0-mirror_noreg/evaluations/curve.npz \
+  --curve results/vgg16/cifar10/curves/standard/seed0-mirror_noreg/evaluations/curve.npz \
   --output results/vgg16/cifar10/figures/connectivity_seed0-mirror_noreg.png \
   --title "Mode Connectivity: Linear vs Bezier Curve (seed0-mirror, no regularization)"
 ```
@@ -165,17 +165,17 @@ Compare linear, curve, polygon, and symmetry plane:
 # Create multi-method comparison plot (seed0-mirror)
 poetry run python scripts/plot/plot_symmetry_plane_comparison.py \
   --linear results/vgg16/cifar10/linear_seed0-mirror/evaluations/curve.npz \
-  --curve results/vgg16/cifar10/curve_seed0-mirror_noreg/evaluations/curve.npz \
-  --polygon results/vgg16/cifar10/polygon_seed0-mirror/evaluations/curve.npz \
-  --symmetry results/vgg16/cifar10/symmetry_plane_seed0-mirror/evaluations/curve.npz \
+  --curve results/vgg16/cifar10/curves/standard/seed0-mirror_noreg/evaluations/curve.npz \
+  --polygon results/vgg16/cifar10/advanced_geometry/polygon/seed0-mirror/evaluations/curve.npz \
+  --symmetry results/vgg16/cifar10/advanced_geometry/symmetry_plane/seed0-mirror/evaluations/curve.npz \
   --output results/vgg16/cifar10/figures/all_methods_seed0-mirror.png \
   --title "Mode Connectivity: All Methods (seed0-mirror)"
 
 # seed0-seed1 comparison
 poetry run python scripts/plot/plot_symmetry_plane_comparison.py \
   --linear results/vgg16/cifar10/linear_seed0-seed1/evaluations/curve.npz \
-  --curve results/vgg16/cifar10/curve_seed0-seed1_noreg/evaluations/curve.npz \
-  --symmetry results/vgg16/cifar10/symmetry_plane_seed0-seed1/evaluations/curve.npz \
+  --curve results/vgg16/cifar10/curves/standard/seed0-seed1_noreg/evaluations/curve.npz \
+  --symmetry results/vgg16/cifar10/advanced_geometry/symmetry_plane/seed0-seed1/evaluations/curve.npz \
   --output results/vgg16/cifar10/figures/all_methods_seed0-seed1.png \
   --title "Mode Connectivity: All Methods (seed0-seed1)"
 ```
@@ -292,33 +292,33 @@ mkdir -p results/vgg16/cifar10/linear_seed0-mirror/evaluations
 poetry run python external/dnn-mode-connectivity/eval_curve.py \
   --dir results/vgg16/cifar10/linear_seed0-mirror/evaluations \
   --dataset CIFAR10 --data_path ./data --transform VGG --model VGG16 \
-  --init_start results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt \
-  --init_end results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt \
+  --init_start results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt \
+  --init_end results/vgg16/cifar10/endpoints/standard/seed0_mirrored/checkpoint-200.pt \
   --num_points 61 --use_test
 
 # 2. Evaluate polygon chain
-mkdir -p results/vgg16/cifar10/polygon_seed0-mirror/evaluations
+mkdir -p results/vgg16/cifar10/advanced_geometry/polygon/seed0-mirror/evaluations
 poetry run python external/dnn-mode-connectivity/eval_curve.py \
-  --dir results/vgg16/cifar10/polygon_seed0-mirror/evaluations \
+  --dir results/vgg16/cifar10/advanced_geometry/polygon/seed0-mirror/evaluations \
   --dataset CIFAR10 --data_path ./data --transform VGG --model VGG16 \
   --curve PolyChain --num_bends 3 \
-  --ckpt results/vgg16/cifar10/polygon_seed0-mirror/checkpoint-150.pt \
+  --ckpt results/vgg16/cifar10/advanced_geometry/polygon/seed0-mirror/checkpoint-150.pt \
   --num_points 61 --use_test
 
 # 3. Evaluate symmetry plane
-mkdir -p results/vgg16/cifar10/symmetry_plane_seed0-mirror/evaluations
+mkdir -p results/vgg16/cifar10/advanced_geometry/symmetry_plane/seed0-mirror/evaluations
 poetry run python external/dnn-mode-connectivity/eval_curve.py \
-  --dir results/vgg16/cifar10/symmetry_plane_seed0-mirror/evaluations \
+  --dir results/vgg16/cifar10/advanced_geometry/symmetry_plane/seed0-mirror/evaluations \
   --dataset CIFAR10 --data_path ./data --transform VGG --model VGG16 \
   --curve PolyChain --num_bends 3 \
-  --ckpt results/vgg16/cifar10/symmetry_plane_seed0-mirror/checkpoint-150.pt \
+  --ckpt results/vgg16/cifar10/advanced_geometry/symmetry_plane/seed0-mirror/checkpoint-150.pt \
   --num_points 61 --use_test
 
 # 4. Plot comparison (if plot script exists)
 mkdir -p results/vgg16/cifar10/figures
 poetry run python scripts/plot/plot_connectivity.py \
   --linear results/vgg16/cifar10/linear_seed0-mirror/evaluations/curve.npz \
-  --curve results/vgg16/cifar10/polygon_seed0-mirror/evaluations/curve.npz \
+  --curve results/vgg16/cifar10/advanced_geometry/polygon/seed0-mirror/evaluations/curve.npz \
   --output results/vgg16/cifar10/figures/polygon_vs_linear_seed0-mirror.png \
   --title "Polygon Chain vs Linear Interpolation"
 ```

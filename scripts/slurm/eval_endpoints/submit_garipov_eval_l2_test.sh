@@ -39,8 +39,8 @@ echo "L2 Norm Test: Evaluating Linear Path"
 echo "========================================"
 srun python scripts/eval/eval_linear.py \
     --dir results/vgg16/cifar10/curve_l2_test/evaluations \
-    --init_start results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt \
-    --init_end results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt \
+    --init_start results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt \
+    --init_end results/vgg16/cifar10/endpoints/standard/seed0_mirrored/checkpoint-200.pt \
     --num_points 61 \
     --dataset CIFAR10 \
     --data_path ./data \

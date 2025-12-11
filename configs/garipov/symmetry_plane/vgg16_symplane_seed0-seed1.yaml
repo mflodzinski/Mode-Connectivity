@@ -3,11 +3,11 @@ defaults: []
 experiment_name: "seed0-seed1"
 
 # Endpoints
-init_start: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
-init_end: "results/vgg16/cifar10/endpoints/checkpoints/seed1/checkpoint-200.pt"
+init_start: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt"
+init_end: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoint-200.pt"
 
 # Output
-output_dir: "results/vgg16/cifar10/symmetry_plane_seed0-seed1"
+output_dir: "results/vgg16/cifar10/advanced_geometry/symmetry_plane/seed0-seed1"
 
 # Model and dataset
 model: "VGG16"

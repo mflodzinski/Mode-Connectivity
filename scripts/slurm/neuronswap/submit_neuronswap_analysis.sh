@@ -23,8 +23,8 @@ export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mod
 EXPERIMENT="mid2"  # Options: early2, mid2, late2
 
 CURVE_CHECKPOINT="results/vgg16/cifar10/curve_neuronswap_${EXPERIMENT}_reg/checkpoints/checkpoint-200.pt"
-ORIGINAL_CHECKPOINT="results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
-SWAP_METADATA="results/vgg16/cifar10/endpoints_neuronswap/${EXPERIMENT}/checkpoint-200_metadata.json"
+ORIGINAL_CHECKPOINT="results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt"
+SWAP_METADATA="results/vgg16/cifar10/endpoints/neuronswap/${EXPERIMENT}/checkpoint-200_metadata.json"
 OUTPUT_DIR="results/vgg16/cifar10/curve_neuronswap_${EXPERIMENT}_reg/analysis"
 
 echo "=========================================="

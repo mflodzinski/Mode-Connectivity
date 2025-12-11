@@ -3,11 +3,11 @@ defaults: []
 experiment_name: "seed0-mirror"
 
 # Endpoints
-init_start: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
-init_end: "results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt"
+init_start: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt"
+init_end: "results/vgg16/cifar10/endpoints/standard/seed0_mirrored/checkpoint-200.pt"
 
 # Output
-output_dir: "results/vgg16/cifar10/polygon_seed0-mirror"
+output_dir: "results/vgg16/cifar10/advanced_geometry/polygon/seed0-mirror"
 
 # Model and dataset
 model: "VGG16"

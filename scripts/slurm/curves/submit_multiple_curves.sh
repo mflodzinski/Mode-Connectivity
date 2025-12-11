@@ -27,7 +27,7 @@ SEEDS="0 42 123"
 
 # Base output directory (will append _seedX for each run)
 # IMPORTANT: Each seed gets its own directory to prevent overwriting
-BASE_OUTPUT_DIR="results/vgg16/cifar10/curve_seed0-seed1_noreg_multirun"
+BASE_OUTPUT_DIR="results/vgg16/cifar10/curves/standard/seed0-seed1_noreg_multirun"
 
 # =============================================================================
 # SETUP

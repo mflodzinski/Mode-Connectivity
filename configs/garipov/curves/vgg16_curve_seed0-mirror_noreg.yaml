@@ -2,11 +2,11 @@ defaults: []
 
 experiment_name: "garipov_vgg16_curve_seed0-mirror_noreg"
 
-output_root: "results/vgg16/cifar10/curve_seed0-mirror_noreg/checkpoints"
+output_root: "results/vgg16/cifar10/curves/standard/seed0-mirror_noreg/checkpoints"
 
 # Endpoints: seed0 original and its mirrored version
-endpoint0: "results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
-endpoint1: "results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt"
+endpoint0: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/standard/seed0_mirrored/checkpoint-200.pt"
 
 dataset: "CIFAR10"
 data_path: "./data"

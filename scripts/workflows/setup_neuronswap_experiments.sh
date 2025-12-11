@@ -9,8 +9,8 @@ echo "Setting up Neuron Swap Experiments"
 echo "=========================================="
 
 # Directories
-ENDPOINT_DIR="results/vgg16/cifar10/endpoints/checkpoints/seed0"
-SWAP_DIR="results/vgg16/cifar10/endpoints_neuronswap"
+ENDPOINT_DIR="results/vgg16/cifar10/endpoints/standard/seed0"
+SWAP_DIR="results/vgg16/cifar10/endpoints/neuronswap"
 CHECKPOINT="${ENDPOINT_DIR}/checkpoint-200.pt"
 
 # Check if original checkpoint exists
