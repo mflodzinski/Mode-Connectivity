@@ -5,8 +5,8 @@ experiment_name: "garipov_vgg16_curve_neuronswap_early2_reg"
 output_root: "results/vgg16/cifar10/curves/neuronswap/early2_reg/checkpoints"
 
 # Endpoints
-endpoint0: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt"
-endpoint1: "results/vgg16/cifar10/endpoints/neuronswap/early2/checkpoint-200.pt"
+endpoint0: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/neuronswap/early2/checkpoints/checkpoint-200.pt"
 
 dataset: "CIFAR10"
 data_path: "./data"

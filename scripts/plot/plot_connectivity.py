@@ -6,18 +6,33 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import sys
+
+# Add lib to path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_root = os.path.join(script_dir, '..')
+sys.path.insert(0, scripts_root)
+
+from lib.analysis import plotting
+from lib.utils.args import ArgumentParserBuilder
 
 parser = argparse.ArgumentParser(description='Plot connectivity comparison')
+
+# Custom arguments
 parser.add_argument('--linear', type=str, required=True, metavar='PATH',
                     help='path to linear.npz results')
 parser.add_argument('--curve', type=str, required=True, metavar='PATH',
                     help='path to curve.npz results')
-parser.add_argument('--l2_evolution', type=str, default=None, metavar='PATH',
+parser.add_argument('--l2-evolution', type=str, default=None, metavar='PATH',
                     help='path to middle_point_l2_norms.npz (training evolution)')
-parser.add_argument('--output', type=str, default='results/vgg16/cifar10/curve/figures/connectivity_comparison.png',
-                    help='output figure path')
 parser.add_argument('--title', type=str, default='Mode Connectivity: Linear vs Bezier Curve',
                     help='plot title')
+
+# Standard arguments using ArgumentParserBuilder
+ArgumentParserBuilder.add_plot_output_args(parser, required=False)
+
+# Override default output
+parser.set_defaults(output='results/vgg16/cifar10/curve/figures/connectivity_comparison.png')
 
 args = parser.parse_args()
 
@@ -164,12 +179,8 @@ if l2_evolution_data is not None:
 plt.suptitle(args.title, fontsize=14, fontweight='bold')
 plt.tight_layout()
 
-# Create output directory if it doesn't exist
-os.makedirs(os.path.dirname(args.output), exist_ok=True)
-
 # Save figure
-plt.savefig(args.output, dpi=300, bbox_inches='tight')
-print(f"Figure saved to: {args.output}")
+plotting.save_figure(fig, args.output)
 
 # Generate summary statistics text
 summary_lines = []
@@ -223,6 +234,4 @@ print("\n" + "\n".join(summary_lines))
 
 # Save summary to text file
 summary_path = args.output.replace('.png', '_summary.txt')
-with open(summary_path, 'w') as f:
-    f.write("\n".join(summary_lines))
-print(f"\nSummary saved to: {summary_path}")
+plotting.save_summary_text(summary_lines, summary_path)

@@ -9,36 +9,16 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import imageio
 from tqdm import tqdm
+import sys
+import os
 
-try:
-    from umap import UMAP
-    UMAP_AVAILABLE = True
-except ImportError:
-    UMAP_AVAILABLE = False
-    from sklearn.decomposition import PCA
+# Add lib to path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_root = os.path.join(script_dir, '..')
+sys.path.insert(0, scripts_root)
 
-
-def reduce_dimensions(features, method='umap', n_components=2, random_state=42):
-    """Reduce feature dimensions to 2D."""
-    print(f"\nReducing dimensions using {method.upper()}...")
-
-    if method == 'umap' and UMAP_AVAILABLE:
-        reducer = UMAP(
-            n_components=n_components,
-            n_neighbors=15,
-            min_dist=0.1,
-            metric='euclidean',
-            random_state=random_state,
-            verbose=True
-        )
-        reduced = reducer.fit_transform(features)
-    else:
-        if method == 'umap' and not UMAP_AVAILABLE:
-            print("  UMAP not available, using PCA")
-        reducer = PCA(n_components=n_components, random_state=random_state)
-        reduced = reducer.fit_transform(features)
-
-    return reduced
+from lib.analysis import dim_reduction, plotting
+from lib.utils.args import ArgumentParserBuilder
 
 
 def create_frame(embeddings, current_preds, true_labels, prev_preds, t_value,
@@ -135,26 +115,23 @@ def create_frame(embeddings, current_preds, true_labels, prev_preds, t_value,
 
 def main():
     parser = argparse.ArgumentParser(description='Create prediction change animation')
+
+    # Custom arguments
     parser.add_argument('--analysis', type=str, required=True,
                         help='Path to changing_samples_info.npz')
     parser.add_argument('--predictions', type=str, required=True,
                         help='Path to predictions_detailed.npz')
-    parser.add_argument('--output', type=str, required=True,
-                        help='Output path for GIF file')
-    parser.add_argument('--method', type=str, default='umap', choices=['umap', 'pca'],
-                        help='Dimensionality reduction method')
-    parser.add_argument('--fps', type=int, default=5,
-                        help='Frames per second for GIF')
-    parser.add_argument('--random_state', type=int, default=42,
-                        help='Random seed')
-    parser.add_argument('--skip_frames', type=int, default=1,
-                        help='Only render every Nth frame (for faster generation)')
+
+    # Standard arguments using ArgumentParserBuilder
+    ArgumentParserBuilder.add_plot_output_args(parser)
+    ArgumentParserBuilder.add_dimred_args(parser)
+    ArgumentParserBuilder.add_animation_args(parser)
 
     args = parser.parse_args()
 
     # Create output directory
     output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plotting.create_output_dir(output_path)
     frames_dir = output_path.parent / 'animation_frames'
     frames_dir.mkdir(exist_ok=True)
 
@@ -186,36 +163,24 @@ def main():
 
     # STEP 1: Reduce dimensions for ALL changing samples first
     print("\nReducing dimensions for all changing samples...")
-    embeddings_full = reduce_dimensions(
+    embeddings_full = dim_reduction.reduce_dimensions(
         features_changing,
         method=args.method,
         random_state=args.random_state
     )
 
     # STEP 2: Subsample 10% from each class for cleaner visualization
-    np.random.seed(args.random_state)
-    subsample_idx = []
-
-    print("\nSubsampling 10% from each class:")
-    for class_idx in range(10):
-        class_mask = targets_changing == class_idx
-        class_indices = np.where(class_mask)[0]
-        n_class = len(class_indices)
-
-        if n_class > 0:
-            n_subsample_class = max(1, int(n_class * 0.1))
-            sampled = np.random.choice(class_indices, size=n_subsample_class, replace=False)
-            subsample_idx.extend(sampled)
-            print(f"  Class {class_idx}: {n_class} → {n_subsample_class} samples")
-
-    subsample_idx = np.array(subsample_idx)
+    subsample_idx = dim_reduction.subsample_per_class(
+        targets_changing,
+        num_classes=10,
+        fraction=0.1,
+        random_state=args.random_state
+    )
 
     # Extract subsampled data
     embeddings = embeddings_full[subsample_idx]
     targets_subsample = targets_changing[subsample_idx]
     predictions_subsample = predictions_changing[:, subsample_idx]  # [num_points, n_subsample]
-
-    print(f"\nTotal subsampled: {len(subsample_idx)} (from {num_changing})")
 
     # Generate frames
     print(f"\nGenerating frames...")

@@ -5,8 +5,8 @@ experiment_name: "garipov_vgg16_curve_init_alpha0.75"
 output_root: "results/vgg16/cifar10/curves/initialization/biased_linear/alpha_0.75/checkpoints"
 
 # Endpoints
-endpoint0: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt"
-endpoint1: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoint-200.pt"
+endpoint0: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt"
 
 dataset: "CIFAR10"
 data_path: "./data"

@@ -14,6 +14,15 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.patches import Rectangle
 import os
+import sys
+
+# Add lib to path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_root = os.path.join(script_dir, '..')
+sys.path.insert(0, scripts_root)
+
+from lib.analysis import plotting
+from lib.utils.args import ArgumentParserBuilder
 
 
 def load_analysis_data(data_path):
@@ -247,27 +256,28 @@ def create_static_heatmap(data, output_path, distance_metric='normalized_l2'):
                 fontweight='bold', va='center')
 
     plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    plt.close()
+    plotting.save_figure(fig, output_path)
 
-    print(f"✓ Heatmap saved to: {output_path}")
+    print(f"  Heatmap saved to: {output_path}")
 
 
 def main():
     parser = argparse.ArgumentParser(
         description='Create animated visualization of layer distance evolution'
     )
+
+    # Custom arguments
     parser.add_argument('--data', type=str, required=True,
                         help='Path to layer distances NPZ file')
-    parser.add_argument('--output', type=str, required=True,
-                        help='Path to save animated GIF')
-    parser.add_argument('--fps', type=int, default=10,
-                        help='Frames per second (default: 10)')
     parser.add_argument('--metric', type=str, default='normalized_l2',
                         choices=['normalized_l2', 'relative', 'raw_l2'],
                         help='Distance metric to plot (default: normalized_l2)')
     parser.add_argument('--heatmap', action='store_true',
                         help='Also create static heatmap')
+
+    # Standard arguments
+    ArgumentParserBuilder.add_plot_output_args(parser, required=True)
+    ArgumentParserBuilder.add_animation_args(parser)
 
     args = parser.parse_args()
 

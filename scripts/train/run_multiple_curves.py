@@ -4,9 +4,16 @@ This allows testing the effect of stochasticity in batch shuffling,
 SGD dynamics, and data augmentation on the resulting curves.
 """
 import os
+import sys
 import subprocess
 import argparse
 from pathlib import Path
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_root = os.path.join(script_dir, '..')
+sys.path.insert(0, scripts_root)
+
+from lib.core.training_commands import print_and_format_command
 
 
 def run_curve_training(config_name, seed, base_output_dir=None):
@@ -35,7 +42,7 @@ def run_curve_training(config_name, seed, base_output_dir=None):
     print("\n" + "="*80)
     print(f"STARTING TRAINING RUN WITH SEED={seed}")
     print("="*80)
-    print(f"Command: {' '.join(cmd)}")
+    print_and_format_command(cmd)
     print("="*80 + "\n")
 
     # Run the command

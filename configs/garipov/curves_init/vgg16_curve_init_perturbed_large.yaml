@@ -5,8 +5,8 @@ experiment_name: "garipov_vgg16_curve_init_perturbed_large"
 output_root: "results/vgg16/cifar10/curves/initialization/perturbed/noise_0.1/checkpoints"
 
 # Endpoints
-endpoint0: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt"
-endpoint1: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoint-200.pt"
+endpoint0: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt"
 
 dataset: "CIFAR10"
 data_path: "./data"

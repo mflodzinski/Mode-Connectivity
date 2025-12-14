@@ -1,42 +1,20 @@
 import os
+import sys
 import subprocess
 import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
-import torch
-import numpy as np
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_root = os.path.join(script_dir, '..')
+sys.path.insert(0, scripts_root)
 
 from src.utils import set_global_seed
-
-
-def calculate_endpoint_l2(checkpoint1_path, checkpoint2_path):
-    """Calculate L2 distance between two checkpoints."""
-    # Load checkpoints
-    ckpt1 = torch.load(checkpoint1_path, map_location='cpu')
-    ckpt2 = torch.load(checkpoint2_path, map_location='cpu')
-
-    # Get state dicts
-    state1 = ckpt1.get('model_state', ckpt1)
-    state2 = ckpt2.get('model_state', ckpt2)
-
-    # Calculate L2 distance
-    total_l2_squared = 0.0
-    total_params = 0
-
-    for key in state1.keys():
-        if key in state2 and isinstance(state1[key], torch.Tensor):
-            diff = state1[key] - state2[key]
-            total_l2_squared += torch.sum(diff ** 2).item()
-            total_params += state1[key].numel()
-
-    total_l2 = np.sqrt(total_l2_squared)
-    normalized_l2 = total_l2 / np.sqrt(total_params) if total_params > 0 else 0
-
-    return {
-        'total_l2': total_l2,
-        'normalized_l2': normalized_l2,
-        'total_params': total_params
-    }
+from lib.metrics.distances import calculate_checkpoint_l2_distance, save_l2_distance_report, print_l2_statistics
+from lib.core.training_commands import (
+    build_base_command, add_curve_args, add_wandb_args, add_seed_arg,
+    add_training_hyperparams, add_optional_arg, print_and_format_command
+)
 
 
 @hydra.main(
@@ -45,8 +23,7 @@ def calculate_endpoint_l2(checkpoint1_path, checkpoint2_path):
     config_name="vgg16_polygon_seed0-mirror",
 )
 def main(cfg: DictConfig):
-    # Set seed from config (for Python/NumPy)
-    seed = cfg.get('seed', 1)
+    seed = cfg.get('seed', 0)
     set_global_seed(seed)
 
     repo_root = to_absolute_path("external/dnn-mode-connectivity")
@@ -64,82 +41,28 @@ def main(cfg: DictConfig):
     print("POLYGON CHAIN OPTIMIZATION")
     print("="*80)
     print("Calculating L2 distance between endpoints...")
-    l2_stats = calculate_endpoint_l2(init_start, init_end)
-    print(f"Endpoint 1: {cfg.init_start}")
-    print(f"Endpoint 2: {cfg.init_end}")
-    print(f"\nL2 Distance Statistics:")
-    print(f"  Total L2 distance:      {l2_stats['total_l2']:.6f}")
-    print(f"  Normalized L2 distance: {l2_stats['normalized_l2']:.6f}")
-    print(f"  Total parameters:       {l2_stats['total_params']:,}")
+    l2_stats = calculate_checkpoint_l2_distance(init_start, init_end)
+    print_l2_statistics(l2_stats, endpoint_names=(cfg.init_start, cfg.init_end), title="")
 
     # Save L2 distance to file
-    l2_file = os.path.join(run_dir, "endpoint_l2_distance.txt")
-    with open(l2_file, 'w') as f:
-        f.write(f"Polygon Chain: L2 Distance Between Endpoints\n")
-        f.write(f"="*50 + "\n\n")
-        f.write(f"Endpoint 1: {cfg.init_start}\n")
-        f.write(f"Endpoint 2: {cfg.init_end}\n\n")
-        f.write(f"Total L2 distance:      {l2_stats['total_l2']:.6f}\n")
-        f.write(f"Normalized L2 distance: {l2_stats['normalized_l2']:.6f}\n")
-        f.write(f"Total parameters:       {l2_stats['total_params']:,}\n")
+    l2_file = save_l2_distance_report(run_dir, l2_stats, (cfg.init_start, cfg.init_end))
     print(f"✓ L2 distance saved to: {l2_file}")
     print("="*80 + "\n")
 
     # Build command for polygon chain training
-    cmd = [
-        "python",
-        train_script,
-        "--dir",
-        run_dir,
-        "--dataset",
-        cfg.dataset,
-        "--data_path",
-        cfg.data_path,
-        "--transform",
-        cfg.transform,
-        "--model",
-        cfg.model,
-        "--curve",
-        "PolyChain",
-        "--num_bends",
-        "3",
-        "--init_start",
-        init_start,
-        "--fix_start",
-        "--init_end",
-        init_end,
-        "--fix_end",
-        "--epochs",
-        str(cfg.epochs),
-        "--lr",
-        str(cfg.lr),
-        "--wd",
-        str(cfg.wd),
-        "--momentum",
-        str(cfg.momentum),
-        "--batch_size",
-        str(cfg.batch_size),
-        "--num-workers",
-        str(cfg.num_workers),
-        "--save_freq",
-        str(cfg.get('save_freq', 50)),
-        "--seed",
-        str(seed),
-    ]
+    cmd = build_base_command(train_script, run_dir, cfg)
+    add_curve_args(cmd, cfg, init_start, init_end, fix_endpoints=True,
+                  curve_type="PolyChain", num_bends=3)
+    add_training_hyperparams(cmd, cfg)
+    add_seed_arg(cmd, seed)
+    add_optional_arg(cmd, cfg, 'save_freq', '--save_freq', default=50)
+    add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
 
-    if cfg.use_test:
-        cmd.append("--use_test")
+    # Add WandB logging
+    run_name = f"polygon_{cfg.model}_{cfg.experiment_name}"
+    add_wandb_args(cmd, cfg, run_name)
 
-    if cfg.get('use_wandb', False):
-        run_name = f"polygon_{cfg.model}_{cfg.experiment_name}"
-        cmd.append("--wandb")
-        cmd += ["--wandb_project", cfg.project_name]
-        cmd += ["--wandb_name", run_name]
-
-    print("Running command:")
-    print(" ".join(cmd))
-    print()
-
+    print_and_format_command(cmd)
     subprocess.run(cmd, check=True)
 
     print("\n" + "="*80)

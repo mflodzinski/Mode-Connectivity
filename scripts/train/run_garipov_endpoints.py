@@ -1,10 +1,20 @@
 import os
+import sys
 import subprocess
 import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_root = os.path.join(script_dir, '..')
+sys.path.insert(0, scripts_root)
+
 from src.utils import set_global_seed
+from lib.core.training_commands import (
+    build_base_command, add_wandb_args, add_seed_arg,
+    add_save_freq_arg, add_early_stopping_args, add_optional_arg,
+    print_and_format_command
+)
 
 @hydra.main(
     version_base=None,
@@ -12,8 +22,9 @@ from src.utils import set_global_seed
     config_name="vgg16_endpoints",
 )
 def main(cfg: DictConfig):
-    set_global_seed(0)  # just for wrapper
-
+    seed = cfg.get('seed', 0)
+    set_global_seed(seed)
+    
     repo_root = to_absolute_path("external/dnn-mode-connectivity")
     train_script = os.path.join(repo_root, "train.py")
 
@@ -23,56 +34,20 @@ def main(cfg: DictConfig):
         )
         os.makedirs(run_dir, exist_ok=True)
 
-        cmd = [
-            "python",
-            train_script,
-            "--dir",
-            run_dir,
-            "--dataset",
-            cfg.dataset,
-            "--data_path",
-            cfg.data_path,
-            "--transform",
-            cfg.transform,
-            "--model",
-            cfg.model,
-            "--epochs",
-            str(cfg.epochs),
-            "--lr",
-            str(cfg.lr),
-            "--wd",
-            str(cfg.wd),
-        ]
+        # Build training command
+        cmd = build_base_command(train_script, run_dir, cfg)
+        add_seed_arg(cmd, seed)
+        add_save_freq_arg(cmd, cfg)
+        add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
+        add_early_stopping_args(cmd, cfg)
 
-        # Only save intermediate checkpoints if requested
-        if cfg.get("save_intermediate", True):
-            cmd += ["--save_freq", str(cfg.save_freq)]
-
-        if cfg.use_test:
-            cmd.append("--use_test")
-
-        # Add seed
-        cmd += ["--seed", str(seed)]
-
-        # Add early stopping parameters if enabled
+        # Add WandB logging
+        run_name = f"garipov_{cfg.model}_endpoint_seed{seed}"
         if cfg.get("early_stopping", False):
-            cmd.append("--early_stopping")
-            cmd += ["--patience", str(cfg.get("patience", 20))]
-            cmd += ["--min_delta", str(cfg.get("min_delta", 0.0))]
-            cmd.append("--split_test_from_train")
+            run_name += "_early_stop"
+        add_wandb_args(cmd, cfg, run_name)
 
-        # Add wandb flags
-        if cfg.use_wandb:
-            run_name = f"garipov_{cfg.model}_endpoint_seed{seed}"
-            if cfg.get("early_stopping", False):
-                run_name += "_early_stop"
-            cmd.append("--wandb")
-            cmd += ["--wandb_project", cfg.project_name]
-            cmd += ["--wandb_name", run_name]
-
-        print("Running:", " ".join(cmd))
-
-        # Training script now handles wandb internally, so no need to wrap here
+        print_and_format_command(cmd)
         subprocess.run(cmd, check=True)
 
 if __name__ == "__main__":
