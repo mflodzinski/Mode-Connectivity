@@ -8,52 +8,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import sys
+import os
 
-try:
-    from umap import UMAP
-    UMAP_AVAILABLE = True
-except ImportError:
-    UMAP_AVAILABLE = False
-    print("WARNING: umap-learn not available, will use PCA instead")
-    from sklearn.decomposition import PCA
+# Add lib to path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_root = os.path.join(script_dir, '..')
+sys.path.insert(0, scripts_root)
 
-
-def reduce_dimensions(features, method='umap', n_components=2, random_state=42):
-    """Reduce feature dimensions to 2D.
-
-    Args:
-        features: [n_samples, feature_dim] array
-        method: 'umap' or 'pca'
-        n_components: number of dimensions (default: 2)
-        random_state: random seed
-
-    Returns:
-        [n_samples, n_components] reduced features
-    """
-    print(f"\nReducing dimensions using {method.upper()}...")
-    print(f"  Input shape: {features.shape}")
-
-    if method == 'umap' and UMAP_AVAILABLE:
-        reducer = UMAP(
-            n_components=n_components,
-            n_neighbors=15,
-            min_dist=0.1,
-            metric='euclidean',
-            random_state=random_state,
-            verbose=True
-        )
-        reduced = reducer.fit_transform(features)
-    else:
-        if method == 'umap' and not UMAP_AVAILABLE:
-            print("  UMAP not available, falling back to PCA")
-        reducer = PCA(n_components=n_components, random_state=random_state)
-        reduced = reducer.fit_transform(features)
-        explained_var = reducer.explained_variance_ratio_
-        print(f"  Explained variance: {explained_var}")
-        print(f"  Total explained variance: {explained_var.sum():.3f}")
-
-    print(f"  Output shape: {reduced.shape}")
-    return reduced
+from lib.analysis import dim_reduction, plotting
+from lib.utils.args import ArgumentParserBuilder
 
 
 def plot_changing_samples(embeddings, targets, change_counts, output_path, title=None):
@@ -132,8 +95,7 @@ def plot_changing_samples(embeddings, targets, change_counts, output_path, title
                       label=f'{changes} change{"s" if changes > 1 else ""}')
 
     plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"\nSaved plot to: {output_path}")
+    plotting.save_figure(fig, output_path)
     plt.close()
 
 
@@ -219,29 +181,27 @@ def plot_all_samples_comparison(embeddings_all, embeddings_changing, targets_all
     ax2.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"Saved comparison plot to: {output_path}")
+    plotting.save_figure(fig, output_path)
     plt.close()
 
 
 def main():
     parser = argparse.ArgumentParser(description='Visualize prediction changes in 2D')
+
+    # Custom arguments
     parser.add_argument('--analysis', type=str, required=True,
                         help='Path to changing_samples_info.npz')
-    parser.add_argument('--output', type=str, required=True,
-                        help='Output directory for figures')
-    parser.add_argument('--method', type=str, default='umap', choices=['umap', 'pca'],
-                        help='Dimensionality reduction method')
-    parser.add_argument('--random_state', type=int, default=42,
-                        help='Random seed for reproducibility')
-    parser.add_argument('--plot_all', action='store_true',
+    parser.add_argument('--plot-all', action='store_true',
                         help='Also create plot showing all samples (stable + changing)')
+
+    # Standard arguments using ArgumentParserBuilder
+    ArgumentParserBuilder.add_plot_output_args(parser)
+    ArgumentParserBuilder.add_dimred_args(parser)
 
     args = parser.parse_args()
 
     # Create output directory
-    output_dir = Path(args.output)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = plotting.create_output_dir(args.output)
 
     # Load analysis data
     print(f"Loading analysis from {args.analysis}...")
@@ -263,36 +223,24 @@ def main():
 
     # STEP 1: Reduce dimensions for ALL changing samples first
     print("\nReducing dimensions for all changing samples...")
-    embeddings_changing_full = reduce_dimensions(
+    embeddings_changing_full = dim_reduction.reduce_dimensions(
         features_changing,
         method=args.method,
         random_state=args.random_state
     )
 
     # STEP 2: Subsample 10% from each class for cleaner visualization
-    np.random.seed(args.random_state)
-    subsample_idx = []
-
-    print("\nSubsampling 10% from each class:")
-    for class_idx in range(10):
-        class_mask = targets_changing == class_idx
-        class_indices = np.where(class_mask)[0]
-        n_class = len(class_indices)
-
-        if n_class > 0:
-            n_subsample_class = max(1, int(n_class * 0.1))
-            sampled = np.random.choice(class_indices, size=n_subsample_class, replace=False)
-            subsample_idx.extend(sampled)
-            print(f"  Class {class_idx}: {n_class} → {n_subsample_class} samples")
-
-    subsample_idx = np.array(subsample_idx)
+    subsample_idx = dim_reduction.subsample_per_class(
+        targets_changing,
+        num_classes=10,
+        fraction=0.1,
+        random_state=args.random_state
+    )
 
     # Extract subsampled data
     embeddings_subsample = embeddings_changing_full[subsample_idx]
     targets_subsample = targets_changing[subsample_idx]
     counts_subsample = changing_counts[subsample_idx]
-
-    print(f"\nTotal subsampled: {len(subsample_idx)} (from {len(features_changing)})")
 
     # Plot changing samples
     plot_changing_samples(
@@ -306,7 +254,7 @@ def main():
     # Optionally plot all samples
     if args.plot_all:
         print("\nReducing dimensions for all samples...")
-        embeddings_all = reduce_dimensions(
+        embeddings_all = dim_reduction.reduce_dimensions(
             features_for_visualization,
             method=args.method,
             random_state=args.random_state

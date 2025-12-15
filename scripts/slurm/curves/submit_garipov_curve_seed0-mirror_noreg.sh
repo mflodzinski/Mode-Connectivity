@@ -21,9 +21,9 @@ cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
 # Create output directories if they don't exist
-mkdir -p results/vgg16/cifar10/curve_seed0-mirror_noreg/checkpoints
-mkdir -p results/vgg16/cifar10/curve_seed0-mirror_noreg/evaluations
-mkdir -p results/vgg16/cifar10/curve_seed0-mirror_noreg/figures
+mkdir -p results/vgg16/cifar10/curves/standard/seed0-mirror_noreg/checkpoints
+mkdir -p results/vgg16/cifar10/curves/standard/seed0-mirror_noreg/evaluations
+mkdir -p results/vgg16/cifar10/curves/standard/seed0-mirror_noreg/figures
 
 # Run the curve training script with mirror config
 srun python scripts/train/run_garipov_curve.py --config-name vgg16_curve_seed0-mirror_noreg

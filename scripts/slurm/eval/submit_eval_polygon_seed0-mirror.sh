@@ -21,17 +21,17 @@ cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
 # Create output directory
-mkdir -p results/vgg16/cifar10/polygon_seed0-mirror/evaluations
+mkdir -p results/vgg16/cifar10/advanced_geometry/polygon/seed0-mirror/evaluations
 
 # Run evaluation
 srun python external/dnn-mode-connectivity/eval_curve.py \
-  --dir results/vgg16/cifar10/polygon_seed0-mirror/evaluations \
+  --dir results/vgg16/cifar10/advanced_geometry/polygon/seed0-mirror/evaluations \
   --dataset CIFAR10 \
   --data_path ./data \
   --transform VGG \
   --model VGG16 \
   --curve PolyChain \
   --num_bends 3 \
-  --ckpt results/vgg16/cifar10/polygon_seed0-mirror/checkpoint-150.pt \
+  --ckpt results/vgg16/cifar10/advanced_geometry/polygon/seed0-mirror/checkpoint-150.pt \
   --num_points 61 \
   --use_test

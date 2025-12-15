@@ -7,20 +7,30 @@ import argparse
 import numpy as np
 import os
 import torch
-import torch.nn.functional as F
 import sys
 
-# Add external repo to path
-sys.path.insert(0, 'external/dnn-mode-connectivity')
+# Add lib to path
+sys.path.insert(0, '../lib')
 
-import data
-import models
-import curves
-import utils
+from lib.core import setup, checkpoint
+from lib.utils.args import ArgumentParserBuilder
+
+# Aliases for backward compatibility
+EvalSetup = setup
+CheckpointLoader = checkpoint.CheckpointLoader
 
 
 def extract_features(model, loader, device):
-    """Extract penultimate layer features from a standard (non-curve) model."""
+    """Extract penultimate layer features from a standard (non-curve) model.
+
+    Args:
+        model: VGG16 model to extract features from
+        loader: DataLoader to iterate over
+        device: Device to run on
+
+    Returns:
+        Dictionary with features, predictions, targets, images
+    """
     model.eval()
 
     all_features = []
@@ -64,7 +74,20 @@ def extract_features(model, loader, device):
 
 
 def evaluate_curve_predictions(curve_model, loader, device, ts):
-    """Evaluate curve model at multiple t values and return predictions."""
+    """Evaluate curve model at multiple t values and return predictions.
+
+    Args:
+        curve_model: CurveNet model to evaluate
+        loader: DataLoader to iterate over
+        device: Device to run on
+        ts: Array of t values to evaluate at
+
+    Returns:
+        Predictions array of shape [num_points, num_samples]
+    """
+    # Import utils from external repo
+    import utils as external_utils
+
     curve_model.eval()
 
     num_points = len(ts)
@@ -79,7 +102,7 @@ def evaluate_curve_predictions(curve_model, loader, device, ts):
         t_tensor.data.fill_(t_value)
 
         # Update batch norm statistics
-        utils.update_bn(loader, curve_model, t=t_tensor)
+        external_utils.update_bn(loader, curve_model, device=device, **{'coeffs_t': t_tensor})
 
         all_preds = []
         with torch.no_grad():
@@ -96,74 +119,66 @@ def evaluate_curve_predictions(curve_model, loader, device, ts):
 
 def main():
     parser = argparse.ArgumentParser(description='Detailed curve evaluation')
-    parser.add_argument('--curve_ckpt', type=str, required=True,
+
+    # Custom arguments specific to this script
+    parser.add_argument('--curve-ckpt', type=str, required=True,
                         help='Path to curve checkpoint')
-    parser.add_argument('--endpoint0_ckpt', type=str, required=True,
+    parser.add_argument('--endpoint0-ckpt', type=str, required=True,
                         help='Path to endpoint 0 checkpoint (seed0)')
-    parser.add_argument('--endpoint1_ckpt', type=str, required=True,
+    parser.add_argument('--endpoint1-ckpt', type=str, required=True,
                         help='Path to endpoint 1 checkpoint (seed1)')
     parser.add_argument('--output', type=str, required=True,
                         help='Output path for predictions_detailed.npz')
-    parser.add_argument('--dataset', type=str, default='CIFAR10')
-    parser.add_argument('--data_path', type=str, default='./data')
-    parser.add_argument('--model', type=str, default='VGG16')
-    parser.add_argument('--transform', type=str, default='VGG')
-    parser.add_argument('--curve', type=str, default='Bezier')
-    parser.add_argument('--num_bends', type=int, default=3)
-    parser.add_argument('--num_points', type=int, default=61)
-    parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument('--num_workers', type=int, default=4)
-    parser.add_argument('--use_test', action='store_true')
+    parser.add_argument('--use-test', action='store_true',
+                        help='Use test set')
+    parser.add_argument('--num-points', type=int, default=61,
+                        help='Number of points to evaluate (default: 61)')
+    parser.add_argument('--curve-type', type=str, default='Bezier',
+                        help='Curve type (Bezier, PolyChain, etc.) (default: Bezier)')
+    parser.add_argument('--num-bends', type=int, default=3,
+                        help='Number of bend points (default: 3)')
+
+    # Standard arguments using ArgumentParserBuilder
+    ArgumentParserBuilder.add_model_args(parser)
+    ArgumentParserBuilder.add_dataset_args(parser)
 
     args = parser.parse_args()
 
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
+    # Setup using lib modules
+    EvalSetup.add_external_path()
+    device = EvalSetup.get_device()
 
     # Load dataset
     print(f"\nLoading {args.dataset} dataset...")
-    loaders, num_classes = data.loaders(
-        args.dataset,
-        args.data_path,
-        args.batch_size,
-        args.num_workers,
-        args.transform,
-        args.use_test,
+    loaders, num_classes = EvalSetup.load_data(
+        args.dataset, args.data_path, args.batch_size,
+        args.num_workers, args.transform, args.use_test,
         shuffle_train=False
     )
 
     test_loader = loaders['test']
-    train_loader = loaders['train']
+    architecture = EvalSetup.get_architecture(args.model)
+
+    # Load models using lib
+    loader = CheckpointLoader(device)
 
     # Load curve model
     print(f"\nLoading curve model from {args.curve_ckpt}...")
-    architecture = getattr(models, args.model)
-    curve_cls = getattr(curves, args.curve)
-    curve_model = curves.CurveNet(
-        num_classes,
-        curve_cls,
-        architecture.curve,
-        args.num_bends,
-        architecture_kwargs=architecture.kwargs,
+    curve_model = EvalSetup.create_curve_model(
+        architecture, num_classes, args.curve_type, args.num_bends, device
     )
-    curve_model.to(device)
-    curve_checkpoint = torch.load(args.curve_ckpt, map_location=device)
-    curve_model.load_state_dict(curve_checkpoint['model_state'])
+    loader.load_into_model(curve_model, args.curve_ckpt)
 
     # Load endpoint models
     print(f"\nLoading endpoint 0 from {args.endpoint0_ckpt}...")
-    model_t0 = architecture.base(num_classes=num_classes, **architecture.kwargs)
-    model_t0.to(device)
-    endpoint0_checkpoint = torch.load(args.endpoint0_ckpt, map_location=device)
-    model_t0.load_state_dict(endpoint0_checkpoint['model_state'])
+    model_t0 = EvalSetup.create_standard_model(architecture, num_classes, device)
+    loader.load_into_model(model_t0, args.endpoint0_ckpt)
 
     print(f"Loading endpoint 1 from {args.endpoint1_ckpt}...")
-    model_t1 = architecture.base(num_classes=num_classes, **architecture.kwargs)
-    model_t1.to(device)
-    endpoint1_checkpoint = torch.load(args.endpoint1_ckpt, map_location=device)
-    model_t1.load_state_dict(endpoint1_checkpoint['model_state'])
+    model_t1 = EvalSetup.create_standard_model(architecture, num_classes, device)
+    loader.load_into_model(model_t1, args.endpoint1_ckpt)
 
     # Extract features from endpoints
     print(f"\nExtracting features from endpoints...")

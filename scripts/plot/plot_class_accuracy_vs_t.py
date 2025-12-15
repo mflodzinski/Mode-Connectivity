@@ -7,6 +7,16 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+import sys
+import os
+
+# Add lib to path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_root = os.path.join(script_dir, '..')
+sys.path.insert(0, scripts_root)
+
+from lib.analysis import plotting
+from lib.utils.args import ArgumentParserBuilder
 
 
 def compute_per_class_accuracy(predictions, targets, ts):
@@ -111,8 +121,7 @@ def plot_class_accuracy_curves(accuracies, class_counts, ts, output_path):
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
 
     plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"\nSaved plot to: {output_path}")
+    plotting.save_figure(fig, output_path)
     plt.close()
 
 
@@ -176,16 +185,18 @@ def print_statistics(accuracies, class_counts, ts):
 
 def main():
     parser = argparse.ArgumentParser(description='Plot per-class accuracy vs t')
+
+    # Custom arguments
     parser.add_argument('--predictions', type=str, required=True,
                         help='Path to predictions_detailed.npz')
-    parser.add_argument('--output', type=str, required=True,
-                        help='Output directory for figure')
+
+    # Standard arguments using ArgumentParserBuilder
+    ArgumentParserBuilder.add_plot_output_args(parser)
 
     args = parser.parse_args()
 
     # Create output directory
-    output_dir = Path(args.output)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = plotting.create_output_dir(args.output)
 
     # Load predictions data
     print(f"Loading predictions from {args.predictions}...")

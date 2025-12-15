@@ -3,16 +3,28 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import sys
+
+# Add lib to path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_root = os.path.join(script_dir, '..')
+sys.path.insert(0, scripts_root)
+
+from lib.analysis import plotting
+from lib.utils.args import ArgumentParserBuilder
 
 parser = argparse.ArgumentParser(description='Plot L2 norm evolution of middle point during curve training')
+
+# Custom arguments
 parser.add_argument('--data', type=str, required=True, metavar='PATH',
                     help='path to middle_point_l2_norms.npz file')
-parser.add_argument('--output', type=str, default=None, metavar='PATH',
-                    help='output path for figure (default: same directory as data)')
 parser.add_argument('--title', type=str, default=None,
                     help='custom title for the plot')
 parser.add_argument('--dpi', type=int, default=300,
                     help='DPI for saved figure (default: 300)')
+
+# Standard arguments
+ArgumentParserBuilder.add_plot_output_args(parser, required=False)
 
 args = parser.parse_args()
 
@@ -70,15 +82,14 @@ plt.tight_layout()
 if args.output is None:
     data_dir = os.path.dirname(args.data)
     figures_dir = data_dir.replace('/evaluations', '/figures')
-    os.makedirs(figures_dir, exist_ok=True)
+    plotting.create_output_dir(figures_dir)
     output_path = os.path.join(figures_dir, 'middle_point_l2_evolution.png')
 else:
     output_path = args.output
-    os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else '.', exist_ok=True)
 
 # Save figure
-plt.savefig(output_path, dpi=args.dpi, bbox_inches='tight')
-print(f'Figure saved to: {output_path}')
+plotting.save_figure(fig, output_path, dpi=args.dpi)
 
 # Show plot
-plt.show()
+if args.show:
+    plt.show()

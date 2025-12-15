@@ -8,8 +8,8 @@ echo "Saving Edge Case Sample Images"
 echo "=========================================="
 
 # Paths
-PREDICTIONS_FILE="results/vgg16/cifar10/curve_seed0-seed1_reg/evaluations/predictions_detailed.npz"
-OUTPUT_DIR="results/vgg16/cifar10/curve_seed0-seed1_reg/edge_cases/images"
+PREDICTIONS_FILE="results/vgg16/cifar10/curves/standard/seed0-seed1_reg/evaluations/predictions_detailed.npz"
+OUTPUT_DIR="results/vgg16/cifar10/curves/standard/seed0-seed1_reg/edge_cases/images"
 
 if [ ! -f "$PREDICTIONS_FILE" ]; then
     echo "Error: Predictions file not found: $PREDICTIONS_FILE"

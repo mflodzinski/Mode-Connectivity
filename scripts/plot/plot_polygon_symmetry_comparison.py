@@ -2,32 +2,55 @@
 Plot comparison between polygon chain (unconstrained), symmetry plane (constrained), and linear interpolation.
 
 Shows that constraining to symmetry plane doesn't degrade performance compared to unconstrained polygon chain.
+All curves are optional - you can plot any combination.
 """
 
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import sys
+
+# Add lib to path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_root = os.path.join(script_dir, '..')
+sys.path.insert(0, scripts_root)
+
+from lib.analysis import plotting
+from lib.utils.args import ArgumentParserBuilder
 
 
 def plot_comparison(args):
     """Create comparison plot for polygon chain vs symmetry plane vs linear."""
 
-    # Load data
+    # Load data (all optional)
     print("Loading evaluation data...")
-    polygon_data = np.load(args.polygon_file)
-    symplane_data = np.load(args.symplane_file)
-    linear_data = np.load(args.linear_file)
+    polygon_data = np.load(args.polygon_file) if args.polygon_file else None
+    symplane_data = np.load(args.symplane_file) if args.symplane_file else None
+    linear_data = np.load(args.linear_file) if args.linear_file else None
 
-    # Extract t values (should be same for all)
-    t_polygon = polygon_data['ts']
-    t_symplane = symplane_data['ts']
-    t_linear = linear_data['ts']
+    # Check that at least one curve is provided
+    if not any([polygon_data is not None, symplane_data is not None, linear_data is not None]):
+        raise ValueError("At least one curve file must be provided!")
+
+    # Extract t values (use first available)
+    t_polygon = polygon_data['ts'] if polygon_data is not None else None
+    t_symplane = symplane_data['ts'] if symplane_data is not None else None
+    t_linear = linear_data['ts'] if linear_data is not None else None
+
+    # Build title based on what's being plotted
+    curves_plotted = []
+    if polygon_data is not None:
+        curves_plotted.append("Polygon Chain")
+    if symplane_data is not None:
+        curves_plotted.append("Symmetry Plane")
+    if linear_data is not None:
+        curves_plotted.append("Linear")
+    title = ' vs '.join(curves_plotted) + ' Comparison'
 
     # Create figure with 4 subplots (2x2)
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-    fig.suptitle('Polygon Chain vs Symmetry Plane vs Linear Interpolation',
-                 fontsize=16, fontweight='bold')
+    fig.suptitle(title, fontsize=16, fontweight='bold')
 
     # Plot styles
     styles = {
@@ -41,9 +64,12 @@ def plot_comparison(args):
 
     # Panel 1: Test Error
     ax = axes[0, 0]
-    ax.plot(t_linear, linear_data['te_err'], **styles['linear'])
-    ax.plot(t_polygon, polygon_data['te_err'], **styles['polygon'])
-    ax.plot(t_symplane, symplane_data['te_err'], **styles['symplane'])
+    if linear_data is not None:
+        ax.plot(t_linear, linear_data['te_err'], **styles['linear'])
+    if polygon_data is not None:
+        ax.plot(t_polygon, polygon_data['te_err'], **styles['polygon'])
+    if symplane_data is not None:
+        ax.plot(t_symplane, symplane_data['te_err'], **styles['symplane'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
     ax.set_ylabel('Test Error (%)', fontsize=12)
     ax.set_title('Test Error Along Path', fontsize=13, fontweight='bold')
@@ -53,9 +79,12 @@ def plot_comparison(args):
 
     # Panel 2: Test Loss
     ax = axes[0, 1]
-    ax.plot(t_linear, linear_data['te_loss'], **styles['linear'])
-    ax.plot(t_polygon, polygon_data['te_loss'], **styles['polygon'])
-    ax.plot(t_symplane, symplane_data['te_loss'], **styles['symplane'])
+    if linear_data is not None:
+        ax.plot(t_linear, linear_data['te_loss'], **styles['linear'])
+    if polygon_data is not None:
+        ax.plot(t_polygon, polygon_data['te_loss'], **styles['polygon'])
+    if symplane_data is not None:
+        ax.plot(t_symplane, symplane_data['te_loss'], **styles['symplane'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
     ax.set_ylabel('Test Loss', fontsize=12)
     ax.set_title('Test Loss Along Path', fontsize=13, fontweight='bold')
@@ -65,9 +94,12 @@ def plot_comparison(args):
 
     # Panel 3: Train Error
     ax = axes[1, 0]
-    ax.plot(t_linear, linear_data['tr_err'], **styles['linear'])
-    ax.plot(t_polygon, polygon_data['tr_err'], **styles['polygon'])
-    ax.plot(t_symplane, symplane_data['tr_err'], **styles['symplane'])
+    if linear_data is not None:
+        ax.plot(t_linear, linear_data['tr_err'], **styles['linear'])
+    if polygon_data is not None:
+        ax.plot(t_polygon, polygon_data['tr_err'], **styles['polygon'])
+    if symplane_data is not None:
+        ax.plot(t_symplane, symplane_data['tr_err'], **styles['symplane'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
     ax.set_ylabel('Train Error (%)', fontsize=12)
     ax.set_title('Train Error Along Path', fontsize=13, fontweight='bold')
@@ -77,9 +109,12 @@ def plot_comparison(args):
 
     # Panel 4: Train Loss
     ax = axes[1, 1]
-    ax.plot(t_linear, linear_data['tr_loss'], **styles['linear'])
-    ax.plot(t_polygon, polygon_data['tr_loss'], **styles['polygon'])
-    ax.plot(t_symplane, symplane_data['tr_loss'], **styles['symplane'])
+    if linear_data is not None:
+        ax.plot(t_linear, linear_data['tr_loss'], **styles['linear'])
+    if polygon_data is not None:
+        ax.plot(t_polygon, polygon_data['tr_loss'], **styles['polygon'])
+    if symplane_data is not None:
+        ax.plot(t_symplane, symplane_data['tr_loss'], **styles['symplane'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
     ax.set_ylabel('Train Loss', fontsize=12)
     ax.set_title('Train Loss Along Path', fontsize=13, fontweight='bold')
@@ -93,83 +128,130 @@ def plot_comparison(args):
 
     # Print summary statistics
     print("\n" + "=" * 80)
-    print("POLYGON CHAIN VS SYMMETRY PLANE COMPARISON")
+    print(title.upper())
     print("=" * 80)
 
-    print("\nMaximum Test Error:")
-    linear_max_err = np.max(linear_data['te_err'])
-    polygon_max_err = np.max(polygon_data['te_err'])
-    symplane_max_err = np.max(symplane_data['te_err'])
+    # Calculate metrics for each curve
+    metrics = {}
+    if linear_data is not None:
+        linear_max_err = np.max(linear_data['te_err'])
+        linear_endpoint_err = (linear_data['te_err'][0] + linear_data['te_err'][-1]) / 2
+        linear_barrier = linear_max_err - linear_endpoint_err
+        metrics['linear'] = {'max_err': linear_max_err, 'barrier': linear_barrier, 't': t_linear}
 
-    print(f"  Linear:         {linear_max_err:.2f}% at t={t_linear[np.argmax(linear_data['te_err'])]:.3f}")
-    print(f"  Polygon Chain:  {polygon_max_err:.2f}% at t={t_polygon[np.argmax(polygon_data['te_err'])]:.3f}")
-    print(f"  Symmetry Plane: {symplane_max_err:.2f}% at t={t_symplane[np.argmax(symplane_data['te_err'])]:.3f}")
+    if polygon_data is not None:
+        polygon_max_err = np.max(polygon_data['te_err'])
+        polygon_endpoint_err = (polygon_data['te_err'][0] + polygon_data['te_err'][-1]) / 2
+        polygon_barrier = polygon_max_err - polygon_endpoint_err
+        metrics['polygon'] = {'max_err': polygon_max_err, 'barrier': polygon_barrier, 't': t_polygon}
+
+    if symplane_data is not None:
+        symplane_max_err = np.max(symplane_data['te_err'])
+        symplane_endpoint_err = (symplane_data['te_err'][0] + symplane_data['te_err'][-1]) / 2
+        symplane_barrier = symplane_max_err - symplane_endpoint_err
+        metrics['symplane'] = {'max_err': symplane_max_err, 'barrier': symplane_barrier, 't': t_symplane}
+
+    print("\nMaximum Test Error:")
+    if 'linear' in metrics:
+        print(f"  Linear:         {metrics['linear']['max_err']:.2f}%")
+    if 'polygon' in metrics:
+        print(f"  Polygon Chain:  {metrics['polygon']['max_err']:.2f}%")
+    if 'symplane' in metrics:
+        print(f"  Symmetry Plane: {metrics['symplane']['max_err']:.2f}%")
 
     print("\nBarrier Height (max - endpoint avg):")
-    linear_endpoint_err = (linear_data['te_err'][0] + linear_data['te_err'][-1]) / 2
-    polygon_endpoint_err = (polygon_data['te_err'][0] + polygon_data['te_err'][-1]) / 2
-    symplane_endpoint_err = (symplane_data['te_err'][0] + symplane_data['te_err'][-1]) / 2
+    if 'linear' in metrics:
+        print(f"  Linear:         {metrics['linear']['barrier']:.2f}%")
+    if 'polygon' in metrics:
+        print(f"  Polygon Chain:  {metrics['polygon']['barrier']:.2f}%")
+    if 'symplane' in metrics:
+        print(f"  Symmetry Plane: {metrics['symplane']['barrier']:.2f}%")
 
-    linear_barrier = linear_max_err - linear_endpoint_err
-    polygon_barrier = polygon_max_err - polygon_endpoint_err
-    symplane_barrier = symplane_max_err - symplane_endpoint_err
+    # Comparison stats (only if relevant curves present)
+    if 'symplane' in metrics and 'polygon' in metrics:
+        print("\nDifference (Symmetry Plane - Polygon Chain):")
+        err_diff = metrics['symplane']['max_err'] - metrics['polygon']['max_err']
+        barrier_diff = metrics['symplane']['barrier'] - metrics['polygon']['barrier']
+        print(f"  Max Test Error: {err_diff:+.3f}%")
+        print(f"  Barrier Height: {barrier_diff:+.3f}%")
 
-    print(f"  Linear:         {linear_barrier:.2f}%")
-    print(f"  Polygon Chain:  {polygon_barrier:.2f}%")
-    print(f"  Symmetry Plane: {symplane_barrier:.2f}%")
+        if abs(barrier_diff) < 0.5:
+            print("\n✓ Symmetry plane constraint does NOT degrade performance!")
+            print(f"  Difference is only {abs(barrier_diff):.3f}% (negligible)")
 
-    print("\nDifference (Symmetry Plane - Polygon Chain):")
-    err_diff = symplane_max_err - polygon_max_err
-    barrier_diff = symplane_barrier - polygon_barrier
-    print(f"  Max Test Error: {err_diff:+.3f}% ({abs(err_diff)/polygon_max_err*100:.2f}% relative)")
-    print(f"  Barrier Height: {barrier_diff:+.3f}%")
-
-    if abs(barrier_diff) < 0.5:
-        print("\n✓ Symmetry plane constraint does NOT degrade performance!")
-        print(f"  Difference is only {abs(barrier_diff):.3f}% (negligible)")
-    else:
-        print(f"\n  Performance difference: {barrier_diff:.2f}%")
-
-    print("\nBarrier Reduction vs Linear:")
-    linear_reduction_polygon = (linear_barrier - polygon_barrier) / linear_barrier * 100
-    linear_reduction_symplane = (linear_barrier - symplane_barrier) / linear_barrier * 100
-    print(f"  Polygon Chain:  {linear_reduction_polygon:.1f}%")
-    print(f"  Symmetry Plane: {linear_reduction_symplane:.1f}%")
+    if 'linear' in metrics:
+        print("\nBarrier Reduction vs Linear:")
+        if 'polygon' in metrics:
+            reduction = (metrics['linear']['barrier'] - metrics['polygon']['barrier']) / metrics['linear']['barrier'] * 100
+            print(f"  Polygon Chain:  {reduction:.1f}%")
+        if 'symplane' in metrics:
+            reduction = (metrics['linear']['barrier'] - metrics['symplane']['barrier']) / metrics['linear']['barrier'] * 100
+            print(f"  Symmetry Plane: {reduction:.1f}%")
 
     print("=" * 80)
 
     # Adjust layout and save
     plt.tight_layout(rect=[0, 0, 1, 0.96])
 
-    output_path = args.output if args.output else os.path.join(
-        os.path.dirname(args.polygon_file), '../figures/polygon_symmetry_comparison.png'
-    )
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"\nPlot saved to: {output_path}")
+    # Determine output path (use first available file's directory)
+    if args.output:
+        output_path = args.output
+    else:
+        # Find first available file to use its directory
+        first_file = args.polygon_file or args.symplane_file or args.linear_file
+        output_path = os.path.join(
+            os.path.dirname(first_file), '../figures/polygon_symmetry_comparison.png'
+        )
+    # Save figure
+    plotting.save_figure(fig, output_path)
 
     # Save summary to text file
-    summary_path = output_path.replace('.png', '_summary.txt')
-    with open(summary_path, 'w') as f:
-        f.write("=" * 80 + "\n")
-        f.write("POLYGON CHAIN VS SYMMETRY PLANE COMPARISON\n")
-        f.write("=" * 80 + "\n\n")
-        f.write(f"Maximum Test Error:\n")
-        f.write(f"  Linear:         {linear_max_err:.2f}%\n")
-        f.write(f"  Polygon Chain:  {polygon_max_err:.2f}%\n")
-        f.write(f"  Symmetry Plane: {symplane_max_err:.2f}%\n\n")
-        f.write(f"Barrier Height:\n")
-        f.write(f"  Linear:         {linear_barrier:.2f}%\n")
-        f.write(f"  Polygon Chain:  {polygon_barrier:.2f}%\n")
-        f.write(f"  Symmetry Plane: {symplane_barrier:.2f}%\n\n")
-        f.write(f"Difference (Symmetry - Polygon): {barrier_diff:+.3f}%\n")
-        f.write(f"Barrier Reduction vs Linear:\n")
-        f.write(f"  Polygon Chain:  {linear_reduction_polygon:.1f}%\n")
-        f.write(f"  Symmetry Plane: {linear_reduction_symplane:.1f}%\n")
-        f.write("=" * 80 + "\n")
+    summary_lines = []
+    summary_lines.append("=" * 80)
+    summary_lines.append(title.upper())
+    summary_lines.append("=" * 80)
+    summary_lines.append("")
 
-    print(f"Summary saved to: {summary_path}")
+    # Write metrics for available curves
+    summary_lines.append("Maximum Test Error:")
+    if 'linear' in metrics:
+        summary_lines.append(f"  Linear:         {metrics['linear']['max_err']:.2f}%")
+    if 'polygon' in metrics:
+        summary_lines.append(f"  Polygon Chain:  {metrics['polygon']['max_err']:.2f}%")
+    if 'symplane' in metrics:
+        summary_lines.append(f"  Symmetry Plane: {metrics['symplane']['max_err']:.2f}%")
+    summary_lines.append("")
+
+    summary_lines.append("Barrier Height:")
+    if 'linear' in metrics:
+        summary_lines.append(f"  Linear:         {metrics['linear']['barrier']:.2f}%")
+    if 'polygon' in metrics:
+        summary_lines.append(f"  Polygon Chain:  {metrics['polygon']['barrier']:.2f}%")
+    if 'symplane' in metrics:
+        summary_lines.append(f"  Symmetry Plane: {metrics['symplane']['barrier']:.2f}%")
+    summary_lines.append("")
+
+    # Write comparison stats only if relevant curves present
+    if 'symplane' in metrics and 'polygon' in metrics:
+        err_diff = metrics['symplane']['max_err'] - metrics['polygon']['max_err']
+        barrier_diff = metrics['symplane']['barrier'] - metrics['polygon']['barrier']
+        summary_lines.append(f"Difference (Symmetry - Polygon): {barrier_diff:+.3f}%")
+        summary_lines.append("")
+
+    if 'linear' in metrics:
+        summary_lines.append("Barrier Reduction vs Linear:")
+        if 'polygon' in metrics:
+            reduction = (metrics['linear']['barrier'] - metrics['polygon']['barrier']) / metrics['linear']['barrier'] * 100
+            summary_lines.append(f"  Polygon Chain:  {reduction:.1f}%")
+        if 'symplane' in metrics:
+            reduction = (metrics['linear']['barrier'] - metrics['symplane']['barrier']) / metrics['linear']['barrier'] * 100
+            summary_lines.append(f"  Symmetry Plane: {reduction:.1f}%")
+        summary_lines.append("")
+
+    summary_lines.append("=" * 80)
+
+    summary_path = output_path.replace('.png', '_summary.txt')
+    plotting.save_summary_text(summary_lines, summary_path)
 
     if args.show:
         plt.show()
@@ -180,16 +262,16 @@ if __name__ == '__main__':
         description='Plot Polygon Chain vs Symmetry Plane Comparison'
     )
 
-    parser.add_argument('--polygon-file', type=str, required=True,
-                       help='Path to polygon chain curve.npz file')
-    parser.add_argument('--symplane-file', type=str, required=True,
-                       help='Path to symmetry plane curve.npz file')
-    parser.add_argument('--linear-file', type=str, required=True,
-                       help='Path to linear.npz file (from either experiment)')
-    parser.add_argument('--output', type=str, default=None,
-                       help='Output path for plot (default: auto-generated)')
-    parser.add_argument('--show', action='store_true',
-                       help='Display plot interactively')
+    # Custom arguments
+    parser.add_argument('--polygon-file', type=str, default=None,
+                       help='Path to polygon chain curve.npz file (optional)')
+    parser.add_argument('--symplane-file', type=str, default=None,
+                       help='Path to symmetry plane curve.npz file (optional)')
+    parser.add_argument('--linear-file', type=str, default=None,
+                       help='Path to linear.npz file (optional)')
+
+    # Standard arguments using ArgumentParserBuilder
+    ArgumentParserBuilder.add_plot_output_args(parser, required=False)
 
     args = parser.parse_args()
     plot_comparison(args)

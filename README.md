@@ -158,8 +158,8 @@ sbatch scripts/slurm/neuronswap/submit_neuronswap_analysis.sh
 **Visualize:**
 ```bash
 python scripts/plotting/plot_layer_distance_animation.py \
-    --data results/vgg16/cifar10/curve_neuronswap_mid2_reg/analysis/layer_distances_along_curve.npz \
-    --output results/vgg16/cifar10/curve_neuronswap_mid2_reg/analysis/layer_distances_evolution.gif \
+    --data results/vgg16/cifar10/curves/neuronswap/mid2_reg/analysis/layer_distances_along_curve.npz \
+    --output results/vgg16/cifar10/curves/neuronswap/mid2_reg/analysis/layer_distances_evolution.gif \
     --fps 10 \
     --metric normalized_l2 \
     --heatmap

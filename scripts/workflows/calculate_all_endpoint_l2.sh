@@ -13,12 +13,12 @@ OUTPUT_DIR="results/vgg16/cifar10/endpoint_l2_distances"
 mkdir -p "$OUTPUT_DIR"
 
 # Endpoints
-SEED0="results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
-SEED1="results/vgg16/cifar10/endpoints/checkpoints/seed1/checkpoint-200.pt"
-MIRROR="results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt"
-EARLY2="results/vgg16/cifar10/endpoints_neuronswap/early2/checkpoint-200.pt"
-MID2="results/vgg16/cifar10/endpoints_neuronswap/mid2/checkpoint-200.pt"
-LATE2="results/vgg16/cifar10/endpoints_neuronswap/late2/checkpoint-200.pt"
+SEED0="results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt"
+SEED1="results/vgg16/cifar10/endpoints/standard/seed1/checkpoint-200.pt"
+MIRROR="results/vgg16/cifar10/endpoints/standard/seed0_mirrored/checkpoint-200.pt"
+EARLY2="results/vgg16/cifar10/endpoints/neuronswap/early2/checkpoint-200.pt"
+MID2="results/vgg16/cifar10/endpoints/neuronswap/mid2/checkpoint-200.pt"
+LATE2="results/vgg16/cifar10/endpoints/neuronswap/late2/checkpoint-200.pt"
 
 echo ""
 echo "Endpoints:"

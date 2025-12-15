@@ -8,10 +8,10 @@ echo "Analyzing seed0-mirror Layer Distances"
 echo "=========================================="
 
 # Paths
-CURVE_CHECKPOINT="results/vgg16/cifar10/curve_seed0-mirror_noreg/checkpoints/checkpoint-200.pt"
-ENDPOINT0="results/vgg16/cifar10/endpoints/checkpoints/seed0/checkpoint-200.pt"
-ENDPOINT1="results/vgg16/cifar10/endpoints/checkpoints/seed0_mirrored/checkpoint-200.pt"
-OUTPUT_DIR="results/vgg16/cifar10/curve_seed0-mirror_noreg/layer_analysis"
+CURVE_CHECKPOINT="results/vgg16/cifar10/curves/standard/seed0-mirror_noreg/checkpoints/checkpoint-200.pt"
+ENDPOINT0="results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt"
+ENDPOINT1="results/vgg16/cifar10/endpoints/standard/seed0_mirrored/checkpoint-200.pt"
+OUTPUT_DIR="results/vgg16/cifar10/curves/standard/seed0-mirror_noreg/layer_analysis"
 
 # Create temporary metadata file (full permutation for mirror)
 TMP_METADATA=$(mktemp)

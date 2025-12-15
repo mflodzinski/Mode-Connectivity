@@ -13,6 +13,15 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import sys
+
+# Add lib to path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_root = os.path.join(script_dir, '..')
+sys.path.insert(0, scripts_root)
+
+from lib.analysis import plotting
+from lib.utils.args import ArgumentParserBuilder
 
 
 def plot_comparison(args):
@@ -138,8 +147,7 @@ def plot_comparison(args):
         os.path.dirname(args.comparison_file), 'symmetry_plane_comparison.png'
     )
 
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"\nPlot saved to: {output_path}")
+    plotting.save_figure(fig, output_path)
 
     if args.show:
         plt.show()
@@ -148,12 +156,12 @@ def plot_comparison(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Plot Symmetry Plane Comparison')
 
+    # Custom arguments
     parser.add_argument('--comparison-file', type=str, required=True,
                        help='Path to comparison.npz file')
-    parser.add_argument('--output', type=str, default=None,
-                       help='Output path for plot (default: same dir as comparison file)')
-    parser.add_argument('--show', action='store_true',
-                       help='Display plot interactively')
+
+    # Standard arguments using ArgumentParserBuilder
+    ArgumentParserBuilder.add_plot_output_args(parser, required=False)
 
     args = parser.parse_args()
     plot_comparison(args)
