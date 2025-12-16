@@ -216,3 +216,8 @@ slurm_*.err
 
 # Downloaded checkpoints
 checkpoints/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride

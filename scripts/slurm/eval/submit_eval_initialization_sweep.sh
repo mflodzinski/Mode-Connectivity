@@ -25,37 +25,37 @@ echo "EVALUATING ALL INITIALIZATION EXPERIMENTS"
 echo "================================================================================"
 echo ""
 
-# Array of experiment directories
-EXPERIMENTS=(
-    "curve_init_alpha0.1"
-    "curve_init_alpha0.25"
-    "curve_init_alpha0.5"
-    "curve_init_alpha0.75"
-    "curve_init_alpha0.9"
-    "curve_init_perturbed_small"
-    "curve_init_perturbed_medium"
-    "curve_init_perturbed_large"
-    "curve_init_sphere_inside"
-    "curve_init_sphere_outside"
-)
+# Array of config names and their checkpoint paths
+declare -A CONFIGS
+CONFIGS["alpha0.75"]="results/vgg16/cifar10/curves/initialization/biased_linear/alpha_0.75/checkpoints"
+CONFIGS["alpha0.9"]="results/vgg16/cifar10/curves/initialization/biased_linear/alpha_0.9/checkpoints"
+CONFIGS["perturbed_small"]="results/vgg16/cifar10/curves/initialization/perturbed_linear/noise_0.01/checkpoints"
+CONFIGS["perturbed_large"]="results/vgg16/cifar10/curves/initialization/perturbed_linear/noise_0.1/checkpoints"
+CONFIGS["sphere_inside"]="results/vgg16/cifar10/curves/initialization/sphere_constrained/inside/checkpoints"
+CONFIGS["sphere_outside"]="results/vgg16/cifar10/curves/initialization/sphere_constrained/outside/checkpoints"
 
-for EXPERIMENT in "${EXPERIMENTS[@]}"; do
+for NAME in "${!CONFIGS[@]}"; do
     echo "--------------------------------------------------------------------------------"
-    echo "Evaluating: ${EXPERIMENT}"
+    echo "Evaluating: ${NAME}"
     echo "--------------------------------------------------------------------------------"
+
+    CKPT_DIR="${CONFIGS[$NAME]}"
+    CHECKPOINT="${CKPT_DIR}/checkpoint-100.pt"
 
     # Check if checkpoint exists
-    CHECKPOINT="results/vgg16/cifar10/${EXPERIMENT}/checkpoints/checkpoint-200.pt"
     if [ ! -f "${CHECKPOINT}" ]; then
         echo "⚠️  WARNING: Checkpoint not found: ${CHECKPOINT}"
-        echo "Skipping ${EXPERIMENT}"
+        echo "Skipping ${NAME}"
         echo ""
         continue
     fi
 
-    # Create evaluations directory
-    EVAL_DIR="results/vgg16/cifar10/${EXPERIMENT}/evaluations"
+    # Create evaluations directory (same parent as checkpoints)
+    EVAL_DIR="${CKPT_DIR%/checkpoints}/evaluations"
     mkdir -p "${EVAL_DIR}"
+
+    echo "Checkpoint: ${CHECKPOINT}"
+    echo "Output dir: ${EVAL_DIR}"
 
     # Run evaluation
     echo "Running evaluation..."
@@ -72,11 +72,11 @@ for EXPERIMENT in "${EXPERIMENTS[@]}"; do
       --use_test
 
     if [ $? -eq 0 ]; then
-        echo "✓ ${EXPERIMENT} evaluation complete"
+        echo "✓ ${NAME} evaluation complete"
         echo "  Results saved to: ${EVAL_DIR}"
-        ls -lh "${EVAL_DIR}"/*.npz
+        ls -lh "${EVAL_DIR}"/*.npz 2>/dev/null || echo "  No .npz files found"
     else
-        echo "✗ ${EXPERIMENT} evaluation failed"
+        echo "✗ ${NAME} evaluation failed"
     fi
 
     echo ""
@@ -87,12 +87,13 @@ echo "ALL EVALUATIONS COMPLETE"
 echo "================================================================================"
 echo ""
 echo "Summary of generated files:"
-for EXPERIMENT in "${EXPERIMENTS[@]}"; do
-    EVAL_DIR="results/vgg16/cifar10/${EXPERIMENT}/evaluations"
+for NAME in "${!CONFIGS[@]}"; do
+    CKPT_DIR="${CONFIGS[$NAME]}"
+    EVAL_DIR="${CKPT_DIR%/checkpoints}/evaluations"
 
     if [ -d "${EVAL_DIR}" ]; then
-        echo "${EXPERIMENT}:"
-        ls -lh "${EVAL_DIR}"/*.npz 2>/dev/null | awk '{print "  " $9 " (" $5 ")"}'
+        echo "${NAME}:"
+        ls -lh "${EVAL_DIR}"/*.npz 2>/dev/null | awk '{print "  " $9 " (" $5 ")"}' || echo "  No files"
     fi
 done
 echo ""
