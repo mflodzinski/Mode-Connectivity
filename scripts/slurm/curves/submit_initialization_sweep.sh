@@ -31,7 +31,7 @@ echo "  - Sphere-constrained (2 variants: inside and outside)"
 echo ""
 echo "All experiments use:"
 echo "  - Endpoints: seed0 and seed1 (checkpoint-200.pt)"
-echo "  - Epochs: 200"
+echo "  - Epochs: 100"
 echo "  - Learning rate: 0.015"
 echo "  - Weight decay: 0.0 (no regularization)"
 echo "  - Bezier curve with 3 bends"
@@ -40,13 +40,9 @@ echo ""
 
 # Array of config files
 CONFIGS=(
-    "vgg16_curve_init_alpha0.1"
-    "vgg16_curve_init_alpha0.25"
-    "vgg16_curve_init_alpha0.5"
     "vgg16_curve_init_alpha0.75"
     "vgg16_curve_init_alpha0.9"
     "vgg16_curve_init_perturbed_small"
-    "vgg16_curve_init_perturbed_medium"
     "vgg16_curve_init_perturbed_large"
     "vgg16_curve_init_sphere_inside"
     "vgg16_curve_init_sphere_outside"
@@ -58,19 +54,29 @@ for CONFIG in "${CONFIGS[@]}"; do
     echo "Training: ${CONFIG}"
     echo "--------------------------------------------------------------------------------"
 
+    # Extract output_root from config file to get correct checkpoint directory
+    CONFIG_FILE="configs/garipov/curves_init/${CONFIG}.yaml"
+    OUTPUT_ROOT=$(grep "^output_root:" "${CONFIG_FILE}" | sed 's/output_root: *"\(.*\)"/\1/')
+
+    # Create output directory if it doesn't exist
+    echo "Creating output directory: ${OUTPUT_ROOT}"
+    mkdir -p "${OUTPUT_ROOT}"
+
     # Run training
     echo "Starting training..."
-    srun python scripts/train/train_garipov_curve.py \
+    srun python scripts/train/run_garipov_curve.py \
         --config-name="${CONFIG}"
 
     if [ $? -eq 0 ]; then
         echo "✓ ${CONFIG} training complete"
 
         # Show checkpoint info
-        CHECKPOINT_DIR="results/vgg16/cifar10/${CONFIG#vgg16_}/checkpoints"
-        if [ -f "${CHECKPOINT_DIR}/checkpoint-200.pt" ]; then
-            echo "  Final checkpoint: ${CHECKPOINT_DIR}/checkpoint-200.pt"
-            ls -lh "${CHECKPOINT_DIR}/checkpoint-200.pt"
+        CHECKPOINT="${OUTPUT_ROOT}/checkpoint-100.pt"
+        if [ -f "${CHECKPOINT}" ]; then
+            echo "  Final checkpoint: ${CHECKPOINT}"
+            ls -lh "${CHECKPOINT}"
+        else
+            echo "  Warning: Expected checkpoint not found at ${CHECKPOINT}"
         fi
     else
         echo "✗ ${CONFIG} training failed"
@@ -85,8 +91,10 @@ echo "==========================================================================
 echo ""
 echo "Summary of trained curves:"
 for CONFIG in "${CONFIGS[@]}"; do
-    CHECKPOINT_DIR="results/vgg16/cifar10/${CONFIG#vgg16_}/checkpoints"
-    CHECKPOINT="${CHECKPOINT_DIR}/checkpoint-200.pt"
+    # Extract output_root from config file
+    CONFIG_FILE="configs/garipov/curves_init/${CONFIG}.yaml"
+    OUTPUT_ROOT=$(grep "^output_root:" "${CONFIG_FILE}" | sed 's/output_root: *"\(.*\)"/\1/')
+    CHECKPOINT="${OUTPUT_ROOT}/checkpoint-100.pt"
 
     if [ -f "${CHECKPOINT}" ]; then
         SIZE=$(ls -lh "${CHECKPOINT}" | awk '{print $5}')
