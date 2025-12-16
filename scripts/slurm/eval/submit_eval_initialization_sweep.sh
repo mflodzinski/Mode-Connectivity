@@ -29,8 +29,8 @@ echo ""
 declare -A CONFIGS
 CONFIGS["alpha0.75"]="results/vgg16/cifar10/curves/initialization/biased_linear/alpha_0.75/checkpoints"
 CONFIGS["alpha0.9"]="results/vgg16/cifar10/curves/initialization/biased_linear/alpha_0.9/checkpoints"
-CONFIGS["perturbed_small"]="results/vgg16/cifar10/curves/initialization/perturbed_linear/noise_0.01/checkpoints"
-CONFIGS["perturbed_large"]="results/vgg16/cifar10/curves/initialization/perturbed_linear/noise_0.1/checkpoints"
+CONFIGS["perturbed_small"]="results/vgg16/cifar10/curves/initialization/perturbed/noise_0.01/checkpoints"
+CONFIGS["perturbed_large"]="results/vgg16/cifar10/curves/initialization/perturbed/noise_0.1/checkpoints"
 CONFIGS["sphere_inside"]="results/vgg16/cifar10/curves/initialization/sphere_constrained/inside/checkpoints"
 CONFIGS["sphere_outside"]="results/vgg16/cifar10/curves/initialization/sphere_constrained/outside/checkpoints"
 
