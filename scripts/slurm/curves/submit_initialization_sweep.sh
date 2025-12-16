@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=long
-#SBATCH --time=48:00:00
+#SBATCH --time=2:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=16GB
+#SBATCH --mem=5GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_init_sweep_%j.out
 #SBATCH --error=slurm_init_sweep_%j.err
@@ -62,10 +62,11 @@ for CONFIG in "${CONFIGS[@]}"; do
     echo "Creating output directory: ${OUTPUT_ROOT}"
     mkdir -p "${OUTPUT_ROOT}"
 
-    # Run training
+    # Run training with override for config directory
     echo "Starting training..."
     srun python scripts/train/run_garipov_curve.py \
-        --config-name="${CONFIG}"
+        --config-name="${CONFIG}" \
+        hydra.searchpath=[file://$PWD/configs/garipov/curves_init]
 
     if [ $? -eq 0 ]; then
         echo "✓ ${CONFIG} training complete"
