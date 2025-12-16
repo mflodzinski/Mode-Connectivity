@@ -62,11 +62,10 @@ for CONFIG in "${CONFIGS[@]}"; do
     echo "Creating output directory: ${OUTPUT_ROOT}"
     mkdir -p "${OUTPUT_ROOT}"
 
-    # Run training with override for config directory
+    # Run training
     echo "Starting training..."
     srun python scripts/train/run_garipov_curve.py \
-        --config-name="${CONFIG}" \
-        hydra.searchpath=[file://$PWD/configs/garipov/curves_init]
+        --config-name="${CONFIG}"
 
     if [ $? -eq 0 ]; then
         echo "✓ ${CONFIG} training complete"
