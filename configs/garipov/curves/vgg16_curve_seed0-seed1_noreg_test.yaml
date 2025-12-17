@@ -1,0 +1,35 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_curve_init_test_perturbed_small"
+
+output_root: "results/vgg16/cifar10/curves/initialization/test_perturbed_small/checkpoints"
+
+# Endpoints
+endpoint0: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt"
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+
+# Curve parameters
+curve: "Bezier"
+num_bends: 3
+
+# Training (SHORT TEST RUN)
+epochs: 10
+save_intermediate: true
+save_freq: 10
+lr: 0.015
+wd: 0.0  # NO REGULARIZATION
+seed: 1
+
+# Initialization parameters (perturbed with small noise)
+init_method: "perturbed"
+init_alpha: 0.5
+init_noise: 0.01  # Small Gaussian noise
+
+use_test: true
+use_wandb: true
+project_name: "thesis-mode-connectivity"
