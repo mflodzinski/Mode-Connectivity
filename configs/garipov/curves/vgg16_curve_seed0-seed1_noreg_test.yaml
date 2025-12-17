@@ -1,8 +1,8 @@
 defaults: []
 
-experiment_name: "garipov_vgg16_curve_init_alpha0.5"
+experiment_name: "garipov_vgg16_curve_init_test_perturbed_small"
 
-output_root: "results/vgg16/cifar10/curves/initialization/biased_linear/alpha_0.5/checkpoints"
+output_root: "results/vgg16/cifar10/curves/initialization/test_perturbed_small/checkpoints"
 
 # Endpoints
 endpoint0: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
@@ -17,17 +17,18 @@ model: "VGG16"
 curve: "Bezier"
 num_bends: 3
 
-# Training
-epochs: 200
+# Training (SHORT TEST RUN)
+epochs: 10
 save_intermediate: true
-save_freq: 50
+save_freq: 10
 lr: 0.015
 wd: 0.0  # NO REGULARIZATION
 seed: 1
 
-# Initialization parameters
-init_method: "biased"
-init_alpha: 0.5  # Exact midpoint (baseline)
+# Initialization parameters (perturbed with small noise)
+init_method: "perturbed"
+init_alpha: 0.5
+init_noise: 0.01  # Small Gaussian noise
 
 use_test: true
 use_wandb: true

@@ -1,10 +1,5 @@
 """Analyze predictions along Bezier curves.
 
-This consolidated script replaces:
-- analyze_prediction_changes.py
-- compare_endpoint_accuracies.py
-- save_unstable_sample_images.py
-
 Modes:
   analyze:           Analyze prediction changes along curve
   compare-endpoints: Compare endpoint accuracies and agreement

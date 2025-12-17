@@ -70,6 +70,20 @@ def add_curve_args(cmd: List[str],
     if fix_endpoints:
         cmd.append("--fix_end")
 
+    # Add initialization method parameters if specified
+    if hasattr(cfg, 'init_method') and cfg.init_method:
+        cmd += ["--init_method", cfg.init_method]
+
+    if hasattr(cfg, 'init_alpha') and cfg.init_alpha is not None:
+        cmd += ["--init_alpha", str(cfg.init_alpha)]
+
+    if hasattr(cfg, 'init_noise') and cfg.init_noise is not None:
+        cmd += ["--init_noise", str(cfg.init_noise)]
+
+    # For sphere initialization: --init_inside_sphere flag (default is outside)
+    if hasattr(cfg, 'init_inside_sphere') and cfg.init_inside_sphere:
+        cmd.append("--init_inside_sphere")
+
 
 def add_wandb_args(cmd: List[str],
                   cfg: DictConfig,

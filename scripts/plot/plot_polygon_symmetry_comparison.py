@@ -1,5 +1,5 @@
 """
-Plot comparison between polygon chain (unconstrained), symmetry plane (constrained), and linear interpolation.
+Plot comparison between polygon chain (unconstrained), symmetry plane (constrained), Bezier curve, and linear interpolation.
 
 Shows that constraining to symmetry plane doesn't degrade performance compared to unconstrained polygon chain.
 All curves are optional - you can plot any combination.
@@ -21,21 +21,23 @@ from lib.utils.args import ArgumentParserBuilder
 
 
 def plot_comparison(args):
-    """Create comparison plot for polygon chain vs symmetry plane vs linear."""
+    """Create comparison plot for polygon chain vs symmetry plane vs Bezier vs linear."""
 
     # Load data (all optional)
     print("Loading evaluation data...")
     polygon_data = np.load(args.polygon_file) if args.polygon_file else None
     symplane_data = np.load(args.symplane_file) if args.symplane_file else None
+    bezier_data = np.load(args.bezier_file) if args.bezier_file else None
     linear_data = np.load(args.linear_file) if args.linear_file else None
 
     # Check that at least one curve is provided
-    if not any([polygon_data is not None, symplane_data is not None, linear_data is not None]):
+    if not any([polygon_data is not None, symplane_data is not None, bezier_data is not None, linear_data is not None]):
         raise ValueError("At least one curve file must be provided!")
 
     # Extract t values (use first available)
     t_polygon = polygon_data['ts'] if polygon_data is not None else None
     t_symplane = symplane_data['ts'] if symplane_data is not None else None
+    t_bezier = bezier_data['ts'] if bezier_data is not None else None
     t_linear = linear_data['ts'] if linear_data is not None else None
 
     # Build title based on what's being plotted
@@ -44,6 +46,8 @@ def plot_comparison(args):
         curves_plotted.append("Polygon Chain")
     if symplane_data is not None:
         curves_plotted.append("Symmetry Plane")
+    if bezier_data is not None:
+        curves_plotted.append("Bezier")
     if linear_data is not None:
         curves_plotted.append("Linear")
     title = ' vs '.join(curves_plotted) + ' Comparison'
@@ -60,6 +64,8 @@ def plot_comparison(args):
                     'alpha': 0.9, 'linewidth': 2.5, 'marker': 's', 'markersize': 3, 'markevery': 5},
         'symplane': {'color': '#1f77b4', 'linestyle': '-', 'label': 'Symmetry Plane (constrained)',
                      'alpha': 0.9, 'linewidth': 2.5, 'marker': '^', 'markersize': 4, 'markevery': 5},
+        'bezier': {'color': '#ff7f0e', 'linestyle': '-', 'label': 'Bezier Curve',
+                   'alpha': 0.9, 'linewidth': 2.5, 'marker': 'D', 'markersize': 3, 'markevery': 5},
     }
 
     # Panel 1: Test Error
@@ -70,6 +76,8 @@ def plot_comparison(args):
         ax.plot(t_polygon, polygon_data['te_err'], **styles['polygon'])
     if symplane_data is not None:
         ax.plot(t_symplane, symplane_data['te_err'], **styles['symplane'])
+    if bezier_data is not None:
+        ax.plot(t_bezier, bezier_data['te_err'], **styles['bezier'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
     ax.set_ylabel('Test Error (%)', fontsize=12)
     ax.set_title('Test Error Along Path', fontsize=13, fontweight='bold')
@@ -85,6 +93,8 @@ def plot_comparison(args):
         ax.plot(t_polygon, polygon_data['te_loss'], **styles['polygon'])
     if symplane_data is not None:
         ax.plot(t_symplane, symplane_data['te_loss'], **styles['symplane'])
+    if bezier_data is not None:
+        ax.plot(t_bezier, bezier_data['te_loss'], **styles['bezier'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
     ax.set_ylabel('Test Loss', fontsize=12)
     ax.set_title('Test Loss Along Path', fontsize=13, fontweight='bold')
@@ -100,6 +110,8 @@ def plot_comparison(args):
         ax.plot(t_polygon, polygon_data['tr_err'], **styles['polygon'])
     if symplane_data is not None:
         ax.plot(t_symplane, symplane_data['tr_err'], **styles['symplane'])
+    if bezier_data is not None:
+        ax.plot(t_bezier, bezier_data['tr_err'], **styles['bezier'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
     ax.set_ylabel('Train Error (%)', fontsize=12)
     ax.set_title('Train Error Along Path', fontsize=13, fontweight='bold')
@@ -115,6 +127,8 @@ def plot_comparison(args):
         ax.plot(t_polygon, polygon_data['tr_loss'], **styles['polygon'])
     if symplane_data is not None:
         ax.plot(t_symplane, symplane_data['tr_loss'], **styles['symplane'])
+    if bezier_data is not None:
+        ax.plot(t_bezier, bezier_data['tr_loss'], **styles['bezier'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
     ax.set_ylabel('Train Loss', fontsize=12)
     ax.set_title('Train Loss Along Path', fontsize=13, fontweight='bold')
@@ -151,6 +165,12 @@ def plot_comparison(args):
         symplane_barrier = symplane_max_err - symplane_endpoint_err
         metrics['symplane'] = {'max_err': symplane_max_err, 'barrier': symplane_barrier, 't': t_symplane}
 
+    if bezier_data is not None:
+        bezier_max_err = np.max(bezier_data['te_err'])
+        bezier_endpoint_err = (bezier_data['te_err'][0] + bezier_data['te_err'][-1]) / 2
+        bezier_barrier = bezier_max_err - bezier_endpoint_err
+        metrics['bezier'] = {'max_err': bezier_max_err, 'barrier': bezier_barrier, 't': t_bezier}
+
     print("\nMaximum Test Error:")
     if 'linear' in metrics:
         print(f"  Linear:         {metrics['linear']['max_err']:.2f}%")
@@ -158,6 +178,8 @@ def plot_comparison(args):
         print(f"  Polygon Chain:  {metrics['polygon']['max_err']:.2f}%")
     if 'symplane' in metrics:
         print(f"  Symmetry Plane: {metrics['symplane']['max_err']:.2f}%")
+    if 'bezier' in metrics:
+        print(f"  Bezier Curve:   {metrics['bezier']['max_err']:.2f}%")
 
     print("\nBarrier Height (max - endpoint avg):")
     if 'linear' in metrics:
@@ -166,6 +188,8 @@ def plot_comparison(args):
         print(f"  Polygon Chain:  {metrics['polygon']['barrier']:.2f}%")
     if 'symplane' in metrics:
         print(f"  Symmetry Plane: {metrics['symplane']['barrier']:.2f}%")
+    if 'bezier' in metrics:
+        print(f"  Bezier Curve:   {metrics['bezier']['barrier']:.2f}%")
 
     # Comparison stats (only if relevant curves present)
     if 'symplane' in metrics and 'polygon' in metrics:
@@ -187,6 +211,9 @@ def plot_comparison(args):
         if 'symplane' in metrics:
             reduction = (metrics['linear']['barrier'] - metrics['symplane']['barrier']) / metrics['linear']['barrier'] * 100
             print(f"  Symmetry Plane: {reduction:.1f}%")
+        if 'bezier' in metrics:
+            reduction = (metrics['linear']['barrier'] - metrics['bezier']['barrier']) / metrics['linear']['barrier'] * 100
+            print(f"  Bezier Curve:   {reduction:.1f}%")
 
     print("=" * 80)
 
@@ -198,7 +225,7 @@ def plot_comparison(args):
         output_path = args.output
     else:
         # Find first available file to use its directory
-        first_file = args.polygon_file or args.symplane_file or args.linear_file
+        first_file = args.polygon_file or args.symplane_file or args.bezier_file or args.linear_file
         output_path = os.path.join(
             os.path.dirname(first_file), '../figures/polygon_symmetry_comparison.png'
         )
@@ -220,6 +247,8 @@ def plot_comparison(args):
         summary_lines.append(f"  Polygon Chain:  {metrics['polygon']['max_err']:.2f}%")
     if 'symplane' in metrics:
         summary_lines.append(f"  Symmetry Plane: {metrics['symplane']['max_err']:.2f}%")
+    if 'bezier' in metrics:
+        summary_lines.append(f"  Bezier Curve:   {metrics['bezier']['max_err']:.2f}%")
     summary_lines.append("")
 
     summary_lines.append("Barrier Height:")
@@ -229,6 +258,8 @@ def plot_comparison(args):
         summary_lines.append(f"  Polygon Chain:  {metrics['polygon']['barrier']:.2f}%")
     if 'symplane' in metrics:
         summary_lines.append(f"  Symmetry Plane: {metrics['symplane']['barrier']:.2f}%")
+    if 'bezier' in metrics:
+        summary_lines.append(f"  Bezier Curve:   {metrics['bezier']['barrier']:.2f}%")
     summary_lines.append("")
 
     # Write comparison stats only if relevant curves present
@@ -246,6 +277,9 @@ def plot_comparison(args):
         if 'symplane' in metrics:
             reduction = (metrics['linear']['barrier'] - metrics['symplane']['barrier']) / metrics['linear']['barrier'] * 100
             summary_lines.append(f"  Symmetry Plane: {reduction:.1f}%")
+        if 'bezier' in metrics:
+            reduction = (metrics['linear']['barrier'] - metrics['bezier']['barrier']) / metrics['linear']['barrier'] * 100
+            summary_lines.append(f"  Bezier Curve:   {reduction:.1f}%")
         summary_lines.append("")
 
     summary_lines.append("=" * 80)
@@ -259,7 +293,7 @@ def plot_comparison(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Plot Polygon Chain vs Symmetry Plane Comparison'
+        description='Plot Polygon Chain vs Symmetry Plane vs Bezier Curve Comparison'
     )
 
     # Custom arguments
@@ -267,6 +301,8 @@ if __name__ == '__main__':
                        help='Path to polygon chain curve.npz file (optional)')
     parser.add_argument('--symplane-file', type=str, default=None,
                        help='Path to symmetry plane curve.npz file (optional)')
+    parser.add_argument('--bezier-file', type=str, default=None,
+                       help='Path to Bezier curve.npz file (optional)')
     parser.add_argument('--linear-file', type=str, default=None,
                        help='Path to linear.npz file (optional)')
 
