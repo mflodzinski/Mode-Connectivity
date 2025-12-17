@@ -78,7 +78,13 @@ def extract_middle_point_from_checkpoint(checkpoint_path):
     return middle_vector
 
 def recreate_initial_middle_point(endpoint0_path, endpoint1_path, init_method, init_params, seed=1):
-    """Recreate initial middle control point using specified initialization method."""
+    """Recreate initial middle control point using specified initialization method.
+
+    Returns:
+        tuple: (middle_point, interpolated_l2_norm)
+            - middle_point: Flattened tensor of raw middle point parameters
+            - interpolated_l2_norm: L2 norm of interpolated weights at t=0.5
+    """
     # Set random seed for reproducibility
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -110,10 +116,15 @@ def recreate_initial_middle_point(endpoint0_path, endpoint1_path, init_method, i
     else:
         raise ValueError(f"Unknown initialization method: {init_method}")
 
-    # Extract middle point
+    # Extract middle point (raw parameters)
     middle_point = extract_middle_point(model)
 
-    return middle_point
+    # Calculate interpolated L2 norm at t=0.5
+    t = torch.FloatTensor([0.5])
+    weights = model.weights(t)
+    interpolated_l2_norm = np.sqrt(np.sum(np.square(weights)))
+
+    return middle_point, interpolated_l2_norm
 
 def main():
     # Paths to endpoints
@@ -160,7 +171,8 @@ def main():
     print()
 
     # Store results
-    initial_l2_norms = {}
+    initial_raw_l2_norms = {}
+    initial_interpolated_l2_norms = {}
 
     # Recreate all initial middle points and calculate L2 norms
     for name, config in experiments.items():
@@ -168,7 +180,7 @@ def main():
         print(f"  Method: {config['method']}")
         print(f"  Params: {config['params']}")
 
-        middle_point = recreate_initial_middle_point(
+        middle_point, interpolated_l2 = recreate_initial_middle_point(
             endpoint0_path,
             endpoint1_path,
             init_method=config['method'],
@@ -176,11 +188,13 @@ def main():
             seed=1
         )
 
-        l2_norm = torch.norm(middle_point).item()
-        initial_l2_norms[name] = l2_norm
+        raw_l2_norm = torch.norm(middle_point).item()
+        initial_raw_l2_norms[name] = raw_l2_norm
+        initial_interpolated_l2_norms[name] = interpolated_l2
 
         print(f"  Shape: {middle_point.shape}")
-        print(f"  Initial L2 norm: {l2_norm:.2f}")
+        print(f"  Raw middle point L2 norm: {raw_l2_norm:.2f}")
+        print(f"  Interpolated L2 norm (t=0.5): {interpolated_l2:.2f}")
         print()
 
     # Extract trained middle points and calculate L2 norms
@@ -215,12 +229,12 @@ def main():
     print("="*70)
     print()
 
-    print("INITIAL L2 Norms:")
+    print("RAW MIDDLE POINT L2 Norms (||w₁||):")
     print(f"{'Experiment':<20} {'Initial L2':>12} {'Trained L2':>12} {'Change':>12}")
     print("-" * 60)
 
     for name in experiments.keys():
-        initial = initial_l2_norms.get(name, float('nan'))
+        initial = initial_raw_l2_norms.get(name, float('nan'))
         trained = trained_l2_norms.get(name, float('nan'))
         change = trained - initial if name in trained_l2_norms else float('nan')
 
@@ -230,11 +244,27 @@ def main():
             print(f"{name:<20} {initial:>12.2f} {'N/A':>12} {'N/A':>12}")
 
     print()
-    print("INITIAL Statistics:")
-    print(f"  Minimum: {min(initial_l2_norms.values()):.2f} ({min(initial_l2_norms, key=initial_l2_norms.get)})")
-    print(f"  Maximum: {max(initial_l2_norms.values()):.2f} ({max(initial_l2_norms, key=initial_l2_norms.get)})")
-    print(f"  Mean:    {np.mean(list(initial_l2_norms.values())):.2f}")
-    print(f"  Std:     {np.std(list(initial_l2_norms.values())):.2f}")
+    print("INTERPOLATED L2 Norms at t=0.5:")
+    print(f"{'Experiment':<20} {'Initial L2':>12}")
+    print("-" * 35)
+
+    for name in experiments.keys():
+        interpolated = initial_interpolated_l2_norms.get(name, float('nan'))
+        print(f"{name:<20} {interpolated:>12.2f}")
+
+    print()
+    print("INITIAL RAW L2 Statistics:")
+    print(f"  Minimum: {min(initial_raw_l2_norms.values()):.2f} ({min(initial_raw_l2_norms, key=initial_raw_l2_norms.get)})")
+    print(f"  Maximum: {max(initial_raw_l2_norms.values()):.2f} ({max(initial_raw_l2_norms, key=initial_raw_l2_norms.get)})")
+    print(f"  Mean:    {np.mean(list(initial_raw_l2_norms.values())):.2f}")
+    print(f"  Std:     {np.std(list(initial_raw_l2_norms.values())):.2f}")
+
+    print()
+    print("INITIAL INTERPOLATED L2 Statistics:")
+    print(f"  Minimum: {min(initial_interpolated_l2_norms.values()):.2f} ({min(initial_interpolated_l2_norms, key=initial_interpolated_l2_norms.get)})")
+    print(f"  Maximum: {max(initial_interpolated_l2_norms.values()):.2f} ({max(initial_interpolated_l2_norms, key=initial_interpolated_l2_norms.get)})")
+    print(f"  Mean:    {np.mean(list(initial_interpolated_l2_norms.values())):.2f}")
+    print(f"  Std:     {np.std(list(initial_interpolated_l2_norms.values())):.2f}")
 
     if trained_l2_norms:
         print()
