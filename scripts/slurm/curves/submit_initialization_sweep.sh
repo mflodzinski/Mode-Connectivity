@@ -64,7 +64,8 @@ for CONFIG in "${CONFIGS[@]}"; do
     # Run training
     echo "Starting training..."
     srun python scripts/train/run_garipov_curve.py \
-        --config-name="${CONFIG}"
+        --config-name="${CONFIG}" \
+        --config_path="../../configs/garipov/curves_init"
 
     if [ $? -eq 0 ]; then
         echo "✓ ${CONFIG} training complete"
