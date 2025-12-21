@@ -190,10 +190,16 @@ if l2_evolution_data is not None or l2_evolution_noreg_data is not None:
     if l2_evolution_data is not None:
         epochs = l2_evolution_data['epochs']
         raw_l2_norms = l2_evolution_data['l2_norms']
+        interp_l2_norms = l2_evolution_data.get('interpolated_l2_norms', None)
 
         ax6.plot(epochs, raw_l2_norms, linewidth=2, color='#2E86AB', marker='o',
                  markersize=3, markevery=max(1, len(epochs)//20),
                  label='Raw middle point ||w₁|| (Reg/Primary)')
+
+        if interp_l2_norms is not None:
+            ax6.plot(epochs, interp_l2_norms, linewidth=2, color='#9467bd', linestyle='--', marker='^',
+                     markersize=3, markevery=max(1, len(epochs)//20),
+                     label='Interpolated t=0.5 ||w(0.5)|| (Reg/Primary)')
 
     # NEW: Plot for the non-regularized L2 evolution data loaded via hardcoded path
     if l2_evolution_noreg_data is not None:

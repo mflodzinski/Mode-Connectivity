@@ -41,9 +41,7 @@ echo ""
 # Array of config files
 CONFIGS=(
     "vgg16_curve_init_alpha0.75"
-    "vgg16_curve_init_alpha0.9"
     "vgg16_curve_init_perturbed_small"
-    "vgg16_curve_init_perturbed_large"
     "vgg16_curve_init_sphere_inside"
     "vgg16_curve_init_sphere_outside"
 )
