@@ -19,7 +19,7 @@ from lib.core.training_commands import (
 
 @hydra.main(
     version_base=None,
-    config_path="../../configs/garipov/curves",
+    config_path="../../configs/garipov/curves_init",
     config_name="vgg16_curve_seed0-seed1_reg",
 )
 def main(cfg: DictConfig):
