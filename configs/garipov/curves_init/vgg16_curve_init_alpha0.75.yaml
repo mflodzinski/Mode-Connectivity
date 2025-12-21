@@ -20,7 +20,7 @@ num_bends: 3
 # Training
 epochs: 150
 save_intermediate: true
-save_freq: 50
+save_freq: 150
 lr: 0.015
 wd: 0.0  # NO REGULARIZATION
 seed: 1
