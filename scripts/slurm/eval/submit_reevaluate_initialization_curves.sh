@@ -40,7 +40,6 @@ echo ""
 
 # Array of experiments to re-evaluate
 declare -A EXPERIMENTS
-EXPERIMENTS["biased_linear_alpha0.75"]="results/vgg16/cifar10/curves/initialization/biased_linear/alpha_0.75"
 EXPERIMENTS["biased_linear_alpha0.9"]="results/vgg16/cifar10/curves/initialization/biased_linear/alpha_0.9"
 EXPERIMENTS["perturbed_noise0.01"]="results/vgg16/cifar10/curves/initialization/perturbed/noise_0.01"
 EXPERIMENTS["perturbed_noise0.1"]="results/vgg16/cifar10/curves/initialization/perturbed/noise_0.1"
@@ -63,17 +62,6 @@ for NAME in "${!EXPERIMENTS[@]}"; do
         echo ""
         continue
     fi
-
-    # Backup existing curve.npz if it exists
-    if [ -f "${EVAL_DIR}/curve.npz" ]; then
-        BACKUP_FILE="${EVAL_DIR}/curve.npz.backup_$(date +%Y%m%d_%H%M%S)"
-        echo "Backing up existing curve.npz to: ${BACKUP_FILE}"
-        cp "${EVAL_DIR}/curve.npz" "${BACKUP_FILE}"
-    fi
-
-    echo "Checkpoint: ${CHECKPOINT}"
-    echo "Output dir: ${EVAL_DIR}"
-    echo ""
 
     # Run evaluation
     echo "Running eval_curve.py..."
