@@ -19,7 +19,13 @@ import numpy as np
 
 # Add lib to path
 import sys
-sys.path.insert(0, '../lib')
+import os
+
+# Get the scripts directory (parent of eval directory)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+scripts_dir = os.path.dirname(script_dir)
+lib_path = os.path.join(scripts_dir, 'lib')
+sys.path.insert(0, lib_path)
 
 from lib.core import setup, checkpoint, models, data, output
 from lib.evaluation import interpolation, evaluate

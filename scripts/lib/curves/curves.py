@@ -5,13 +5,17 @@ Provides functions for working with Bezier curves and mode connectivity.
 """
 
 import sys
+import os
 import torch
 import torch.nn as nn
 import numpy as np
 from typing import Dict, List, Any, Optional
 
 # Add external dependencies to path
-sys.path.insert(0, 'external/dnn-mode-connectivity')
+# Get project root (4 levels up from scripts/lib/curves/curves.py)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+external_path = os.path.join(project_root, 'external', 'dnn-mode-connectivity')
+sys.path.insert(0, external_path)
 import curves as dnn_curves
 
 

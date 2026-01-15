@@ -17,12 +17,12 @@ source $HOME/venvs/mode-connectivity/bin/activate || . $HOME/venvs/mode-connecti
 # Navigate to project directory
 cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 
-# Add project root to Python path
-export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
-
-ENDPOINT0="results/convfc/fmnist/endpoints/standard/seed0/checkpoint-200.pt"
-ENDPOINT1="results/convfc/fmnist/endpoints/standard/seed1/checkpoint-200.pt"
-EVAL_DIR="results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations"
+# Add project root and scripts to Python path
+PROJECT_ROOT="/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity"
+export PYTHONPATH=${PROJECT_ROOT}:${PROJECT_ROOT}/scripts:$PYTHONPATH
+ENDPOINT0="${PROJECT_ROOT}/results/convfc/fmnist/endpoints/standard/seed0/checkpoint-200.pt"
+ENDPOINT1="${PROJECT_ROOT}/results/convfc/fmnist/endpoints/standard/seed1/checkpoint-200.pt"
+EVAL_DIR="${PROJECT_ROOT}/results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations"
 
 # Verify endpoints exist
 if [ ! -f "${ENDPOINT0}" ]; then
@@ -42,17 +42,21 @@ echo "Endpoint 1: ${ENDPOINT1}"
 # Create output directory
 mkdir -p "${EVAL_DIR}"
 
-# Run linear evaluation
-srun python scripts/eval/eval_linear.py \
+# Change to scripts/eval directory to run the script
+cd scripts/eval
+
+# Run linear evaluation (using absolute paths for files)
+srun python evaluate.py \
+    --mode linear \
     --dir "${EVAL_DIR}" \
-    --init_start "${ENDPOINT0}" \
-    --init_end "${ENDPOINT1}" \
-    --num_points 61 \
+    --init-start "${ENDPOINT0}" \
+    --init-end "${ENDPOINT1}" \
+    --num-points 61 \
     --dataset FashionMNIST \
-    --data_path ./data \
+    --data-path "${PROJECT_ROOT}/data" \
     --model ConvFC \
     --transform VGG \
-    --batch_size 128 \
-    --use_test
+    --batch-size 128 \
+    --use-test
 
 echo "Evaluation complete. Output saved to: ${EVAL_DIR}/linear.npz"

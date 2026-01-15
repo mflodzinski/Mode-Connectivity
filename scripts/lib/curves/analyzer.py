@@ -6,6 +6,7 @@ verifying symmetry, and computing distances along curves.
 """
 
 import sys
+import os
 import torch
 import torch.nn as nn
 import numpy as np
@@ -13,7 +14,10 @@ from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 
 # Add external dependencies
-sys.path.insert(0, 'external/dnn-mode-connectivity')
+# Get project root (4 levels up from scripts/lib/curves/analyzer.py)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+external_path = os.path.join(project_root, 'external', 'dnn-mode-connectivity')
+sys.path.insert(0, external_path)
 import curves as dnn_curves
 
 from ..core import checkpoint

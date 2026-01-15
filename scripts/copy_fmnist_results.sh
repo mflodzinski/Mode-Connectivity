@@ -6,10 +6,13 @@
 CLUSTER="mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity"
 
 
-echo "Copying endpoints..."
-scp ${CLUSTER}/results/convfc/fmnist/endpoints/standard/seed0/checkpoint-200.pt \
-    results/convfc/fmnist/endpoints/standard/seed0/
 
-scp ${CLUSTER}/results/convfc/fmnist/endpoints/standard/seed1/checkpoint-200.pt \
-    results/convfc/fmnist/endpoints/standard/seed1/
+echo "Copying linear evaluation..."
+scp mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations/linear.npz \
+    results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations/ 2>/dev/null || \
 
+mkdir -p results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations && \
+scp mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations/linear.npz \
+    results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations/
+
+results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations/linear.npz

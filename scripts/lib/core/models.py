@@ -5,12 +5,16 @@ Unified from scripts/analysis/lib/models.py and scripts/eval/lib/setup.py
 """
 
 import sys
+import os
 import torch
 import torch.nn as nn
 from typing import Any, Optional
 
 # Add external dependencies to path
-sys.path.insert(0, 'external/dnn-mode-connectivity')
+# Get project root (4 levels up from scripts/lib/core/models.py)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+external_path = os.path.join(project_root, 'external', 'dnn-mode-connectivity')
+sys.path.insert(0, external_path)
 import models as dnn_models
 
 
@@ -18,20 +22,23 @@ def get_architecture(model_name: str, use_bn: bool = False) -> Any:
     """Get model architecture object.
 
     Args:
-        model_name: Base model name (e.g., 'VGG16', 'VGG19', 'ResNet18')
+        model_name: Base model name (e.g., 'VGG16', 'VGG19', 'ResNet18', 'ConvFC')
         use_bn: Whether to use batch normalization variant
 
     Returns:
         Architecture object with .base and .kwargs attributes
     """
-    # Normalize model name
-    model_name = model_name.upper().replace('-', '')
-
-    # Add BN suffix if requested
-    if use_bn:
-        arch_name = f"{model_name}BN"
+    # Normalize model name - special case for ConvFC to preserve mixed case
+    if model_name.upper() == 'CONVFC':
+        arch_name = 'ConvFC'
     else:
-        arch_name = model_name
+        model_name = model_name.upper().replace('-', '')
+
+        # Add BN suffix if requested
+        if use_bn:
+            arch_name = f"{model_name}BN"
+        else:
+            arch_name = model_name
 
     # Get architecture from models module
     if not hasattr(dnn_models, arch_name):

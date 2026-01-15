@@ -5,11 +5,15 @@ Unified from scripts/analysis/lib/data.py and scripts/eval/lib/setup.py
 """
 
 import sys
+import os
 import numpy as np
 from typing import Dict, Tuple, List
 
 # Add external dependencies to path
-sys.path.insert(0, 'external/dnn-mode-connectivity')
+# Get project root (4 levels up from scripts/lib/core/data.py)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+external_path = os.path.join(project_root, 'external', 'dnn-mode-connectivity')
+sys.path.insert(0, external_path)
 import data as dnn_data
 
 
