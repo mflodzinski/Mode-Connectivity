@@ -49,14 +49,14 @@ cd scripts/eval
 srun python evaluate.py \
     --mode linear \
     --dir "${EVAL_DIR}" \
-    --init_start "${ENDPOINT0}" \
-    --init_end "${ENDPOINT1}" \
-    --num_points 61 \
+    --init-start "${ENDPOINT0}" \
+    --init-end "${ENDPOINT1}" \
+    --num-points 61 \
     --dataset FashionMNIST \
-    --data_path "${PROJECT_ROOT}/data" \
+    --data-path "${PROJECT_ROOT}/data" \
     --model ConvFC \
     --transform VGG \
-    --batch_size 128 \
-    --use_test
+    --batch-size 128 \
+    --use-test
 
 echo "Evaluation complete. Output saved to: ${EVAL_DIR}/linear.npz"
