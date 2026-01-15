@@ -26,4 +26,4 @@ mkdir -p results/convfc/fmnist/curves/standard/seed0-seed1_bezier/evaluations
 mkdir -p results/convfc/fmnist/curves/standard/seed0-seed1_bezier/figures
 
 # Run the curve training script
-srun python scripts/train/run_garipov_curve.py --config-name fmnist_convfc_curve_seed0-seed1_bezier
+srun python scripts/train/run_garipov_curve.py --config-name fmnist_convfc_curve_seed0-seed1_bezier --config-path ../../configs/garipov/curves
