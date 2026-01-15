@@ -22,20 +22,23 @@ def get_architecture(model_name: str, use_bn: bool = False) -> Any:
     """Get model architecture object.
 
     Args:
-        model_name: Base model name (e.g., 'VGG16', 'VGG19', 'ResNet18')
+        model_name: Base model name (e.g., 'VGG16', 'VGG19', 'ResNet18', 'ConvFC')
         use_bn: Whether to use batch normalization variant
 
     Returns:
         Architecture object with .base and .kwargs attributes
     """
-    # Normalize model name
-    model_name = model_name.upper().replace('-', '')
-
-    # Add BN suffix if requested
-    if use_bn:
-        arch_name = f"{model_name}BN"
+    # Normalize model name - special case for ConvFC to preserve mixed case
+    if model_name.upper() == 'CONVFC':
+        arch_name = 'ConvFC'
     else:
-        arch_name = model_name
+        model_name = model_name.upper().replace('-', '')
+
+        # Add BN suffix if requested
+        if use_bn:
+            arch_name = f"{model_name}BN"
+        else:
+            arch_name = model_name
 
     # Get architecture from models module
     if not hasattr(dnn_models, arch_name):
