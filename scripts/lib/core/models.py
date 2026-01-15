@@ -5,12 +5,16 @@ Unified from scripts/analysis/lib/models.py and scripts/eval/lib/setup.py
 """
 
 import sys
+import os
 import torch
 import torch.nn as nn
 from typing import Any, Optional
 
 # Add external dependencies to path
-sys.path.insert(0, 'external/dnn-mode-connectivity')
+# Get project root (4 levels up from scripts/lib/core/models.py)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+external_path = os.path.join(project_root, 'external', 'dnn-mode-connectivity')
+sys.path.insert(0, external_path)
 import models as dnn_models
 
 
