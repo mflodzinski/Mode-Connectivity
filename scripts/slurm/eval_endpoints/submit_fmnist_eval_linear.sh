@@ -43,7 +43,8 @@ echo "Endpoint 1: ${ENDPOINT1}"
 mkdir -p "${EVAL_DIR}"
 
 # Run linear evaluation
-srun python scripts/eval/eval_linear.py \
+srun python scripts/eval/evaluate.py \
+    --mode linear \
     --dir "${EVAL_DIR}" \
     --init_start "${ENDPOINT0}" \
     --init_end "${ENDPOINT1}" \
