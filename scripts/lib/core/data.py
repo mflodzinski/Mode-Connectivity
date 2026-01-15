@@ -56,6 +56,50 @@ class CIFAR10Utils:
         return img
 
 
+class FashionMNISTUtils:
+    """Fashion-MNIST specific constants and utilities."""
+
+    CLASS_NAMES = [
+        'T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
+        'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'
+    ]
+
+    # Fashion-MNIST stats (grayscale) replicated for 3 channels
+    MEAN = np.array([0.2860, 0.2860, 0.2860])
+    STD = np.array([0.3530, 0.3530, 0.3530])
+
+    @classmethod
+    def get_class_name(cls, idx: int) -> str:
+        """Get class name for given index."""
+        return cls.CLASS_NAMES[idx]
+
+    @classmethod
+    def get_class_names(cls) -> List[str]:
+        """Get all class names."""
+        return cls.CLASS_NAMES.copy()
+
+    @classmethod
+    def denormalize(cls, img: np.ndarray) -> np.ndarray:
+        """Denormalize Fashion-MNIST image to displayable format.
+
+        Args:
+            img: Normalized image in CHW format (C, H, W)
+
+        Returns:
+            Denormalized image in HWC format (H, W, C) with values in [0, 255]
+        """
+        # Transpose from CHW to HWC
+        img = img.transpose(1, 2, 0)
+
+        # Denormalize
+        img = img * cls.STD + cls.MEAN
+
+        # Clip and convert to uint8
+        img = np.clip(img * 255, 0, 255).astype(np.uint8)
+
+        return img
+
+
 def get_loaders(dataset: str,
                 data_path: str = './data',
                 batch_size: int = 128,
@@ -102,6 +146,8 @@ def get_class_names(dataset: str) -> List[str]:
     """
     if dataset.upper() == 'CIFAR10':
         return CIFAR10Utils.get_class_names()
+    elif dataset.upper() == 'FASHIONMNIST':
+        return FashionMNISTUtils.get_class_names()
     else:
         # For other datasets, return numeric labels
         raise NotImplementedError(f"Class names not implemented for {dataset}")
