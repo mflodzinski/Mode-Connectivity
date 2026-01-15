@@ -17,11 +17,9 @@ source $HOME/venvs/mode-connectivity/bin/activate || . $HOME/venvs/mode-connecti
 # Navigate to project directory
 cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 
-# Add project root to Python path
-export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
-
-# Use absolute paths since we'll run from scripts/eval/
+# Add project root and scripts to Python path
 PROJECT_ROOT="/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity"
+export PYTHONPATH=${PROJECT_ROOT}:${PROJECT_ROOT}/scripts:$PYTHONPATH
 ENDPOINT0="${PROJECT_ROOT}/results/convfc/fmnist/endpoints/standard/seed0/checkpoint-200.pt"
 ENDPOINT1="${PROJECT_ROOT}/results/convfc/fmnist/endpoints/standard/seed1/checkpoint-200.pt"
 EVAL_DIR="${PROJECT_ROOT}/results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations"
