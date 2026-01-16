@@ -14,5 +14,3 @@ scp mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Stud
 mkdir -p results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations && \
 scp mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations/linear.npz \
     results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations/
-
-results/convfc/fmnist/endpoints/standard/seed0-seed1/evaluations/linear.npz

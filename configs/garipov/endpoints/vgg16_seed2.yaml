@@ -1,0 +1,22 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_seed2"
+
+output_root: "results/vgg16/cifar10/endpoints/standard"
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+
+epochs: 200
+save_intermediate: true   # If true, save checkpoints every save_freq epochs
+save_freq: 50            # Only used if save_intermediate=true
+lr: 0.05
+wd: 5e-4
+use_test: true
+
+seeds: [2]
+
+use_wandb: true
+project_name: "thesis-mode-connectivity"
