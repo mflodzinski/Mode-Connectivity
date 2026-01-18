@@ -41,6 +41,6 @@ srun python evaluate.py \
     --dataset FashionMNIST \
     --model ConvFC \
     --data-path ../../data \
-    --output-dir "../../${OUTPUT_DIR}"
+    --dir "../../${OUTPUT_DIR}"
 
 echo "Linear evaluation complete. Output saved to: ${OUTPUT_DIR}/linear.npz"

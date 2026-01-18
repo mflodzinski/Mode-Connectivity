@@ -41,6 +41,6 @@ srun python evaluate.py \
     --dataset CIFAR10 \
     --model VGG16 \
     --data-path ../../data \
-    --output-dir "../../${OUTPUT_DIR}"
+    --dir "../../${OUTPUT_DIR}"
 
 echo "Linear evaluation complete. Output saved to: ${OUTPUT_DIR}/linear.npz"
