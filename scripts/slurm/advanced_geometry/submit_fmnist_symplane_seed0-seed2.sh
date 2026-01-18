@@ -21,4 +21,4 @@ cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
 # Run the symmetry plane optimization script
-srun python scripts/train/run_garipov_symplane.py --config-name fmnist_convfc_symplane_seed0-seed2
+srun python scripts/train/run_symmetry_plane.py --config-name fmnist_convfc_symplane_seed0-seed2
