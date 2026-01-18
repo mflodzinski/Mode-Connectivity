@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=05:00:00
+#SBATCH --time=01:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=8GB
+#SBATCH --mem=2GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_vgg16_curve_seed1-seed2_bezier_%j.out
 #SBATCH --error=slurm_vgg16_curve_seed1-seed2_bezier_%j.err
