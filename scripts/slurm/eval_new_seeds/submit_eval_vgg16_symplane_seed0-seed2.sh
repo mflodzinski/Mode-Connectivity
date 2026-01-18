@@ -4,7 +4,7 @@
 #SBATCH --time=00:20:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=1GB
+#SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_eval_vgg16_symplane_seed0-seed2_%j.out
 #SBATCH --error=slurm_eval_vgg16_symplane_seed0-seed2_%j.err
