@@ -1,0 +1,29 @@
+defaults: []
+
+experiment_name: "vgg16_curve_seed1-seed2_bezier"
+
+output_root: "results/vgg16/cifar10/curves/standard/seed1-seed2_bezier/checkpoints"
+
+# Endpoints
+endpoint0: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/standard/seed2/checkpoints/checkpoint-200.pt"
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+
+# Curve parameters
+curve: "Bezier"
+num_bends: 3
+
+epochs: 200
+save_intermediate: true
+save_freq: 200
+lr: 0.015
+wd: 5e-4  # NO REGULARIZATION
+seed: 0
+
+use_test: true
+use_wandb: true
+project_name: "thesis-mode-connectivity"

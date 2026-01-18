@@ -1,0 +1,33 @@
+defaults: []
+
+experiment_name: "seed0-seed2"
+
+# Endpoints
+init_start: "results/convfc/fmnist/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
+init_end: "results/convfc/fmnist/endpoints/standard/seed2/checkpoints/checkpoint-200.pt"
+
+# Output
+output_dir: "results/convfc/fmnist/advanced_geometry/symmetry_plane/seed0-seed2"
+
+# Model and dataset
+model: "ConvFC"
+dataset: "FashionMNIST"
+data_path: "./data"
+transform: "VGG"
+use_test: true
+
+# Training hyperparameters
+epochs: 150
+lr: 0.015
+momentum: 0.9
+wd: 5e-4
+batch_size: 128
+num_workers: 4
+seed: 1  # Random seed (default from dnn-mode-connectivity)
+
+# Checkpointing
+save_freq: 50
+
+# WandB
+use_wandb: true
+project_name: "thesis-mode-connectivity"
