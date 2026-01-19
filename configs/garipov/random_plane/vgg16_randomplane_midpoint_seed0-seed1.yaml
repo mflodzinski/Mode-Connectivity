@@ -1,24 +1,42 @@
+defaults: []
+
+experiment_name: "randomplane_midpoint_seed0-seed1"
+
+# Endpoints
 init_start: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
 init_end: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt"
+
+# Output
 output_dir: "results/vgg16/cifar10/advanced_geometry/random_plane_midpoint/seed0-seed1"
 
-dataset: "CIFAR10"
+# Model and dataset
 model: "VGG16"
+dataset: "CIFAR10"
+data_path: "./data"
 transform: "VGG"
 use_test: true
-data_path: "./data"
+
+# Training hyperparameters
+epochs: 150
+lr: 0.015
+momentum: 0.9
+wd: 5e-4
+batch_size: 128
+num_workers: 4
+seed: 1
+
+# Checkpointing
+save_freq: 50
+
+# WandB
+use_wandb: true
+project_name: "thesis-mode-connectivity"
 
 # Curve settings
 curve: "PolyChain"
 num_bends: 3
 fix_start: true
 fix_end: true
-
-# Training settings
-epochs: 150
-lr: 0.015
-momentum: 0.9
-wd: 0.0005
 
 # Random plane projection (through midpoint)
 project_random_plane: true
