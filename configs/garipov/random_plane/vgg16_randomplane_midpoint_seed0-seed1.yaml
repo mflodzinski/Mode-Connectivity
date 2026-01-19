@@ -1,0 +1,25 @@
+init_start: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
+init_end: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt"
+output_dir: "results/vgg16/cifar10/advanced_geometry/random_plane_midpoint/seed0-seed1"
+
+dataset: "CIFAR10"
+model: "VGG16"
+use_test: true
+data_path: "./data"
+
+# Curve settings
+curve: "PolyChain"
+num_bends: 3
+fix_start: true
+fix_end: true
+
+# Training settings
+epochs: 150
+lr: 0.015
+momentum: 0.9
+wd: 0.0005
+
+# Random plane projection (through midpoint)
+project_random_plane: true
+random_plane_seed: 42
+random_anchor: false  # Use midpoint
