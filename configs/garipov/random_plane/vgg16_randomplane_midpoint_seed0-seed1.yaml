@@ -4,6 +4,7 @@ output_dir: "results/vgg16/cifar10/advanced_geometry/random_plane_midpoint/seed0
 
 dataset: "CIFAR10"
 model: "VGG16"
+transform: "VGG"
 use_test: true
 data_path: "./data"
 
