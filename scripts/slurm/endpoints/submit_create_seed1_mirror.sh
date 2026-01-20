@@ -17,8 +17,9 @@ source $HOME/venvs/mode-connectivity/bin/activate || . $HOME/venvs/mode-connecti
 # Navigate to project directory
 cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 
-# Add project root to Python path
+# Add project root and scripts directory to Python path
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
+export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/scripts:$PYTHONPATH
 
 # Create output directories
 mkdir -p results/vgg16/cifar10/endpoints/standard/seed1_mirrored/checkpoints
@@ -50,18 +51,19 @@ echo ""
 echo "========================================"
 echo "STEP 2: Evaluating Linear Interpolation"
 echo "========================================"
-srun python scripts/eval/eval_linear.py \
+srun python scripts/eval/evaluate.py \
+    --mode linear \
     --dir results/vgg16/cifar10/endpoints/standard/seed1_mirrored/evaluations \
-    --init_start results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt \
-    --init_end results/vgg16/cifar10/endpoints/standard/seed1_mirrored/checkpoints/checkpoint-200.pt \
-    --num_points 61 \
+    --init-start results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt \
+    --init-end results/vgg16/cifar10/endpoints/standard/seed1_mirrored/checkpoints/checkpoint-200.pt \
+    --num-points 61 \
     --dataset CIFAR10 \
-    --data_path ./data \
+    --data-path ./data \
     --model VGG16 \
     --transform VGG \
-    --batch_size 128 \
-    --num_workers 4 \
-    --use_test
+    --batch-size 128 \
+    --num-workers 4 \
+    --use-test
 
 if [ $? -ne 0 ]; then
     echo "Linear interpolation evaluation failed!"
