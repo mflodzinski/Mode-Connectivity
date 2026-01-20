@@ -28,19 +28,16 @@ echo ""
 echo "========================================"
 echo "STEP 1: Creating Mirror Checkpoint"
 echo "========================================"
-# Navigate to scripts/analysis to run the transformation script
-cd scripts/analysis
-
-# Run the mirror creation script
-srun python network_transform.py \
+# Run the mirror creation script (stay in project root)
+srun python scripts/analysis/network_transform.py \
   --mode mirror \
-  --checkpoint ../../results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt \
-  --output ../../results/vgg16/cifar10/endpoints/standard/seed1_mirrored/checkpoints/checkpoint-200.pt \
+  --checkpoint results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt \
+  --output results/vgg16/cifar10/endpoints/standard/seed1_mirrored/checkpoints/checkpoint-200.pt \
   --model VGG16 \
   --verify \
   --full-dataset-verify \
   --dataset CIFAR10 \
-  --data-path ../../data \
+  --data-path ./data \
   --batch-size 128 \
   --num-workers 4
 
@@ -48,9 +45,6 @@ if [ $? -ne 0 ]; then
     echo "Mirror creation failed!"
     exit 1
 fi
-
-# Return to project root
-cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 
 echo ""
 echo "========================================"
