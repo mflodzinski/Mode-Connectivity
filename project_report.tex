@@ -1,239 +1,128 @@
 \documentclass[11pt,a4paper]{article}
-
 \usepackage[margin=2.5cm]{geometry}
 \usepackage{setspace}
 \usepackage{hyperref}
-\usepackage{titlesec}
-\usepackage{parskip}
 \usepackage{amsmath}
+\usepackage{float}
 \usepackage{graphicx}
-\usepackage{booktabs}
 \setstretch{1.15}
 \usepackage[utf8]{inputenc}
-\usepackage{amsmath}
-\usepackage{amssymb}
-\usepackage{geometry}
-\usepackage{booktabs} % For better tables
-\usepackage{graphicx} % To include figures
-
-\geometry{a4paper, margin=1in}
-\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
-\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
-
-\title{Linear and Non-Linear Mode Connectivity in Neural Networks and its Permutations\\ \vspace{0.3cm}}
+\title{Mode Connectivity in Neural Networks: Summary of Work}
 \author{Maciek Lodzinski}
-\date{December 17, 2025}
-
+\date{December 2025}
 \begin{document}
-
 \maketitle
 
-\begin{abstract}
-This project investigates mode connectivity in neural networks, analyzing whether independently trained models can be connected by low-loss paths. We trained Bezier curves with and without L2 regularization, tested neuron permutation effects, implemented polygon chain optimization, and developed a symmetry plane constrained optimization method.
-\end{abstract}
+\section{Summary of Work}
+This project investigated mode connectivity in neural networks---specifically, different methods for connecting independently trained models via low-loss paths in parameter space. It also explores permutation symmetry of neural network modes.
 
-\section{Research Questions}
+\subsection{L2 Regularization Effects}
+Trained B\'{e}zier curves between endpoints with and without L2 regularization. Both configurations successfully connected modes with low barriers. Unregularized curves achieved near-zero training error (0.14\%) but showed larger test barriers, indicating overfitting. Regularized curves provided better generalization along paths. Multiple training runs with different random seeds showed consistent behavior, confirming robustness.
 
-\textbf{Key questions addressed:}
-\begin{itemize}
-    \item Does L2 regularization during curve training improve connectivity?
-    \item How do neuron permutations (from permutation symmetries) affect mode connectivity?
-    \item Can we constrain optimization to symmetry plane hyperplanes while maintaining low-loss paths?
-\end{itemize}
+\subsection{Neuron Permutation Effects}
+Permutations broke linear connectivity between modes. Early layers were more sensitive to permutations than later layers. However, training B\'{e}zier curves between a mode and its permuted version successfully found low-loss paths, demonstrating that trainable curves can overcome permutation-induced barriers. As Entezari et al.\ (2021) conjectured, ``most SGD solutions belong to a set whose elements can be permuted in such a way that there is no barrier on the linear interpolation between any two permuted elements.''
 
-\section{Experimental Setup}
+\subsection{Symmetry Plane Constrained Optimization}
+Developed a method constraining polygon chain middle points to the perpendicular bisector hyperplane between endpoints. Performance comparison on seed0-mirror configurations showed that the symmetry plane constraint achieved results that were no worse than unconstrained optimization. The middle bend point moved approximately 64\% of the endpoint separation distance from the geometric midpoint, but this movement was primarily tangential to the symmetry plane.
 
-\textbf{Methods compared:}
-\begin{itemize}
-    \item \textbf{Bezier curves (1-bend):} With/without L2 regularization ($\lambda=10^{-4}$)
-    \item \textbf{Neuron swap experiments:} Permuting 2 neurons
-    \item \textbf{Polygon chain:} Piecewise linear path with 1 bends (no constraints)
-    \item \textbf{Symmetry plane:} Polygon chain constrained to hyperplane between endpoints
-\end{itemize}
+\subsection{Key Insights}
+Results showed identical connectivity behavior between seed0-seed1 (different initializations) and seed0-mirror (permutation symmetry), suggesting that modes found from different initializations may be related by permutation symmetry. This supports the hypothesis by Ainsworth et al.\ (2023) that ``accounting for permutation symmetry, the loss landscape of neural networks can be simplified considerably,'' implying that different basins might be permutations of the same underlying solution. 
 
-\textbf{Evaluation:} All paths evaluated at 61 points ($t \in [0, 1]$). Maximum test error (barrier height) used as primary connectivity metric.
+Zhan et al.\ (2025) provide theoretical support, proving that the loss barrier modulo permutation diminishes to zero as network width increases, independent of input dimension. However, this remains a conjecture for general networks---no algorithm has been produced that can perfectly align arbitrary network modes. Current methods achieve near-perfect connectivity for simpler models but only partial success on more complex architectures.
 
-\section{Key Findings}
+\section{New Work}
 
-\subsection{Curve Training With and Without Regularization}
+\subsection{Arbitrary Hyperplane Constraints}
 
-We trained 1-bend Bezier curves between seed0-seed1 and seed0-mirror endpoints with and without L2 regularization. To verify the robustness of our findings to training stochasticity, we trained multiple curves with different random seeds, which affected batch shuffling, SGD mini-batch variance, and data augmentation.
+To investigate whether the symmetry plane's geometric properties are essential for successful mode connectivity, we tested polygon chain optimization constrained to arbitrary hyperplanes. Three hyperplane types were compared: (1) symmetry plane (perpendicular bisector), (2) random plane through midpoint with random normal vector, and (3) totally random plane with both random anchor point and random normal vector.
 
-\begin{figure}
+Each hyperplane constraint removes exactly one direction from the full $\sim$15 million dimensional parameter space of VGG16. The constraint is enforced via projection after each gradient step: $\theta_{\text{new}} = \theta - \frac{(\theta - \mathbf{a}) \cdot \mathbf{n}}{\|\mathbf{n}\|^2} \mathbf{n}$, where $\mathbf{a}$ is the anchor point and $\mathbf{n}$ is the normal vector defining the hyperplane.
+
+
+
+\begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{lmc_reg_vs_noreg_comparison.png}
+    \includegraphics[width=0.8\linewidth]{random_planes_comp.png}
     \label{fig:placeholder}
 \end{figure}
 
 
-\textbf{Results:}
-\begin{itemize}
-    \item \textbf{Without regularization:} Successfully connected with low barrier
-    \item \textbf{With regularization:} Better performance(lower test loss along the path) confirms regularization benefit
-\end{itemize}
 
-\textbf{Stochasticity analysis:} Multiple curve trainings with different random seeds (images not included as they all look almost identical) showed consistent behavior in both L2 norm along the path and the L2 norm of the trainable middle point. This consistency across different training runs confirms that the observed connectivity patterns are robust properties of the loss landscape rather than artifacts of specific training trajectories.
+\begin{table}[h]
+\centering
+\caption{Hyperplane Constraint Configurations}
+\begin{tabular}{lll}
+\hline
+\textbf{Plane Type} & \textbf{Anchor Point} & \textbf{Normal Vector} \\
+\hline
+Symmetry Plane & Midpoint $(w_0+w_1)/2$ & $w_1-w_0$ \\
+Random Plane (Midpoint) & Midpoint $(w_0+w_1)/2$ & Random unit vector \\
+Random Plane (Random) & Random $\alpha w_0+(1-\alpha)w_1$ & Random unit vector \\
+\hline
+\end{tabular}
+\end{table}
 
-\textbf{Key observation:} Unregularized curves achieve near-zero training error (0.14\%) but show larger test barriers, indicating overfitting. Regularization trades slightly higher training error for better test generalization along the path - obviously?
+\textbf{Results:} All three hyperplane constraints yielded nearly identical connectivity performance. Test error curves, training loss patterns, and barrier heights showed no meaningful differences between symmetry plane, random plane through midpoint, and totally random plane configurations. The unconstrained polygon chain also produced similar results.
 
-\subsection{Neuron Swap Experiments}
+\textbf{Explanation:} This surprising robustness arises from the extremely weak nature of the constraint. Removing a single direction from $\sim$15 million dimensional parameter space (reducing from $N$ to $N-1$ dimensions) has negligible impact on the optimization landscape. The loss surface is sufficiently rich that excellent low-loss paths exist within any $(N-1)$-dimensional hyperplane, regardless of which single direction is removed or where the anchor point is placed. Mode connectivity is robust enough that the specific geometric properties of the symmetry plane provide no advantage over arbitrary hyperplane constraints.
 
-We tested 2-neuron swaps in 3 different layers of VGG16 to investigate the effect of permutation invariance on mode connectivity. We measured the difference in L2 norms (not the norm of the difference - caused confusion last week...my bad) between the original interpolation path and the neuron-swapped path.
+This result suggests that prior findings showing symmetry plane constraints maintain connectivity are not due to special geometric properties of the perpendicular bisector, but rather because any hyperplane constraint in such high-dimensional spaces is effectively non-restrictive.
 
+\subsection{Middle Bend Initialization Strategies}
 
-\begin{figure}[ht]
+To investigate sensitivity to initial conditions, we compared different strategies for initializing the trainable middle bend in B\'{e}zier curves. Three initialization methods were tested: (1) biased linear interpolation, (2) perturbed midpoint with Gaussian noise, and (3) sphere-constrained initialization. No regularization was used here.
+
+\textbf{Biased Linear Initialization:} Middle bend initialized as $\theta_{\text{init}} = \alpha w_0 + (1-\alpha) w_1$ with $\alpha \in \{0.75, 0.9\}$, positioning the initial point closer to one endpoint rather than the geometric midpoint ($\alpha = 0.5$).
+
+\begin{figure}
     \centering
-    \includegraphics[width=0.9\linewidth]{sd.png}
-    \vspace{0.5em}
-    \includegraphics[width=0.9\linewidth]{neuron_swap_v2.png}
-    \caption{L2 norm difference between original and neuron-swapped paths across layers at different $t$.}
-    \label{fig:neuron_swap_combined}
+    \includegraphics[width=1\linewidth]{init_comparison.png}
+    \label{fig:placeholder}
 \end{figure}
 
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{perturbed.png}
+    \label{fig:placeholder}
+\end{figure}
 
-\textbf{Results:} All bars decrease after $t=0.5$ (the midpoint), showing asymmetric behavior around the interpolation path. Early layers exhibit larger changes than later layers, suggesting that early (high level) representations are more sensitive to neuron permutations.
+\textbf{Perturbed Initialization:} Middle bend initialized as $\theta_{\text{init}} = 0.5(w_0 + w_1) + \epsilon$ where $\epsilon \sim \mathcal{N}(0, \sigma^2 I)$ with noise scales $\sigma \in \{0.01\}$, adding random Gaussian perturbations to the standard midpoint initialization.
 
-\textbf{Key finding:} Neuron permutations break mode connectivity. However, training a Bezier curve between the mode and its mirror version with 2 swapped neurons finds a low-loss path after a few epochs.
+\textbf{Sphere-Constrained Initialization:} Middle bend initialized at the midpoint with added Gaussian noise, then projected onto a sphere centered at the midpoint. The projection targets either inside (0.9×L2 norm) or outside (1.1×L2 norm) the sphere defined by the linear interpolation path.
 
+\textbf{Results:} For biased linear initialization, all initialization strategies converged to low-loss paths; however, the barrier height increased with distance from the midpoint. Perturbed initialization with Gaussian noise also managed to find a decent low-loss path. Because of no regularization, there was no incentive to decrease L2 norm, and therefore the trained bend-point of the B\'{e}zier curve remained at the initialized distance from the origin (around 320, which is high in comparison with 40 for regularized standard midpoint training). Sphere-constrained initialization with added noise produced a curve very similar to normal midpoint initialization, so no plots were attached.
+
+\textbf{Interpretation:} The robustness to initialization strategy indicates that the mode connectivity optimization problem has favorable geometric properties. The loss surface does not exhibit narrow basins or strong dependence on precise initial positioning, suggesting that successful path-finding is a robust property of the underlying optimization landscape rather than a consequence of carefully tuned initialization. This supports the hypothesis that low-loss paths between modes are abundant rather than rare in the high-dimensional parameter space.
+
+\subsection{ConvFC on Fashion-MNIST}
+
+To validate our findings across different architectures and datasets, we conducted the same connectivity experiments using a ConvFC architecture on Fashion-MNIST. The results were qualitatively similar to VGG16 on CIFAR-10, demonstrating that mode connectivity phenomena generalize across model architectures and tasks.
+
+\textbf{Key Observations:} The connectivity behavior between independently trained models (seed0-seed1) showed similar low-loss path characteristics as in the VGG16/CIFAR-10 configuration. However, one notable difference emerged: the L2 norm along the trained curve path exhibited asymmetry around $t=0.5$, unlike the more symmetric behavior observed in VGG16. Interestingly, despite this L2 asymmetry, the linear interpolation barrier remained perfectly symmetric around $t=0.5$. Moreover, the barriers are visibly thinner than in the case of VGG16 on CIFAR-10.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]{convfc_example.png}
+\end{figure}
 \newpage
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.9\linewidth]{layer_distance_measure.png}
-    \caption{Layer distance along the curve}
-    \label{fig:placeholder}
+    \includegraphics[width=0.75\linewidth]{seed0seed1curve_comparison.png}
+    \caption{Seed0-Seed1 low-loss path finding methods comparison}
 \end{figure}
 
-Just for sanity check, above is the image of the layer distance along the curve between seed0 and seed1 (with NO neuron permuatation). As expected the differences of layers' norms increase throughout the whole interpolation.
+\textbf{Interpretation:} The asymmetric L2 norm profile suggests that the optimization has found a path that deviates more strongly in one direction from the linear interpolation. This demonstrates that multiple geometric paths through parameter space can achieve similar loss profiles, further supporting the abundance of low-loss connectivity paths in high-dimensional loss landscapes.
 
 
-\title{Symmetry Plane Constrained Optimization for Path Finding}
-\author{Your Name (Optional)}
-\date{\today}
-
-\section{Symmetry Plane Constrained Optimization}
-
-A method was developed to constrain the middle points of a polygon chain, $\theta$, to lie on the symmetry plane hyperplane defined by its endpoints, $w_0$ and $w_1$.
-
-\subsection{Plane Definition}
-The symmetry plane is the set of all points $\theta$ equidistant from the endpoints $w_0$ and $w_1$. It is defined by the equation:
-$$
-\mathbf{n} \cdot (\theta - \mathbf{m}) = 0
-$$
-where:
-\begin{itemize}
-    \item $\mathbf{n} = w_1 - w_0$ is the normal vector to the plane (the vector connecting the endpoints).
-    \item $\mathbf{m} = \frac{w_0 + w_1}{2}$ is the midpoint between the endpoints, which lies on the plane.
-    \item $\theta$ represents the middle bend parameters (the point we are constraining).
-\end{itemize}
-
-\subsection{Implementation: Projection Step}
-
-After each gradient optimization step, the middle bend parameters $\theta$ are projected onto the symmetry plane. This projection ensures that the constraint is satisfied. The projected parameters $\theta_{\text{new}}$ are calculated using the formula for projecting a point onto a plane:
-$$
-\theta_{\text{new}} = \theta - \frac{(\theta - \mathbf{m}) \cdot \mathbf{n}}{\|\mathbf{n}\|^2} \mathbf{n}
-$$
-
-\subsection{Verification and Constraint Analysis}
-
-The constraint satisfaction is verified using the \textbf{normalized distance}, $d_{\text{norm}}$, which is the perpendicular distance from the point $\theta$ to the symmetry plane, normalized by the square root of the total number of parameters, $N$. This normalization allows for comparison across models of different sizes.
-
-The normalized distance is defined as:
-$$
-d_{\text{norm}} = \frac{|(\theta - \mathbf{m}) \cdot \mathbf{n}|}{\|\mathbf{n}\| \cdot \sqrt{N}}
-$$
-
-\subsection{Verification Results}
-
-The implementation was verified by comparing the unconstrained (Polygon Chain) result with the constrained (Symmetry Plane) result.
-
-\begin{itemize}
-    \item \textbf{Polygon Chain (Unconstrained):} Normalized distance $= 2.56$ (\textit{Not on the plane}).
-    \item \textbf{Symmetry Plane (Constrained):} Normalized distance $\approx 7.2 \times 10^{-8}$ (\textit{On the plane to machine precision}).
-\end{itemize}
-
-\subsection{Detailed Metric Comparison}
-
-The following table provides a detailed comparison of geometric metrics between the unconstrained and constrained paths, illustrating the effectiveness of the projection.
-
-\begin{table}[h]
-    \centering
-    \caption{Geometric Metrics for Unconstrained vs. Constrained Paths}
-    \label{tab:geometric_comparison}
-    \begin{tabular}{l c c c}
-        \toprule
-        \textbf{Metric} & \textbf{Polygon Chain (seed0-mirror)} & \textbf{Symmetry Plane (seed0-seed1)} \\
-        \midrule
-        Dot product ($\mathbf{n} \cdot (\theta - \mathbf{m})$) & $+1.113 \times 10^{2}$ & $+1.177 \times 10^{-6}$ \\
-        Normalized distance ($d_{\text{norm}}$) & $+2.558$ & $+2.706 \times 10^{-8}$ \\
-        Normal norm ($\|\mathbf{n}\|$) & $43.517$ & $43.505$ \\
-        Displacement norm ($\|\theta - \mathbf{m}\|$) & $27.748$ & $27.754$ \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-\paragraph{Comparison with Normal and Displacement Norms:}
-
-The analysis of the norms provides insight into the path's geometry:
-\begin{itemize}
-    \item Normal norm: $\|\mathbf{n}\| = 43.505$ (Represents the distance/separation between the endpoints $w_0$ and $w_1$).
-    \item Displacement norm: $\|\theta - \mathbf{m}\| = 27.754$ (Represents the total deviation of the middle bend from the geometric midpoint $\mathbf{m}$).
-    \item Ratio: $\frac{\|\theta - \mathbf{m}\|}{\|\mathbf{n}\|} \approx \frac{27.754}{43.505} \approx 0.638$ (or $63.8\%$).
-\end{itemize}
-This ratio indicates that $\theta$ has moved about $64\%$ of the endpoint separation distance away from the midpoint $\mathbf{m}$. Importantly, this movement is primarily tangential to the symmetry plane, as the perpendicular distance has been minimized to machine precision.
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.9\linewidth]{polygon_vs_symmetry.png}
-    \caption{Comparison between three low-loss path finding methods.}
-    \label{fig:performance_comparison}
-\end{figure}
-
-\subsection{Performance Comparison}
-
-The three path-finding methods (Polygon Chain, Symmetry Plane, and Bezier Curve) were trained with L2 weight regularization (wd $= 5\times 10^{-4}$) on the seed0 $\leftrightarrow$ seed0\_mirrored configuration. Note:\\ $$\text{Barrier Height} = \max(\text{Error}_{\text{along\_path}}) - \min(\text{Error}_{\text{endpoint}0}, \text{Error}_{\text{endpoint}1})$$
-
-\begin{table}[h]
-    \centering
-    \caption{Test Error and Barrier Height Comparison}
-    \label{tab:performance}
-    \begin{tabular}{l c c}
-        \toprule
-        \textbf{Method} & \textbf{Maximum Test Error (\%)} & \textbf{Barrier Height (\%)} \\
-        \midrule
-        Polygon Chain & $9.21$ & $2.22$ \\
-        Symmetry Plane & $8.81$ & $1.82$ \\
-        Bezier Curve & $9.37$ & $2.38$ \\
-        \midrule
-        \textbf{Difference (Symmetry - Polygon)} & \textbf{-0.40} & \textbf{-0.40} \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-As summarized in Table \ref{tab:performance} (and visually suggested by Figure \ref{fig:performance_comparison}), the Symmetry Plane constrained optimization yielded the best results for this specific model and dataset configuration, reducing both maximum test error and barrier height by $0.40\%$ compared to the unconstrained Polygon Chain method. The test loss patterns between the Polygon Chain and Symmetry Plane methods show notable similarities, suggesting that the symmetry constraint primarily refines the path rather than fundamentally altering its shape, unlike the Bezier Curve constraint.
-
-
-\textbf{Connection to permutation invariance theory:} These results relate to findings in ``The Role of Permutation Invariance in Linear Mode Connectivity of Neural Networks'' (Ainsworth et al., 2023), which shows that when accounting for permutation invariance, SGD solutions likely have no barrier in their linear interpolation. They prove this conjecture holds for:
-\begin{itemize}
-    \item Wide enough fully-connected networks
-    \item Single hidden layer networks
-    \item Networks at random initialization
-\end{itemize}
-
-Their work uses informed algorithms that permute neurons optimally to align different modes in parameter space. They suggest that the loss landscape may be simpler than previously thought - different ``basins'' might just be permutations of the same solution.
-
-Interestingly, for now we observe identical connectivity (and any other experiment results that has been run) between seed0-seed1 (different initializations) as between seed0-seed0\_mirrored (permutation symmetry), suggesting that modes found by different initializations and SGD's stochasticity may also exhibit symmetry-like properties in the loss landscape.
-
-\textbf{Key insight:} Constraining optimization to the symmetry plane hyperplane not only maintains path quality but actually improves it on average compared to unconstrained polygon chains. This suggests the optimal paths naturally lie close to this high-dimensional hyperplane.
 
 \section{References}
-
 \begin{itemize}
-    \item \textbf{Garipov et al. (2018):} ``Loss Surfaces, Mode Connectivity, and Fast Ensembling of DNNs'' -- Original mode connectivity work, introduced Bezier curve training
-    \item \textbf{Draxler et al. (2018):} ``Essentially No Barriers in Neural Network Energy Landscape'' -- Showed that barriers between minima are often surmountable
-    \item \textbf{Fort \& Jastrzebski (2019):} ``Large Scale Structure of Neural Network Loss Landscapes'' -- Analyzed global geometry of loss surfaces
-    \item \textbf{Frankle et al. (2020):} ``Linear Mode Connectivity and the Lottery Ticket Hypothesis'' -- Showed pruned networks can be linearly connected
-    \item \textbf{Ainsworth et al. (2023):} ``The Role of Permutation Invariance in Linear Mode Connectivity of Neural Networks'' -- Demonstrated that accounting for permutation symmetries reveals simpler loss landscape structure
+    \item Draxler et al.\ (2018): Essentially No Barriers in Neural Network Energy Landscape.
+    \item Freeman \& Bruna (2017): Topology and Geometry of Half-Rectified Network Optimization.
+    \item Entezari et al.\ (2021): The Role of Permutation Invariance in Linear Mode Connectivity of Neural Networks.
+    \item Ainsworth et al.\ (2023): Git Re-Basin: Merging Models Modulo Permutation Symmetries.
+    \item Zhan et al.\ (2025): Analyzing the Role of Permutation Invariance in Linear Mode Connectivity.
+    \item Crisostomi et al.\ (2024): Cycle-Consistent Multi-Model Merging (C$^2$M$^3$).
 \end{itemize}
 
 \end{document}
