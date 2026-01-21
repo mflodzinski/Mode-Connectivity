@@ -30,7 +30,7 @@ echo "========================================"
 echo "STEP 1: Training Symmetry Plane Polygon"
 echo "========================================"
 # Run the symmetry plane training script
-srun python scripts/train/run_garipov_polygon.py --config-name vgg16_symplane_seed1-mirror --project-symmetry-plane
+srun python scripts/train/run_symmetry_plane.py --config-name vgg16_symplane_seed1-mirror
 
 if [ $? -ne 0 ]; then
     echo "Symmetry plane training failed!"

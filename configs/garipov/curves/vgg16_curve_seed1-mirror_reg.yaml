@@ -1,8 +1,8 @@
 defaults: []
 
-experiment_name: "garipov_vgg16_curve_seed1-mirror_noreg"
+experiment_name: "garipov_vgg16_curve_seed1-mirror_reg"
 
-output_root: "results/vgg16/cifar10/curves/standard/seed1-mirror_noreg/checkpoints"
+output_root: "results/vgg16/cifar10/curves/standard/seed1-mirror_reg/checkpoints"
 
 # Endpoints: seed1 original and its mirrored version
 endpoint0: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt"
@@ -22,7 +22,7 @@ epochs: 200
 save_intermediate: true
 save_freq: 200
 lr: 0.015  # Recommended LR for VGG16 curve training
-wd: 5e-4    # NO REGULARIZATION - set to 0
+wd: 5e-4    # WITH REGULARIZATION (L2 weight decay)
 seed: 1    # Random seed for reproducibility
 
 use_test: true
