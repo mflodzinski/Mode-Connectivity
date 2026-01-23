@@ -43,7 +43,7 @@ srun python external/dnn-mode-connectivity/eval_curve.py \
   --model VGG16 \
   --curve PolyChain \
   --num_bends 3 \
-  --ckpt results/vgg16/cifar10/advanced_geometry/polygon/seed0-seed1_test_train_swap/checkpoint-150.pt \
+  --ckpt results/vgg16/cifar10/advanced_geometry/polygon/seed0-seed1/checkpoint-150.pt \
   --num_points 61 \
   --use_test
 
