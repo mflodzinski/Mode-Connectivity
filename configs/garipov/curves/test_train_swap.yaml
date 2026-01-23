@@ -2,7 +2,8 @@ defaults: []
 
 experiment_name: "garipov_vgg16_curve_seed0-seed1_reg_test_train_swap"
 
-output_root: "results/vgg16/cifar10/curves/standard/seed0-seed1_reg_test_train_swap/checkpoints"
+# Use existing trained checkpoint, just evaluate with different data split
+output_root: "results/vgg16/cifar10/curves/standard/seed0-seed1_reg/checkpoints"
 
 # Endpoints
 endpoint0: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
