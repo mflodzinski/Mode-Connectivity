@@ -113,6 +113,17 @@ To validate our findings across different architectures and datasets, we conduct
 
 \textbf{Interpretation:} The asymmetric L2 norm profile suggests that the optimization has found a path that deviates more strongly in one direction from the linear interpolation. This demonstrates that multiple geometric paths through parameter space can achieve similar loss profiles, further supporting the abundance of low-loss connectivity paths in high-dimensional loss landscapes.
 
+\subsection{Observations on Loss Curve Characteristics}
+
+Through detailed code analysis and verification experiments, several important observations emerged regarding the loss and accuracy curves along connectivity paths:
+
+\textbf{Curve Smoothness:} Under standard evaluation conditions (without random augmentations), the loss curves exhibit very smooth, continuous behavior. Initial apparent noise in some curves was traced to random data augmentations (horizontal flips, random crops) being inadvertently applied during evaluation on the training split. This was corrected to ensure consistent evaluation conditions.
+
+\textbf{Train vs.\ Test Loss Differences:} The apparent differences between train and test loss curves are correct and expected. In both VGG16 on CIFAR-10 and ConvFC on Fashion-MNIST, the models exhibited overfitting on the training data. Consequently, the train loss curves appear nearly flat along the connectivity path when plotted on the same scale as test loss curves. This does not indicate different data distributions or evaluation errors---rather, it reflects the models' strong memorization of the training set. The test loss curves, evaluating on unseen data, naturally show higher values and more pronounced variation along the path.
+
+\textbf{Endpoint Consistency:} Initial observations showed that loss and accuracy values at the endpoints ($t=0$ and $t=1.0$) varied slightly across different path-finding methods. This variation was also attributed to random augmentations being applied during batch normalization statistics updates on the training split. When augmentations were disabled for evaluation, endpoint values became consistent across all methods, as expected.
+
+\textbf{Conclusion:} The distinct visual characteristics of train versus test loss plots are correct and informative. They reveal the degree of overfitting in the models and demonstrate that the connectivity phenomena exist in the generalization regime (test data), not merely as artifacts of training set memorization. Future experiments will ensure that data augmentations are disabled during all evaluation procedures to maintain consistency and interpretability of results.
 
 
 \section{References}
