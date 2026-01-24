@@ -26,8 +26,8 @@ echo "Verifying Shuffle Effect on FashionMNIST ConvFC"
 echo "========================================"
 
 srun python scripts/analysis/verify_shuffle_effect.py \
-  --checkpoint0 results/convfc/fmnist/endpoints/standard/seed0/checkpoint-200.pt \
-  --checkpoint1 results/convfc/fmnist/endpoints/standard/seed1/checkpoint-200.pt \
+  --checkpoint0 results/convfc/fmnist/endpoints/standard/seed0/checkpoints/checkpoint-200.pt \
+  --checkpoint1 results/convfc/fmnist/endpoints/standard/seed1/checkpoints/checkpoint-200.pt \
   --dataset FashionMNIST \
   --data-path ./data \
   --model ConvFC \
