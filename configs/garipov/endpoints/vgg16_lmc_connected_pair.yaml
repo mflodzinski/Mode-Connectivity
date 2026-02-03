@@ -8,12 +8,13 @@ data_path: "./data"
 transform: "VGG"
 model: "VGG16"
 
-# Stage 1: Shared initialization training
-shared_epochs: 10          # N epochs before split
-shared_seed: 42            # Seed for initial training
+# Shared checkpoint to resume from
+shared_checkpoint: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-150.pt"
+shared_epochs: 150         # Epoch of the shared checkpoint
+shared_seed: 42            # Seed for reproducibility
 
-# Stage 2: Split training
-final_epochs: 200          # Train to convergence
+# Split training: continue from shared_epochs to final_epochs
+final_epochs: 200          # Train to convergence (50 more epochs)
 split_seeds: [0, 1]        # Different seeds for w_0 and w_1
 
 save_intermediate: true

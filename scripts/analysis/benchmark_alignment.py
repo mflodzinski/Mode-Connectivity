@@ -6,10 +6,12 @@ Tests if alignment methods can recover known permutations between LMC-connected 
 Workflow:
 1. Load w_0, w_1 (LMC-connected from shared init training)
 2. Generate random permutation P*
-3. Create w_1' = P*(w_1)
-4. Run alignment method: P_found = method(w_0, w_1')
-5. Create w_1_recovered = P_found(w_1')
-6. Evaluate linear interpolation barriers
+3. Create w_1' = P*(w_1) - this breaks LMC
+4. Run alignment: P_found = method(w_0, w_1')
+5. Recover: w_1_recovered = P_found(w_1')
+6. Evaluate barriers:
+   - barrier(w_0 <-> w_1_recovered) - does alignment restore connectivity to w_0?
+   - barrier(w_1 <-> w_1_recovered) - does alignment restore connectivity to original w_1?
 7. Compare P_found with inverse(P*)
 """
 
@@ -147,6 +149,29 @@ def state_dict_to_flat_params(state_dict, ps):
     return params
 
 
+def compute_l2_distance(state_a, state_b):
+    """Compute L2 distance between two state dicts.
+
+    Returns:
+        Dictionary with l2_distance, num_params, and rms_difference
+    """
+    total_diff_sq = 0.0
+    total_params = 0
+    for key in state_a:
+        diff = state_a[key].float() - state_b[key].float()
+        total_diff_sq += (diff ** 2).sum().item()
+        total_params += diff.numel()
+
+    l2_dist = total_diff_sq ** 0.5
+    rms_diff = (total_diff_sq / total_params) ** 0.5
+
+    return {
+        'l2_distance': l2_dist,
+        'num_params': total_params,
+        'rms_difference': rms_diff
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description='Benchmark permutation alignment')
     parser.add_argument('--w0', type=str, required=True, help='Path to w_0 checkpoint')
@@ -185,10 +210,17 @@ def main():
         eval_mode=True
     )
 
-    # Step 1: Evaluate original barrier
+    # Step 1: Evaluate original barrier and distance
     print("\n" + "=" * 70)
     print("Step 1: Evaluating original barrier (w_0 <-> w_1)")
     print("=" * 70)
+
+    # Compute L2 distance between w_0 and w_1
+    dist_w0_w1 = compute_l2_distance(model_w0.state_dict(), model_w1.state_dict())
+    print(f"L2 distance (w_0 <-> w_1): {dist_w0_w1['l2_distance']:.4f}")
+    print(f"RMS difference: {dist_w0_w1['rms_difference']:.6f}")
+    print(f"Total parameters: {dist_w0_w1['num_params']:,}")
+
     original_barrier = evaluate_barrier(model_w0, model_w1, loaders, args.num_eval_points, device)
     print(f"Original barrier: {original_barrier['barrier']:.4f}")
     print(f"Endpoint avg test loss: {original_barrier['endpoint_avg_test_loss']:.4f}")
@@ -201,6 +233,33 @@ def main():
     perm_gen = VGG16RandomPermutation()
     P_star = perm_gen.generate(seed=args.perm_seed)
     P_star_inv = perm_gen.invert(P_star)
+    ps = vgg16_permutation_spec()
+
+    def convert_perm_to_apply_format(P_found):
+        """Convert P_found keys from 'P_Conv_0' to 'conv_0' format."""
+        converted = {}
+        for key, val in P_found.items():
+            if key.startswith('P_Conv_'):
+                new_key = f"conv_{key[7:]}"
+            elif key.startswith('P_Dense_'):
+                new_key = f"fc_{key[8:]}"
+            else:
+                new_key = key
+            converted[new_key] = val
+        return converted
+
+    def convert_perm_to_compare_format(perm):
+        """Convert perm keys from 'conv_0' to 'P_Conv_0' format."""
+        converted = {}
+        for key, val in perm.items():
+            if key.startswith('conv_'):
+                new_key = f"P_Conv_{key[5:]}"
+            elif key.startswith('fc_'):
+                new_key = f"P_Dense_{key[3:]}"
+            else:
+                new_key = key
+            converted[new_key] = val
+        return converted
 
     # Step 3: Apply permutation to w_1
     print("\n" + "=" * 70)
@@ -209,6 +268,16 @@ def main():
     w1_prime_state = perm_gen.apply_to_state_dict(model_w1.state_dict(), P_star)
     model_w1_prime = models.VGG16.base(num_classes=10)
     model_w1_prime.load_state_dict(w1_prime_state)
+
+    # Compute L2 distance between w_0 and w_1' (should be similar to independently trained models)
+    dist_w0_w1_prime = compute_l2_distance(model_w0.state_dict(), w1_prime_state)
+    print(f"L2 distance (w_0 <-> w_1'): {dist_w0_w1_prime['l2_distance']:.4f}")
+    print(f"RMS difference: {dist_w0_w1_prime['rms_difference']:.6f}")
+
+    # Also show distance between w_1 and w_1' (should be large due to permutation)
+    dist_w1_w1_prime = compute_l2_distance(model_w1.state_dict(), w1_prime_state)
+    print(f"L2 distance (w_1 <-> w_1'): {dist_w1_w1_prime['l2_distance']:.4f}")
+    print(f"RMS difference: {dist_w1_w1_prime['rms_difference']:.6f}")
 
     # Step 4: Evaluate permuted barrier
     print("\n" + "=" * 70)
@@ -221,10 +290,9 @@ def main():
 
     # Step 5: Run alignment method
     print("\n" + "=" * 70)
-    print(f"Step 5: Running alignment method ({args.method})")
+    print(f"Step 5: Running alignment ({args.method}): align w_1' to w_0")
     print("=" * 70)
 
-    ps = vgg16_permutation_spec()
     params_w0 = state_dict_to_flat_params(model_w0.state_dict(), ps)
     params_w1_prime = state_dict_to_flat_params(w1_prime_state, ps)
 
@@ -241,78 +309,116 @@ def main():
     print("Step 6: Applying found permutation to w_1' -> w_1_recovered")
     print("=" * 70)
 
-    # Convert P_found to format expected by apply_to_state_dict
-    # P_found has keys like 'P_Conv_0', need to map to 'conv_0'
-    P_found_converted = {}
-    for key, val in P_found.items():
-        if key.startswith('P_Conv_'):
-            new_key = f"conv_{key[7:]}"
-        elif key.startswith('P_Dense_'):
-            new_key = f"fc_{key[8:]}"
-        else:
-            new_key = key
-        P_found_converted[new_key] = val
-
+    P_found_converted = convert_perm_to_apply_format(P_found)
     w1_recovered_state = perm_gen.apply_to_state_dict(w1_prime_state, P_found_converted)
     model_w1_recovered = models.VGG16.base(num_classes=10)
     model_w1_recovered.load_state_dict(w1_recovered_state)
 
-    # Step 7: Evaluate recovered barrier
+    # Compute distances for recovered model
+    dist_w0_w1_rec = compute_l2_distance(model_w0.state_dict(), w1_recovered_state)
+    print(f"L2 distance (w_0 <-> w_1_rec): {dist_w0_w1_rec['l2_distance']:.4f}")
+
+    dist_w1_w1_rec = compute_l2_distance(model_w1.state_dict(), w1_recovered_state)
+    print(f"L2 distance (w_1 <-> w_1_rec): {dist_w1_w1_rec['l2_distance']:.4f}")
+
+    # Sanity check: verify w_1_rec == w_1 if P_found == P*^{-1}
+    # This confirms: P_found(P*(w_1)) == w_1, meaning P_found == P*^{-1}
+    w1_state = model_w1.state_dict()
+    max_diff = 0.0
+    for key in w1_state:
+        diff = torch.abs(w1_state[key] - w1_recovered_state[key]).max().item()
+        max_diff = max(max_diff, diff)
+
+    print(f"Max element-wise diff (w_1 vs w_1_rec): {max_diff:.2e}")
+    if max_diff < 1e-5:
+        print("VERIFIED: w_1_recovered == w_1 (P_found recovers exact inverse permutation)")
+    else:
+        print(f"WARNING: w_1_recovered differs from w_1 (max diff: {max_diff:.6f})")
+
+    # Step 7A: Evaluate recovered barrier to w_0
     print("\n" + "=" * 70)
-    print("Step 7: Evaluating recovered barrier (w_0 <-> w_1_recovered)")
+    print("Step 7A: Evaluating recovered barrier (w_0 <-> w_1_recovered)")
     print("=" * 70)
-    recovered_barrier = evaluate_barrier(model_w0, model_w1_recovered, loaders, args.num_eval_points, device)
-    print(f"Recovered barrier: {recovered_barrier['barrier']:.4f}")
-    print(f"Endpoint avg test loss: {recovered_barrier['endpoint_avg_test_loss']:.4f}")
-    print(f"Max test loss: {recovered_barrier['max_test_loss']:.4f}")
+    recovered_barrier_to_w0 = evaluate_barrier(model_w0, model_w1_recovered, loaders, args.num_eval_points, device)
+    print(f"Recovered barrier to w_0: {recovered_barrier_to_w0['barrier']:.4f}")
+    print(f"Endpoint avg test loss: {recovered_barrier_to_w0['endpoint_avg_test_loss']:.4f}")
+    print(f"Max test loss: {recovered_barrier_to_w0['max_test_loss']:.4f}")
+
+    # Step 7B: Evaluate recovered barrier to original w_1
+    print("\n" + "=" * 70)
+    print("Step 7B: Evaluating recovered barrier (w_1 <-> w_1_recovered)")
+    print("=" * 70)
+    recovered_barrier_to_w1 = evaluate_barrier(model_w1, model_w1_recovered, loaders, args.num_eval_points, device)
+    print(f"Recovered barrier to w_1: {recovered_barrier_to_w1['barrier']:.4f}")
+    print(f"Endpoint avg test loss: {recovered_barrier_to_w1['endpoint_avg_test_loss']:.4f}")
+    print(f"Max test loss: {recovered_barrier_to_w1['max_test_loss']:.4f}")
 
     # Step 8: Compare permutations
     print("\n" + "=" * 70)
     print("Step 8: Comparing P_found with P*^{-1}")
     print("=" * 70)
 
-    # Convert P_star_inv to same format as P_found
-    P_star_inv_converted = {}
-    for key, val in P_star_inv.items():
-        if key.startswith('conv_'):
-            new_key = f"P_Conv_{key[5:]}"
-        elif key.startswith('fc_'):
-            new_key = f"P_Dense_{key[3:]}"
-        else:
-            new_key = key
-        P_star_inv_converted[new_key] = val
-
+    P_star_inv_converted = convert_perm_to_compare_format(P_star_inv)
     perm_comparison = compare_permutations(P_found, P_star_inv_converted)
     print(f"Overall permutation accuracy: {perm_comparison['overall_accuracy']:.2%}")
     print("\nPer-layer accuracy:")
     for layer, stats in perm_comparison['per_layer'].items():
         print(f"  {layer}: {stats['accuracy']:.2%} ({stats['matched']}/{stats['total']})")
 
+    # =========================================================================
     # Summary
+    # =========================================================================
     print("\n" + "=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"Original barrier (w_0 <-> w_1):       {original_barrier['barrier']:.4f}")
-    print(f"Permuted barrier (w_0 <-> w_1'):      {permuted_barrier['barrier']:.4f}")
-    print(f"Recovered barrier (w_0 <-> w_1_rec):  {recovered_barrier['barrier']:.4f}")
-    print(f"Permutation recovery accuracy:         {perm_comparison['overall_accuracy']:.2%}")
+
+    print("\nL2 DISTANCES:")
+    print(f"  w_0 <-> w_1 (original LMC pair):           {dist_w0_w1['l2_distance']:.4f}")
+    print(f"  w_0 <-> w_1' (after permutation):          {dist_w0_w1_prime['l2_distance']:.4f}")
+    print(f"  w_1 <-> w_1' (permutation effect):         {dist_w1_w1_prime['l2_distance']:.4f}")
+    print(f"  w_0 <-> w_1_rec (after alignment):         {dist_w0_w1_rec['l2_distance']:.4f}")
+    print(f"  w_1 <-> w_1_rec (recovery accuracy):       {dist_w1_w1_rec['l2_distance']:.4f}")
+
+    print("\nBARRIERS:")
+    print(f"  Original (w_0 <-> w_1):                    {original_barrier['barrier']:.4f}")
+    print(f"  Permuted (w_0 <-> w_1'):                   {permuted_barrier['barrier']:.4f}")
+    print(f"  Recovered to w_0 (w_0 <-> w_1_rec):        {recovered_barrier_to_w0['barrier']:.4f}")
+    print(f"  Recovered to w_1 (w_1 <-> w_1_rec):        {recovered_barrier_to_w1['barrier']:.4f}")
+
+    print(f"\nPermutation recovery accuracy:               {perm_comparison['overall_accuracy']:.2%}")
     print()
 
-    if recovered_barrier['barrier'] < permuted_barrier['barrier'] * 0.5:
-        print("SUCCESS: Alignment significantly reduced barrier!")
-    elif recovered_barrier['barrier'] < permuted_barrier['barrier'] * 0.9:
-        print("PARTIAL: Alignment partially reduced barrier")
+    # Evaluate success
+    if recovered_barrier_to_w0['barrier'] < permuted_barrier['barrier'] * 0.5:
+        print("Connectivity to w_0: SUCCESS - Alignment significantly reduced barrier!")
+    elif recovered_barrier_to_w0['barrier'] < permuted_barrier['barrier'] * 0.9:
+        print("Connectivity to w_0: PARTIAL - Alignment partially reduced barrier")
     else:
-        print("FAILURE: Alignment did not reduce barrier")
+        print("Connectivity to w_0: FAILURE - Alignment did not reduce barrier")
+
+    if recovered_barrier_to_w1['barrier'] < 0.1:
+        print("Connectivity to w_1: SUCCESS - w_1_recovered is close to original w_1!")
+    elif recovered_barrier_to_w1['barrier'] < 0.5:
+        print("Connectivity to w_1: PARTIAL - w_1_recovered partially matches w_1")
+    else:
+        print("Connectivity to w_1: FAILURE - w_1_recovered is far from original w_1")
 
     # Save results
     if args.output:
         import json
         results = {
             'config': vars(args),
+            'distances': {
+                'w0_w1': dist_w0_w1,
+                'w0_w1_prime': dist_w0_w1_prime,
+                'w1_w1_prime': dist_w1_w1_prime,
+                'w0_w1_recovered': dist_w0_w1_rec,
+                'w1_w1_recovered': dist_w1_w1_rec,
+            },
             'original_barrier': original_barrier,
             'permuted_barrier': permuted_barrier,
-            'recovered_barrier': recovered_barrier,
+            'recovered_barrier_to_w0': recovered_barrier_to_w0,
+            'recovered_barrier_to_w1': recovered_barrier_to_w1,
             'permutation_comparison': {
                 'overall_accuracy': perm_comparison['overall_accuracy'],
                 'per_layer': {k: v['accuracy'] for k, v in perm_comparison['per_layer'].items()}

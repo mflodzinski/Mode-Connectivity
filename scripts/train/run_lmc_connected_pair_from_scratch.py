@@ -1,4 +1,4 @@
-"""Train LMC-connected pairs using shared initialization with split training.
+"""Train LMC-connected pairs from scratch with split training.
 
 This script creates pairs of models that are:
 1. Both genuine SGD solutions (trained to convergence)
@@ -6,7 +6,7 @@ This script creates pairs of models that are:
 3. Different points in weight space
 
 Approach:
-1. Use existing checkpoint as shared initialization (or train from scratch)
+1. Train from scratch for N epochs (shared phase) → checkpoint w_shared
 2. From w_shared, continue training with TWO different batch orderings:
    - Batch seed A → train to convergence → w_0
    - Batch seed B → train to convergence → w_1
@@ -49,7 +49,7 @@ def build_base_command_no_epochs(train_script: str, run_dir: str, cfg) -> list:
 @hydra.main(
     version_base=None,
     config_path="../../configs/garipov/endpoints",
-    config_name="vgg16_lmc_connected_pair",
+    config_name="vgg16_lmc_connected_pair_80split",
 )
 def main(cfg: DictConfig):
     set_global_seed(cfg.shared_seed)
@@ -59,22 +59,40 @@ def main(cfg: DictConfig):
     output_root = to_absolute_path(cfg.output_root)
 
     # =========================================================================
-    # Get shared checkpoint (use existing or train from scratch)
+    # Stage 1: Train shared initialization from scratch
     # =========================================================================
-    # Use existing checkpoint instead of training from scratch
-    shared_checkpoint = to_absolute_path(cfg.shared_checkpoint)
+    print("=" * 70)
+    print("STAGE 1: Training shared initialization from scratch")
+    print(f"  Epochs: {cfg.shared_epochs}")
+    print(f"  Seed: {cfg.shared_seed}")
+    print("=" * 70)
 
-    print("=" * 70)
-    print("Using existing shared checkpoint")
-    print(f"  Checkpoint: {shared_checkpoint}")
-    print(f"  Starting epoch: {cfg.shared_epochs}")
-    print(f"  Final epochs: {cfg.final_epochs}")
-    print("=" * 70)
+    shared_dir = os.path.join(output_root, "shared")
+    os.makedirs(shared_dir, exist_ok=True)
+
+    # Build training command for shared init
+    # Use --lr_schedule_epochs to maintain correct LR schedule for full training
+    cmd = build_base_command_no_epochs(train_script, shared_dir, cfg)
+    cmd += ["--epochs", str(cfg.shared_epochs)]
+    cmd += ["--lr_schedule_epochs", str(cfg.final_epochs)]  # LR schedule based on total epochs
+    add_seed_arg(cmd, cfg.shared_seed)
+    cmd += ["--save_freq", str(cfg.shared_epochs)]  # Save at final epoch of shared phase
+    add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
+
+    # Add WandB logging
+    run_name = f"garipov_{cfg.model}_lmc_shared_e{cfg.shared_epochs}"
+    add_wandb_args(cmd, cfg, run_name)
+
+    print_and_format_command(cmd)
+    subprocess.run(cmd, check=True)
+
+    # Path to shared checkpoint (saved directly in run_dir)
+    shared_checkpoint = os.path.join(shared_dir, f"checkpoint-{cfg.shared_epochs}.pt")
 
     if not os.path.exists(shared_checkpoint):
         raise FileNotFoundError(
             f"Shared checkpoint not found: {shared_checkpoint}\n"
-            f"Please verify the checkpoint path exists."
+            f"Stage 1 may have failed or saved checkpoint with different name."
         )
 
     # =========================================================================
@@ -94,7 +112,6 @@ def main(cfg: DictConfig):
         os.makedirs(run_dir, exist_ok=True)
 
         # Build training command
-        # Resume handles LR schedule correctly (starts from checkpoint epoch + 1)
         cmd = build_base_command_no_epochs(train_script, run_dir, cfg)
         cmd += ["--epochs", str(cfg.final_epochs)]
         add_seed_arg(cmd, seed)  # Different seed for different batch ordering
@@ -103,7 +120,7 @@ def main(cfg: DictConfig):
         add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
 
         # Add WandB logging
-        run_name = f"garipov_{cfg.model}_lmc_split_seed{seed}"
+        run_name = f"garipov_{cfg.model}_lmc_{cfg.shared_epochs}split_seed{seed}"
         add_wandb_args(cmd, cfg, run_name)
 
         print_and_format_command(cmd)

@@ -33,6 +33,6 @@ srun python scripts/analysis/benchmark_alignment.py \
     --perm-seed 42 \
     --method weight_matching \
     --max-iter 100 \
-    --num-eval-points 11 \
+    --num-eval-points 61 \
     --data-path ./data \
     --output results/analysis/alignment_benchmark/results.json
