@@ -21,29 +21,28 @@ source $HOME/venvs/mode-connectivity/bin/activate || . $HOME/venvs/mode-connecti
 cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 
 # Add project root to Python path
-export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
+PROJECT_ROOT="/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity"
+export PYTHONPATH=${PROJECT_ROOT}:${PROJECT_ROOT}/scripts:$PYTHONPATH
 
 # Checkpoints
-W0="results/vgg16/cifar10/endpoints/lmc_connected/seed0/checkpoint-200.pt"
-W1="results/vgg16/cifar10/endpoints/lmc_connected/seed1/checkpoint-200.pt"
+ENDPOINT0="results/vgg16/cifar10/endpoints/lmc_connected/seed0/checkpoint-200.pt"
+ENDPOINT0="results/vgg16/cifar10/endpoints/lmc_connected/seed1/checkpoint-200.pt"
 OUTPUT_DIR="results/vgg16/cifar10/endpoints/lmc_connected/evaluations"
 
-mkdir -p $OUTPUT_DIR
+mkdir -p "${OUTPUT_DIR}"
+cd scripts/eval
 
 # Evaluate linear interpolation using evaluate.py
 echo "Evaluating linear interpolation between w_0 and w_1..."
-srun python scripts/eval/evaluate.py \
+srun python evaluate.py \
     --mode linear \
-    --dir $OUTPUT_DIR \
-    --init_start $W0 \
-    --init_end $W1 \
-    --num_points 21 \
+    --init-start "../../${ENDPOINT0}" \
+    --init-end "../../${ENDPOINT1}" \
+    --num_points 61 \
     --dataset CIFAR10 \
-    --data_path ./data \
     --model VGG16 \
-    --transform VGG \
-    --batch_size 128 \
-    --use-test
+    --data-path ../../data \
+    --dir "../../${OUTPUT_DIR}"
 
 echo ""
 echo "========================================"
