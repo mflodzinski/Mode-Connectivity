@@ -6,9 +6,8 @@ This script creates pairs of models that are:
 3. Different points in weight space
 
 Approach:
-1. Initialize model randomly
-2. Train for N epochs → checkpoint w_shared
-3. From w_shared, continue training with TWO different batch orderings:
+1. Use existing checkpoint as shared initialization (or train from scratch)
+2. From w_shared, continue training with TWO different batch orderings:
    - Batch seed A → train to convergence → w_0
    - Batch seed B → train to convergence → w_1
 """
@@ -59,14 +58,23 @@ def main(cfg: DictConfig):
     train_script = os.path.join(repo_root, "train.py")
     output_root = to_absolute_path(cfg.output_root)
 
+    # =========================================================================
+    # Get shared checkpoint (use existing or train from scratch)
+    # =========================================================================
+    # Use existing checkpoint instead of training from scratch
+    shared_checkpoint = to_absolute_path(cfg.shared_checkpoint)
 
-    # Path to shared checkpoint (saved directly in run_dir, not in checkpoints subdir)
-    shared_checkpoint = 'results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-150.pt'
+    print("=" * 70)
+    print("Using existing shared checkpoint")
+    print(f"  Checkpoint: {shared_checkpoint}")
+    print(f"  Starting epoch: {cfg.shared_epochs}")
+    print(f"  Final epochs: {cfg.final_epochs}")
+    print("=" * 70)
 
     if not os.path.exists(shared_checkpoint):
         raise FileNotFoundError(
             f"Shared checkpoint not found: {shared_checkpoint}\n"
-            f"Stage 1 may have failed or saved checkpoint with different name."
+            f"Please verify the checkpoint path exists."
         )
 
     # =========================================================================
