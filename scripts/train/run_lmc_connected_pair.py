@@ -86,9 +86,9 @@ def main(cfg: DictConfig):
     print_and_format_command(cmd)
     subprocess.run(cmd, check=True)
 
-    # Path to shared checkpoint
+    # Path to shared checkpoint (saved directly in run_dir, not in checkpoints subdir)
     shared_checkpoint = os.path.join(
-        shared_dir, "checkpoints", f"checkpoint-{cfg.shared_epochs}.pt"
+        shared_dir, f"checkpoint-{cfg.shared_epochs}.pt"
     )
 
     if not os.path.exists(shared_checkpoint):
@@ -137,7 +137,7 @@ def main(cfg: DictConfig):
     print(f"Shared checkpoint: {shared_checkpoint}")
     for i, seed in enumerate(cfg.split_seeds):
         final_ckpt = os.path.join(
-            output_root, f"seed{i}", "checkpoints",
+            output_root, f"seed{i}",
             f"checkpoint-{cfg.final_epochs}.pt"
         )
         print(f"w_{i} checkpoint: {final_ckpt}")
