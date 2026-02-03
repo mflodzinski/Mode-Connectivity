@@ -13,12 +13,12 @@ shared_epochs: 10          # N epochs before split
 shared_seed: 42            # Seed for initial training
 
 # Stage 2: Split training
-final_epochs: 200          # Train to convergence
+final_epochs: 50          # Train to convergence
 split_seeds: [0, 1]        # Different seeds for w_0 and w_1
 
 save_intermediate: true
 save_freq: 50
-lr: 0.05
+lr: 0.0125
 wd: 5e-4
 use_test: true
 

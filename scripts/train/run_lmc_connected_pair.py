@@ -59,38 +59,9 @@ def main(cfg: DictConfig):
     train_script = os.path.join(repo_root, "train.py")
     output_root = to_absolute_path(cfg.output_root)
 
-    # =========================================================================
-    # Stage 1: Train shared initialization
-    # =========================================================================
-    print("=" * 70)
-    print("STAGE 1: Training shared initialization")
-    print(f"  Epochs: {cfg.shared_epochs}")
-    print(f"  Seed: {cfg.shared_seed}")
-    print("=" * 70)
-
-    shared_dir = os.path.join(output_root, "shared")
-    os.makedirs(shared_dir, exist_ok=True)
-
-    # Build training command for shared init
-    # Use --lr_schedule_epochs to maintain correct LR schedule for full training
-    cmd = build_base_command_no_epochs(train_script, shared_dir, cfg)
-    cmd += ["--epochs", str(cfg.shared_epochs)]
-    cmd += ["--lr_schedule_epochs", str(cfg.final_epochs)]  # LR schedule based on 200 epochs
-    add_seed_arg(cmd, cfg.shared_seed)
-    cmd += ["--save_freq", str(cfg.shared_epochs)]  # Save at final epoch
-    add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
-
-    # Add WandB logging
-    run_name = f"garipov_{cfg.model}_lmc_shared_e{cfg.shared_epochs}"
-    add_wandb_args(cmd, cfg, run_name)
-
-    print_and_format_command(cmd)
-    subprocess.run(cmd, check=True)
 
     # Path to shared checkpoint (saved directly in run_dir, not in checkpoints subdir)
-    shared_checkpoint = os.path.join(
-        shared_dir, f"checkpoint-{cfg.shared_epochs}.pt"
-    )
+    shared_checkpoint = 'results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-150.pt'
 
     if not os.path.exists(shared_checkpoint):
         raise FileNotFoundError(
