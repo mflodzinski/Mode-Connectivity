@@ -26,7 +26,7 @@ export PYTHONPATH=${PROJECT_ROOT}:${PROJECT_ROOT}/scripts:$PYTHONPATH
 
 # Checkpoints
 ENDPOINT0="results/vgg16/cifar10/endpoints/lmc_connected/seed0/checkpoint-200.pt"
-ENDPOINT0="results/vgg16/cifar10/endpoints/lmc_connected/seed1/checkpoint-200.pt"
+ENDPOINT1="results/vgg16/cifar10/endpoints/lmc_connected/seed1/checkpoint-200.pt"
 OUTPUT_DIR="results/vgg16/cifar10/endpoints/lmc_connected/evaluations"
 
 mkdir -p "${OUTPUT_DIR}"
