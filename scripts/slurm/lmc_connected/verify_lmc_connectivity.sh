@@ -38,7 +38,7 @@ srun python evaluate.py \
     --mode linear \
     --init-start "../../${ENDPOINT0}" \
     --init-end "../../${ENDPOINT1}" \
-    --num_points 61 \
+    --num-points 61 \
     --dataset CIFAR10 \
     --model VGG16 \
     --data-path ../../data \
