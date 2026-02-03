@@ -1,0 +1,23 @@
+# Benchmark permutation alignment methods
+# Tests if alignment methods can recover known permutations between LMC-connected modes
+
+# Checkpoints (from LMC-connected pair training)
+w0_checkpoint: "results/vgg16/cifar10/endpoints/lmc_connected/seed0/checkpoint-200.pt"
+w1_checkpoint: "results/vgg16/cifar10/endpoints/lmc_connected/seed1/checkpoint-200.pt"
+
+# Permutation settings
+permutation_seed: 42
+
+# Alignment method
+method: "weight_matching"
+max_iter: 100
+
+# Evaluation settings
+num_eval_points: 11
+batch_size: 128
+
+# Data
+data_path: "./data"
+
+# Output
+output_dir: "results/analysis/alignment_benchmark"
