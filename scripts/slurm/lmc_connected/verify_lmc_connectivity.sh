@@ -30,18 +30,26 @@ OUTPUT_DIR="results/vgg16/cifar10/endpoints/lmc_connected/evaluations"
 
 mkdir -p $OUTPUT_DIR
 
-# Evaluate linear interpolation using connect.py
+# Evaluate linear interpolation using eval_linear.py
 echo "Evaluating linear interpolation between w_0 and w_1..."
-srun python external/dnn-mode-connectivity/connect.py \
+srun python scripts/eval/eval_linear.py \
     --dir $OUTPUT_DIR \
+    --init_start $W0 \
+    --init_end $W1 \
+    --num_points 21 \
     --dataset CIFAR10 \
     --data_path ./data \
-    --transform VGG \
     --model VGG16 \
-    --ckpt1 $W0 \
-    --ckpt2 $W1 \
-    --num_points 21 \
+    --transform VGG \
+    --batch_size 128 \
     --use_test
 
 echo ""
-echo "Done! Check $OUTPUT_DIR for results."
+echo "========================================"
+echo "EVALUATION COMPLETE!"
+echo "========================================"
+echo ""
+echo "Results saved to: $OUTPUT_DIR/linear.npz"
+echo ""
+echo "To download:"
+echo "  scp mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/$OUTPUT_DIR/linear.npz ."
