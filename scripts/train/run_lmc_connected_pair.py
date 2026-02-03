@@ -72,11 +72,12 @@ def main(cfg: DictConfig):
     os.makedirs(shared_dir, exist_ok=True)
 
     # Build training command for shared init
+    # Use --lr_schedule_epochs to maintain correct LR schedule for full training
     cmd = build_base_command_no_epochs(train_script, shared_dir, cfg)
     cmd += ["--epochs", str(cfg.shared_epochs)]
+    cmd += ["--lr_schedule_epochs", str(cfg.final_epochs)]  # LR schedule based on 200 epochs
     add_seed_arg(cmd, cfg.shared_seed)
-    # Save checkpoint at exactly shared_epochs (so we can resume from it)
-    cmd += ["--save_freq", str(cfg.shared_epochs)]
+    cmd += ["--save_freq", str(cfg.shared_epochs)]  # Save at final epoch
     add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
 
     # Add WandB logging
@@ -114,6 +115,7 @@ def main(cfg: DictConfig):
         os.makedirs(run_dir, exist_ok=True)
 
         # Build training command
+        # Resume handles LR schedule correctly (starts from checkpoint epoch + 1)
         cmd = build_base_command_no_epochs(train_script, run_dir, cfg)
         cmd += ["--epochs", str(cfg.final_epochs)]
         add_seed_arg(cmd, seed)  # Different seed for different batch ordering
