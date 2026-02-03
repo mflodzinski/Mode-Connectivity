@@ -1,0 +1,26 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_lmc_connected"
+output_root: "results/vgg16/cifar10/endpoints/lmc_connected"
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+
+# Stage 1: Shared initialization training
+shared_epochs: 10          # N epochs before split
+shared_seed: 42            # Seed for initial training
+
+# Stage 2: Split training
+final_epochs: 200          # Train to convergence
+split_seeds: [0, 1]        # Different seeds for w_0 and w_1
+
+save_intermediate: true
+save_freq: 50
+lr: 0.05
+wd: 5e-4
+use_test: true
+
+use_wandb: true
+project_name: "thesis-mode-connectivity"
