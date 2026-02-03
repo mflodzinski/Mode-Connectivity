@@ -1,0 +1,327 @@
+"""
+Benchmark permutation alignment methods.
+
+Tests if alignment methods can recover known permutations between LMC-connected modes.
+
+Workflow:
+1. Load w_0, w_1 (LMC-connected from shared init training)
+2. Generate random permutation P*
+3. Create w_1' = P*(w_1)
+4. Run alignment method: P_found = method(w_0, w_1')
+5. Create w_1_recovered = P_found(w_1')
+6. Evaluate linear interpolation barriers
+7. Compare P_found with inverse(P*)
+"""
+
+import os
+import sys
+import argparse
+import numpy as np
+import torch
+import torch.nn.functional as F
+from collections import OrderedDict
+
+# Add project paths
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(script_dir))
+sys.path.insert(0, project_root)
+sys.path.insert(0, os.path.join(project_root, 'external/dnn-mode-connectivity'))
+
+import models
+import data
+import utils
+
+from scripts.lib.transform.random_permutation import VGG16RandomPermutation
+from scripts.lib.alignment.permutation_spec import vgg16_permutation_spec
+from scripts.lib.alignment.weight_matching import (
+    weight_matching, apply_permutation, compare_permutations
+)
+
+
+def load_model(checkpoint_path: str, num_classes: int = 10):
+    """Load VGG16 model from checkpoint."""
+    model = models.VGG16.base(num_classes=num_classes)
+    checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    model.load_state_dict(checkpoint['model_state'])
+    return model
+
+
+def evaluate_barrier(
+    model_a,
+    model_b,
+    loaders,
+    num_points: int = 11,
+    device: torch.device = None
+):
+    """Evaluate linear interpolation barrier between two models.
+
+    Args:
+        model_a: First model (t=0)
+        model_b: Second model (t=1)
+        loaders: Data loaders dict with 'train' and 'test'
+        num_points: Number of interpolation points
+        device: Device to use
+
+    Returns:
+        Dictionary with barrier metrics
+    """
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    model_a = model_a.to(device)
+    model_b = model_b.to(device)
+
+    state_a = model_a.state_dict()
+    state_b = model_b.state_dict()
+
+    # Create interpolation model
+    interp_model = models.VGG16.base(num_classes=10).to(device)
+
+    ts = np.linspace(0, 1, num_points)
+    results = {
+        't': ts.tolist(),
+        'train_loss': [],
+        'train_acc': [],
+        'test_loss': [],
+        'test_acc': [],
+    }
+
+    for t in ts:
+        # Linear interpolation of parameters
+        interp_state = OrderedDict()
+        for key in state_a:
+            interp_state[key] = (1 - t) * state_a[key] + t * state_b[key]
+        interp_model.load_state_dict(interp_state)
+
+        # Evaluate
+        interp_model.eval()
+        train_res = evaluate_model(interp_model, loaders['train'], device)
+        test_res = evaluate_model(interp_model, loaders['test'], device)
+
+        results['train_loss'].append(train_res['loss'])
+        results['train_acc'].append(train_res['accuracy'])
+        results['test_loss'].append(test_res['loss'])
+        results['test_acc'].append(test_res['accuracy'])
+
+    # Compute barrier metrics
+    endpoint_test_loss = (results['test_loss'][0] + results['test_loss'][-1]) / 2
+    max_test_loss = max(results['test_loss'])
+    barrier = max_test_loss - endpoint_test_loss
+
+    results['barrier'] = barrier
+    results['max_test_loss'] = max_test_loss
+    results['endpoint_avg_test_loss'] = endpoint_test_loss
+
+    return results
+
+
+def evaluate_model(model, loader, device):
+    """Evaluate model on data loader."""
+    model.eval()
+    total_loss = 0
+    correct = 0
+    total = 0
+
+    with torch.no_grad():
+        for inputs, targets in loader:
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = model(inputs)
+            loss = F.cross_entropy(outputs, targets, reduction='sum')
+            total_loss += loss.item()
+            pred = outputs.argmax(dim=1)
+            correct += pred.eq(targets).sum().item()
+            total += targets.size(0)
+
+    return {
+        'loss': total_loss / total,
+        'accuracy': 100.0 * correct / total
+    }
+
+
+def state_dict_to_flat_params(state_dict, ps):
+    """Convert state_dict to flat params dict matching permutation spec keys."""
+    params = {}
+    for key in ps.axes_to_perm:
+        if key in state_dict:
+            params[key] = state_dict[key]
+    return params
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Benchmark permutation alignment')
+    parser.add_argument('--w0', type=str, required=True, help='Path to w_0 checkpoint')
+    parser.add_argument('--w1', type=str, required=True, help='Path to w_1 checkpoint')
+    parser.add_argument('--perm-seed', type=int, default=42, help='Seed for random permutation')
+    parser.add_argument('--method', type=str, default='weight_matching',
+                        choices=['weight_matching'], help='Alignment method')
+    parser.add_argument('--max-iter', type=int, default=100, help='Max iterations for weight matching')
+    parser.add_argument('--num-eval-points', type=int, default=11, help='Number of interpolation points')
+    parser.add_argument('--data-path', type=str, default='./data', help='Path to data')
+    parser.add_argument('--batch-size', type=int, default=128, help='Batch size')
+    parser.add_argument('--output', type=str, default=None, help='Output file for results')
+    args = parser.parse_args()
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+
+    # Load models
+    print("\n" + "=" * 70)
+    print("Loading models...")
+    print("=" * 70)
+    model_w0 = load_model(args.w0)
+    model_w1 = load_model(args.w1)
+    print(f"w_0: {args.w0}")
+    print(f"w_1: {args.w1}")
+
+    # Load data
+    print("\nLoading data...")
+    loaders, num_classes = data.loaders(
+        'CIFAR10',
+        args.data_path,
+        args.batch_size,
+        num_workers=4,
+        transform_name='VGG',
+        use_test=True,
+        eval_mode=True
+    )
+
+    # Step 1: Evaluate original barrier
+    print("\n" + "=" * 70)
+    print("Step 1: Evaluating original barrier (w_0 <-> w_1)")
+    print("=" * 70)
+    original_barrier = evaluate_barrier(model_w0, model_w1, loaders, args.num_eval_points, device)
+    print(f"Original barrier: {original_barrier['barrier']:.4f}")
+    print(f"Endpoint avg test loss: {original_barrier['endpoint_avg_test_loss']:.4f}")
+    print(f"Max test loss: {original_barrier['max_test_loss']:.4f}")
+
+    # Step 2: Generate random permutation
+    print("\n" + "=" * 70)
+    print(f"Step 2: Generating random permutation (seed={args.perm_seed})")
+    print("=" * 70)
+    perm_gen = VGG16RandomPermutation()
+    P_star = perm_gen.generate(seed=args.perm_seed)
+    P_star_inv = perm_gen.invert(P_star)
+
+    # Step 3: Apply permutation to w_1
+    print("\n" + "=" * 70)
+    print("Step 3: Applying permutation to w_1 -> w_1'")
+    print("=" * 70)
+    w1_prime_state = perm_gen.apply_to_state_dict(model_w1.state_dict(), P_star)
+    model_w1_prime = models.VGG16.base(num_classes=10)
+    model_w1_prime.load_state_dict(w1_prime_state)
+
+    # Step 4: Evaluate permuted barrier
+    print("\n" + "=" * 70)
+    print("Step 4: Evaluating permuted barrier (w_0 <-> w_1')")
+    print("=" * 70)
+    permuted_barrier = evaluate_barrier(model_w0, model_w1_prime, loaders, args.num_eval_points, device)
+    print(f"Permuted barrier: {permuted_barrier['barrier']:.4f}")
+    print(f"Endpoint avg test loss: {permuted_barrier['endpoint_avg_test_loss']:.4f}")
+    print(f"Max test loss: {permuted_barrier['max_test_loss']:.4f}")
+
+    # Step 5: Run alignment method
+    print("\n" + "=" * 70)
+    print(f"Step 5: Running alignment method ({args.method})")
+    print("=" * 70)
+
+    ps = vgg16_permutation_spec()
+    params_w0 = state_dict_to_flat_params(model_w0.state_dict(), ps)
+    params_w1_prime = state_dict_to_flat_params(w1_prime_state, ps)
+
+    P_found = weight_matching(
+        ps,
+        params_w0,
+        params_w1_prime,
+        max_iter=args.max_iter,
+        silent=False
+    )
+
+    # Step 6: Apply found permutation
+    print("\n" + "=" * 70)
+    print("Step 6: Applying found permutation to w_1' -> w_1_recovered")
+    print("=" * 70)
+
+    # Convert P_found to format expected by apply_to_state_dict
+    # P_found has keys like 'P_Conv_0', need to map to 'conv_0'
+    P_found_converted = {}
+    for key, val in P_found.items():
+        if key.startswith('P_Conv_'):
+            new_key = f"conv_{key[7:]}"
+        elif key.startswith('P_Dense_'):
+            new_key = f"fc_{key[8:]}"
+        else:
+            new_key = key
+        P_found_converted[new_key] = val
+
+    w1_recovered_state = perm_gen.apply_to_state_dict(w1_prime_state, P_found_converted)
+    model_w1_recovered = models.VGG16.base(num_classes=10)
+    model_w1_recovered.load_state_dict(w1_recovered_state)
+
+    # Step 7: Evaluate recovered barrier
+    print("\n" + "=" * 70)
+    print("Step 7: Evaluating recovered barrier (w_0 <-> w_1_recovered)")
+    print("=" * 70)
+    recovered_barrier = evaluate_barrier(model_w0, model_w1_recovered, loaders, args.num_eval_points, device)
+    print(f"Recovered barrier: {recovered_barrier['barrier']:.4f}")
+    print(f"Endpoint avg test loss: {recovered_barrier['endpoint_avg_test_loss']:.4f}")
+    print(f"Max test loss: {recovered_barrier['max_test_loss']:.4f}")
+
+    # Step 8: Compare permutations
+    print("\n" + "=" * 70)
+    print("Step 8: Comparing P_found with P*^{-1}")
+    print("=" * 70)
+
+    # Convert P_star_inv to same format as P_found
+    P_star_inv_converted = {}
+    for key, val in P_star_inv.items():
+        if key.startswith('conv_'):
+            new_key = f"P_Conv_{key[5:]}"
+        elif key.startswith('fc_'):
+            new_key = f"P_Dense_{key[3:]}"
+        else:
+            new_key = key
+        P_star_inv_converted[new_key] = val
+
+    perm_comparison = compare_permutations(P_found, P_star_inv_converted)
+    print(f"Overall permutation accuracy: {perm_comparison['overall_accuracy']:.2%}")
+    print("\nPer-layer accuracy:")
+    for layer, stats in perm_comparison['per_layer'].items():
+        print(f"  {layer}: {stats['accuracy']:.2%} ({stats['matched']}/{stats['total']})")
+
+    # Summary
+    print("\n" + "=" * 70)
+    print("SUMMARY")
+    print("=" * 70)
+    print(f"Original barrier (w_0 <-> w_1):       {original_barrier['barrier']:.4f}")
+    print(f"Permuted barrier (w_0 <-> w_1'):      {permuted_barrier['barrier']:.4f}")
+    print(f"Recovered barrier (w_0 <-> w_1_rec):  {recovered_barrier['barrier']:.4f}")
+    print(f"Permutation recovery accuracy:         {perm_comparison['overall_accuracy']:.2%}")
+    print()
+
+    if recovered_barrier['barrier'] < permuted_barrier['barrier'] * 0.5:
+        print("SUCCESS: Alignment significantly reduced barrier!")
+    elif recovered_barrier['barrier'] < permuted_barrier['barrier'] * 0.9:
+        print("PARTIAL: Alignment partially reduced barrier")
+    else:
+        print("FAILURE: Alignment did not reduce barrier")
+
+    # Save results
+    if args.output:
+        import json
+        results = {
+            'config': vars(args),
+            'original_barrier': original_barrier,
+            'permuted_barrier': permuted_barrier,
+            'recovered_barrier': recovered_barrier,
+            'permutation_comparison': {
+                'overall_accuracy': perm_comparison['overall_accuracy'],
+                'per_layer': {k: v['accuracy'] for k, v in perm_comparison['per_layer'].items()}
+            }
+        }
+        with open(args.output, 'w') as f:
+            json.dump(results, f, indent=2)
+        print(f"\nResults saved to {args.output}")
+
+
+if __name__ == '__main__':
+    main()

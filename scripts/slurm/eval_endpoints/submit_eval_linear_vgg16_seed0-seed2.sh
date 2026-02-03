@@ -30,17 +30,16 @@ OUTPUT_DIR="results/vgg16/cifar10/endpoints/standard/seed0-seed2/evaluations"
 mkdir -p "${OUTPUT_DIR}"
 
 # Change to scripts/eval directory to run the script
-cd scripts/eval
 
 # Run linear evaluation
-srun python evaluate.py \
+srun python scripts/eval/evaluate.py \
     --mode linear \
-    --init-start "../../${ENDPOINT0}" \
-    --init-end "../../${ENDPOINT1}" \
+    --init-start "${ENDPOINT0}" \
+    --init-end "${ENDPOINT1}" \
     --num-points 61 \
     --dataset CIFAR10 \
     --model VGG16 \
-    --data-path ../../data \
-    --dir "../../${OUTPUT_DIR}"
+    --data-path data \
+    --dir "${OUTPUT_DIR}"
 
 echo "Linear evaluation complete. Output saved to: ${OUTPUT_DIR}/linear.npz"
