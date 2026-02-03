@@ -4,3 +4,9 @@
 [submodule "external/dnn-mode-connectivity"]
 	path = external/dnn-mode-connectivity
 	url = https://github.com/mflodzinski/dnn-mode-connectivity
+[submodule "external/external/git-rebasin"]
+	path = external/external/git-rebasin
+	url = https://github.com/samuela/git-re-basin.git
+[submodule "external/git-rebasin"]
+	path = external/git-rebasin
+	url = https://github.com/samuela/git-re-basin.git

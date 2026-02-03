@@ -75,7 +75,8 @@ def main(cfg: DictConfig):
     cmd = build_base_command_no_epochs(train_script, shared_dir, cfg)
     cmd += ["--epochs", str(cfg.shared_epochs)]
     add_seed_arg(cmd, cfg.shared_seed)
-    add_save_freq_arg(cmd, cfg)
+    # Save checkpoint at exactly shared_epochs (so we can resume from it)
+    cmd += ["--save_freq", str(cfg.shared_epochs)]
     add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
 
     # Add WandB logging
