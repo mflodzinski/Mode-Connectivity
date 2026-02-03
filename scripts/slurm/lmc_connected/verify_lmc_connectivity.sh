@@ -30,19 +30,18 @@ ENDPOINT0="results/vgg16/cifar10/endpoints/lmc_connected/seed1/checkpoint-200.pt
 OUTPUT_DIR="results/vgg16/cifar10/endpoints/lmc_connected/evaluations"
 
 mkdir -p "${OUTPUT_DIR}"
-cd scripts/eval
 
 # Evaluate linear interpolation using evaluate.py
 echo "Evaluating linear interpolation between w_0 and w_1..."
-srun python evaluate.py \
+srun python scripts/eval/evaluate.py \
     --mode linear \
-    --init-start "../../${ENDPOINT0}" \
-    --init-end "../../${ENDPOINT1}" \
+    --init-start "${ENDPOINT0}" \
+    --init-end "${ENDPOINT1}" \
     --num-points 61 \
     --dataset CIFAR10 \
     --model VGG16 \
-    --data-path ../../data \
-    --dir "../../${OUTPUT_DIR}"
+    --data-path data \
+    --dir "${OUTPUT_DIR}"
 
 echo ""
 echo "========================================"
