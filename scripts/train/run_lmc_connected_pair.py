@@ -26,9 +26,25 @@ sys.path.insert(0, scripts_root)
 
 from src.utils import set_global_seed
 from lib.core.training_commands import (
-    build_base_command, add_wandb_args, add_seed_arg,
+    add_wandb_args, add_seed_arg,
     add_save_freq_arg, add_optional_arg, print_and_format_command
 )
+
+
+def build_base_command_no_epochs(train_script: str, run_dir: str, cfg) -> list:
+    """Build base training command without epochs (we'll add them separately)."""
+    cmd = [
+        "python",
+        train_script,
+        "--dir", run_dir,
+        "--dataset", cfg.dataset,
+        "--data_path", cfg.data_path,
+        "--transform", cfg.transform,
+        "--model", cfg.model,
+        "--lr", str(cfg.lr),
+        "--wd", str(cfg.wd),
+    ]
+    return cmd
 
 
 @hydra.main(
@@ -56,7 +72,7 @@ def main(cfg: DictConfig):
     os.makedirs(shared_dir, exist_ok=True)
 
     # Build training command for shared init
-    cmd = build_base_command(train_script, shared_dir, cfg)
+    cmd = build_base_command_no_epochs(train_script, shared_dir, cfg)
     cmd += ["--epochs", str(cfg.shared_epochs)]
     add_seed_arg(cmd, cfg.shared_seed)
     add_save_freq_arg(cmd, cfg)
@@ -97,7 +113,7 @@ def main(cfg: DictConfig):
         os.makedirs(run_dir, exist_ok=True)
 
         # Build training command
-        cmd = build_base_command(train_script, run_dir, cfg)
+        cmd = build_base_command_no_epochs(train_script, run_dir, cfg)
         cmd += ["--epochs", str(cfg.final_epochs)]
         add_seed_arg(cmd, seed)  # Different seed for different batch ordering
         cmd += ["--resume", shared_checkpoint]  # Resume from shared checkpoint
