@@ -72,7 +72,7 @@ def main(cfg: DictConfig):
         print("  No training - just saving initial random weights")
         print("=" * 70)
 
-        # Create and save the initial model
+        # Create and save the initial model with optimizer state
         import torch
         import sys
         sys.path.insert(0, repo_root)
@@ -83,11 +83,20 @@ def main(cfg: DictConfig):
         num_classes = 10 if cfg.dataset == 'CIFAR10' else 100
         model = model_class.base(num_classes=num_classes)
 
-        # Save as checkpoint-0.pt
+        # Create optimizer to save its initial state (required for --resume)
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=cfg.lr,
+            momentum=0.9,
+            weight_decay=cfg.wd
+        )
+
+        # Save as checkpoint-0.pt with optimizer state
         shared_checkpoint = os.path.join(shared_dir, "checkpoint-0.pt")
         torch.save({
             'epoch': 0,
             'model_state': model.state_dict(),
+            'optimizer_state': optimizer.state_dict(),
         }, shared_checkpoint)
         print(f"Saved initial random weights to: {shared_checkpoint}")
 

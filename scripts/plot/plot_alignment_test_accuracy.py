@@ -113,25 +113,17 @@ def main():
                         xytext=(e['w0_w1'], e['org_test_min']),
                         arrowprops=dict(arrowstyle='->', color='gray', alpha=0.5, lw=1))
 
-    # Plot independent experiment - highlighted differently
+    # Plot independent experiment - only recovered point (no original)
     if ind_exps:
         for e in ind_exps:
-            # Original
-            ax.scatter([e['w0_w1']], [e['org_test_min']], c=org_color, marker='D', s=150,
-                       edgecolors='black', linewidths=1.5,
-                       label='Original (independent)', zorder=6)
-            # Recovered
+            # Only plot recovered point for seed0-seed1
             ax.scatter([e['w0_w1_recovered']], [e['rec_test_min']], c=rec_color, marker='D', s=150,
                        edgecolors='black', linewidths=1.5,
                        label='Recovered (independent)', zorder=6)
-            # Label
-            ax.annotate(e['name'], (e['w0_w1'], e['org_test_min']),
-                        textcoords="offset points", xytext=(-5, 8), fontsize=8,
-                        fontweight='bold', color=org_color)
-            # Arrow
-            ax.annotate('', xy=(e['w0_w1_recovered'], e['rec_test_min']),
-                        xytext=(e['w0_w1'], e['org_test_min']),
-                        arrowprops=dict(arrowstyle='->', color='gray', alpha=0.7, lw=1.5))
+            # Label the recovered point
+            ax.annotate(e['name'], (e['w0_w1_recovered'], e['rec_test_min']),
+                        textcoords="offset points", xytext=(5, 5), fontsize=8,
+                        fontweight='bold', color=rec_color)
 
     # Styling
     ax.set_xlabel('L2 Distance', fontsize=12)
