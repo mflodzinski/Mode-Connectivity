@@ -58,36 +58,73 @@ def main(cfg: DictConfig):
     train_script = os.path.join(repo_root, "train.py")
     output_root = to_absolute_path(cfg.output_root)
 
-    # =========================================================================
-    # Stage 1: Train shared initialization from scratch
-    # =========================================================================
-    print("=" * 70)
-    print("STAGE 1: Training shared initialization from scratch")
-    print(f"  Epochs: {cfg.shared_epochs}")
-    print(f"  Seed: {cfg.shared_seed}")
-    print("=" * 70)
-
     shared_dir = os.path.join(output_root, "shared")
     os.makedirs(shared_dir, exist_ok=True)
 
-    # Build training command for shared init
-    # Use --lr_schedule_epochs to maintain correct LR schedule for full training
-    cmd = build_base_command_no_epochs(train_script, shared_dir, cfg)
-    cmd += ["--epochs", str(cfg.shared_epochs)]
-    cmd += ["--lr_schedule_epochs", str(cfg.final_epochs)]  # LR schedule based on total epochs
-    add_seed_arg(cmd, cfg.shared_seed)
-    cmd += ["--save_freq", str(cfg.shared_epochs)]  # Save at final epoch of shared phase
-    add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
+    # =========================================================================
+    # Stage 1: Train shared initialization from scratch
+    # =========================================================================
+    if cfg.shared_epochs == 0:
+        # Special case: save random initialization as shared checkpoint
+        print("=" * 70)
+        print("STAGE 1: Saving random initialization as shared checkpoint")
+        print(f"  Seed: {cfg.shared_seed}")
+        print("  No training - just saving initial random weights")
+        print("=" * 70)
 
-    # Add WandB logging
-    run_name = f"garipov_{cfg.model}_lmc_shared_e{cfg.shared_epochs}"
-    add_wandb_args(cmd, cfg, run_name)
+        # Create and save the initial model with optimizer state
+        import torch
+        import sys
+        sys.path.insert(0, repo_root)
+        import models
 
-    print_and_format_command(cmd)
-    subprocess.run(cmd, check=True)
+        # Get model class and create it
+        model_class = getattr(models, cfg.model)
+        num_classes = 10 if cfg.dataset == 'CIFAR10' else 100
+        model = model_class.base(num_classes=num_classes)
 
-    # Path to shared checkpoint (saved directly in run_dir)
-    shared_checkpoint = os.path.join(shared_dir, f"checkpoint-{cfg.shared_epochs}.pt")
+        # Create optimizer to save its initial state (required for --resume)
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=cfg.lr,
+            momentum=0.9,
+            weight_decay=cfg.wd
+        )
+
+        # Save as checkpoint-0.pt with optimizer state
+        shared_checkpoint = os.path.join(shared_dir, "checkpoint-0.pt")
+        torch.save({
+            'epoch': 0,
+            'model_state': model.state_dict(),
+            'optimizer_state': optimizer.state_dict(),
+        }, shared_checkpoint)
+        print(f"Saved initial random weights to: {shared_checkpoint}")
+
+    else:
+        print("=" * 70)
+        print("STAGE 1: Training shared initialization from scratch")
+        print(f"  Epochs: {cfg.shared_epochs}")
+        print(f"  Seed: {cfg.shared_seed}")
+        print("=" * 70)
+
+        # Build training command for shared init
+        # Use --lr_schedule_epochs to maintain correct LR schedule for full training
+        cmd = build_base_command_no_epochs(train_script, shared_dir, cfg)
+        cmd += ["--epochs", str(cfg.shared_epochs)]
+        cmd += ["--lr_schedule_epochs", str(cfg.final_epochs)]  # LR schedule based on total epochs
+        add_seed_arg(cmd, cfg.shared_seed)
+        cmd += ["--save_freq", str(cfg.shared_epochs)]  # Save at final epoch of shared phase
+        add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
+
+        # Add WandB logging
+        run_name = f"garipov_{cfg.model}_lmc_shared_e{cfg.shared_epochs}"
+        add_wandb_args(cmd, cfg, run_name)
+
+        print_and_format_command(cmd)
+        subprocess.run(cmd, check=True)
+
+        # Path to shared checkpoint (saved directly in run_dir)
+        shared_checkpoint = os.path.join(shared_dir, f"checkpoint-{cfg.shared_epochs}.pt")
 
     if not os.path.exists(shared_checkpoint):
         raise FileNotFoundError(
