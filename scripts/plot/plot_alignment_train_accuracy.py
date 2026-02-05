@@ -38,13 +38,35 @@ def main():
         '80/120': 'results/analysis/alignment_benchmark_80split/results.json',
         '30/170': 'results/analysis/alignment_benchmark_30split/results.json',
         '8/192': 'results/analysis/alignment_benchmark_8split/results.json',
+        '0/200': 'results/analysis/alignment_benchmark_0split/results.json',
     }
     seed_file = 'results/analysis/alignment_independent/seed0_seed1_results.json'
+
+    # Hardcoded data for experiments without JSON files yet
+    hardcoded_data = {
+        '0/200': {
+            'w0_w1': 43.19,
+            'w0_w1_recovered': 36.46,
+            'org_train_min': 10.0,
+            'rec_train_min': 42.11,
+            'is_independent': False
+        }
+    }
 
     # Collect data
     experiments = []
 
     for name, path in data_files.items():
+        # Check for hardcoded data first
+        if name in hardcoded_data:
+            full_path = os.path.join(project_root, path)
+            if not os.path.exists(full_path):
+                # Use hardcoded data
+                experiments.append(hardcoded_data[name])
+                experiments[-1]['name'] = name
+                print(f"Using hardcoded data for {name}")
+                continue
+
         full_path = os.path.join(project_root, path)
         if os.path.exists(full_path):
             data = load_benchmark_data(full_path)
