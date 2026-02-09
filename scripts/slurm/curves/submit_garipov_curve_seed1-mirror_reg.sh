@@ -37,27 +37,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo ""
-echo "========================================"
-echo "STEP 2: Evaluating Linear Interpolation"
-echo "========================================"
-srun python scripts/eval/eval_linear.py \
-    --dir results/vgg16/cifar10/curves/standard/seed1-mirror_reg/evaluations \
-    --init_start results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt \
-    --init_end results/vgg16/cifar10/endpoints/standard/seed1_mirrored/checkpoints/checkpoint-200.pt \
-    --num_points 61 \
-    --dataset CIFAR10 \
-    --data_path ./data \
-    --model VGG16 \
-    --transform VGG \
-    --batch_size 128 \
-    --num_workers 4 \
-    --use_test
-
-if [ $? -ne 0 ]; then
-    echo "Linear evaluation failed!"
-    exit 1
-fi
 
 echo ""
 echo "========================================"

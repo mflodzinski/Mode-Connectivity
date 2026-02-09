@@ -81,7 +81,7 @@ def main():
         else:
             print(f"Warning: {full_path} not found, skipping {name}")
 
-    # Load seed0-seed1 (independent) data
+    # Load seed0-seed1 (independent - different random inits) data
     seed_path = os.path.join(project_root, seed_file)
     if os.path.exists(seed_path):
         data = load_benchmark_data(seed_path)
@@ -91,10 +91,22 @@ def main():
             'w0_w1_recovered': data['after_alignment']['distance']['l2_distance'],
             'org_train_min': min(data['before_alignment']['barrier']['train_acc']),
             'rec_train_min': min(data['after_alignment']['barrier']['train_acc']),
-            'is_independent': True
+            'is_independent': True,
+            'is_same_init': False
         })
     else:
         print(f"Warning: {seed_path} not found, skipping seed0-seed1")
+
+    # Add 0/200 independent experiment (same random init, different training seeds)
+    experiments.append({
+        'name': '0/200-ind',
+        'w0_w1': 43.19,
+        'w0_w1_recovered': 36.46,
+        'org_train_min': 10.0,
+        'rec_train_min': 42.504,
+        'is_independent': True,
+        'is_same_init': True
+    })
 
     if not experiments:
         print("No data files found!")
@@ -106,10 +118,13 @@ def main():
     # Colors
     org_color = '#1f77b4'  # Blue for original
     rec_color = '#2ca02c'  # Green for recovered
+    ind_diff_init_color = '#d62728'  # Red for independent (different init)
+    ind_same_init_color = '#ff7f0e'  # Orange for independent (same init)
 
     # Separate LMC and independent experiments
-    lmc_exps = [e for e in experiments if not e['is_independent']]
-    ind_exps = [e for e in experiments if e['is_independent']]
+    lmc_exps = [e for e in experiments if not e.get('is_independent', False)]
+    ind_diff_init_exps = [e for e in experiments if e.get('is_independent', False) and not e.get('is_same_init', False)]
+    ind_same_init_exps = [e for e in experiments if e.get('is_independent', False) and e.get('is_same_init', False)]
 
     # Plot LMC experiments - Original
     if lmc_exps:
@@ -135,17 +150,25 @@ def main():
                         xytext=(e['w0_w1'], e['org_train_min']),
                         arrowprops=dict(arrowstyle='->', color='gray', alpha=0.5, lw=1))
 
-    # Plot independent experiment - only recovered point (no original)
-    if ind_exps:
-        for e in ind_exps:
-            # Only plot recovered point for seed0-seed1
-            ax.scatter([e['w0_w1_recovered']], [e['rec_train_min']], c=rec_color, marker='D', s=150,
+    # Plot independent experiments (different init) - only recovered point
+    if ind_diff_init_exps:
+        for e in ind_diff_init_exps:
+            ax.scatter([e['w0_w1_recovered']], [e['rec_train_min']], c=ind_diff_init_color, marker='D', s=150,
                        edgecolors='black', linewidths=1.5,
-                       label='Recovered (independent)', zorder=6)
-            # Label the recovered point
+                       label='Recovered (diff init)', zorder=6)
             ax.annotate(e['name'], (e['w0_w1_recovered'], e['rec_train_min']),
                         textcoords="offset points", xytext=(5, 5), fontsize=8,
-                        fontweight='bold', color=rec_color)
+                        fontweight='bold', color=ind_diff_init_color)
+
+    # Plot independent experiments (same init) - only recovered point
+    if ind_same_init_exps:
+        for e in ind_same_init_exps:
+            ax.scatter([e['w0_w1_recovered']], [e['rec_train_min']], c=ind_same_init_color, marker='^', s=150,
+                       edgecolors='black', linewidths=1.5,
+                       label='Recovered (same init)', zorder=6)
+            ax.annotate(e['name'], (e['w0_w1_recovered'], e['rec_train_min']),
+                        textcoords="offset points", xytext=(5, 5), fontsize=8,
+                        fontweight='bold', color=ind_same_init_color)
 
     # Styling
     ax.set_xlabel('L2 Distance', fontsize=12)
@@ -174,11 +197,15 @@ def main():
     print(f"{'Experiment':<15} {'w0_w1':>10} {'Org Train':>12} {'w0_w1_rec':>10} {'Rec Train':>12} {'Δ Acc':>10}")
     print("-" * 80)
     for e in experiments:
-        marker = " *" if e['is_independent'] else ""
+        if e.get('is_independent', False):
+            marker = " **" if e.get('is_same_init', False) else " *"
+        else:
+            marker = ""
         delta = e['rec_train_min'] - e['org_train_min']
         print(f"{e['name']:<15} {e['w0_w1']:>10.2f} {e['org_train_min']:>11.2f}% {e['w0_w1_recovered']:>10.2f} {e['rec_train_min']:>11.2f}% {delta:>+9.2f}%{marker}")
     print("-" * 80)
-    print("* = independently trained (no shared initialization)")
+    print("* = independent (different random init)")
+    print("** = independent (same random init, different training seeds)")
     print("Δ Acc = recovered - original (positive = improvement)")
 
 

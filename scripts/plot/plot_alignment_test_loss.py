@@ -1,7 +1,7 @@
 """
-Plot Test Accuracy: Original vs Recovered after alignment.
+Plot Test Loss: Original vs Recovered after alignment.
 
-Compares minimum test accuracy along interpolation path before and after
+Compares maximum test loss along interpolation path before and after
 permutation alignment for different split configurations.
 """
 
@@ -26,8 +26,8 @@ def load_benchmark_data(json_path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Plot test accuracy: original vs recovered')
-    parser.add_argument('--output', type=str, default='plots/alignment_test_accuracy.png',
+    parser = argparse.ArgumentParser(description='Plot test loss: original vs recovered')
+    parser.add_argument('--output', type=str, default='plots/alignment_test_loss.png',
                         help='Output file path')
     parser.add_argument('--show', action='store_true', help='Show plot interactively')
     args = parser.parse_args()
@@ -42,31 +42,10 @@ def main():
     }
     seed_file = 'results/analysis/alignment_independent/seed0_seed1_results.json'
 
-    # Hardcoded data for experiments without JSON files yet
-    hardcoded_data = {
-        '0/200': {
-            'w0_w1': 43.19,
-            'w0_w1_recovered': 36.46,
-            'org_test_min': 10.0,
-            'rec_test_min': 40.88,
-            'is_independent': False
-        }
-    }
-
     # Collect data
     experiments = []
 
     for name, path in data_files.items():
-        # Check for hardcoded data first
-        if name in hardcoded_data:
-            full_path = os.path.join(project_root, path)
-            if not os.path.exists(full_path):
-                # Use hardcoded data
-                experiments.append(hardcoded_data[name])
-                experiments[-1]['name'] = name
-                print(f"Using hardcoded data for {name}")
-                continue
-
         full_path = os.path.join(project_root, path)
         if os.path.exists(full_path):
             data = load_benchmark_data(full_path)
@@ -74,8 +53,8 @@ def main():
                 'name': name,
                 'w0_w1': data['distances']['w0_w1']['l2_distance'],
                 'w0_w1_recovered': data['distances']['w0_w1_recovered']['l2_distance'],
-                'org_test_min': min(data['original_barrier']['test_acc']),
-                'rec_test_min': min(data['recovered_barrier_to_w0']['test_acc']),
+                'org_test_loss_max': max(data['original_barrier']['test_loss']),
+                'rec_test_loss_max': max(data['recovered_barrier_to_w0']['test_loss']),
                 'is_independent': False
             })
         else:
@@ -89,8 +68,8 @@ def main():
             'name': 'seed0-seed1',
             'w0_w1': data['before_alignment']['distance']['l2_distance'],
             'w0_w1_recovered': data['after_alignment']['distance']['l2_distance'],
-            'org_test_min': min(data['before_alignment']['barrier']['test_acc']),
-            'rec_test_min': min(data['after_alignment']['barrier']['test_acc']),
+            'org_test_loss_max': max(data['before_alignment']['barrier']['test_loss']),
+            'rec_test_loss_max': max(data['after_alignment']['barrier']['test_loss']),
             'is_independent': True,
             'is_same_init': False
         })
@@ -98,15 +77,21 @@ def main():
         print(f"Warning: {seed_path} not found, skipping seed0-seed1")
 
     # Add 0/200 independent experiment (same random init, different training seeds)
-    experiments.append({
-        'name': '0/200-ind',
-        'w0_w1': 43.19,
-        'w0_w1_recovered': 36.46,
-        'org_test_min': 10.0,
-        'rec_test_min': 41.57,
-        'is_independent': True,
-        'is_same_init': True
-    })
+    # Load from file if available
+    ind_0split_path = os.path.join(project_root, 'results/analysis/alignment_0split_independent/results.json')
+    if os.path.exists(ind_0split_path):
+        data = load_benchmark_data(ind_0split_path)
+        experiments.append({
+            'name': '0/200-ind',
+            'w0_w1': data['before_alignment']['distance']['l2_distance'],
+            'w0_w1_recovered': data['after_alignment']['distance']['l2_distance'],
+            'org_test_loss_max': max(data['before_alignment']['barrier']['test_loss']),
+            'rec_test_loss_max': max(data['after_alignment']['barrier']['test_loss']),
+            'is_independent': True,
+            'is_same_init': True
+        })
+    else:
+        print(f"Warning: {ind_0split_path} not found, skipping 0/200-ind")
 
     if not experiments:
         print("No data files found!")
@@ -129,55 +114,54 @@ def main():
     # Plot LMC experiments - Original
     if lmc_exps:
         x_org = [e['w0_w1'] for e in lmc_exps]
-        y_org = [e['org_test_min'] for e in lmc_exps]
+        y_org = [e['org_test_loss_max'] for e in lmc_exps]
         ax.scatter(x_org, y_org, c=org_color, marker='s', s=100,
                    label='Original (LMC)', zorder=5)
 
         # Plot LMC experiments - Recovered
         x_rec = [e['w0_w1_recovered'] for e in lmc_exps]
-        y_rec = [e['rec_test_min'] for e in lmc_exps]
+        y_rec = [e['rec_test_loss_max'] for e in lmc_exps]
         ax.scatter(x_rec, y_rec, c=rec_color, marker='s', s=100,
                    label='Recovered (LMC)', zorder=5)
 
         # Add labels and arrows connecting original to recovered
         for e in lmc_exps:
             # Label original point
-            ax.annotate(e['name'], (e['w0_w1'], e['org_test_min']),
+            ax.annotate(e['name'], (e['w0_w1'], e['org_test_loss_max']),
                         textcoords="offset points", xytext=(-5, 8), fontsize=8,
                         color=org_color)
             # Draw arrow from original to recovered
-            ax.annotate('', xy=(e['w0_w1_recovered'], e['rec_test_min']),
-                        xytext=(e['w0_w1'], e['org_test_min']),
+            ax.annotate('', xy=(e['w0_w1_recovered'], e['rec_test_loss_max']),
+                        xytext=(e['w0_w1'], e['org_test_loss_max']),
                         arrowprops=dict(arrowstyle='->', color='gray', alpha=0.5, lw=1))
 
     # Plot independent experiments (different init) - only recovered point
     if ind_diff_init_exps:
         for e in ind_diff_init_exps:
-            ax.scatter([e['w0_w1_recovered']], [e['rec_test_min']], c=ind_diff_init_color, marker='D', s=150,
+            ax.scatter([e['w0_w1_recovered']], [e['rec_test_loss_max']], c=ind_diff_init_color, marker='D', s=150,
                        edgecolors='black', linewidths=1.5,
                        label='Recovered (diff init)', zorder=6)
-            ax.annotate(e['name'], (e['w0_w1_recovered'], e['rec_test_min']),
+            ax.annotate(e['name'], (e['w0_w1_recovered'], e['rec_test_loss_max']),
                         textcoords="offset points", xytext=(5, 5), fontsize=8,
                         fontweight='bold', color=ind_diff_init_color)
 
     # Plot independent experiments (same init) - only recovered point
     if ind_same_init_exps:
         for e in ind_same_init_exps:
-            ax.scatter([e['w0_w1_recovered']], [e['rec_test_min']], c=ind_same_init_color, marker='^', s=150,
+            ax.scatter([e['w0_w1_recovered']], [e['rec_test_loss_max']], c=ind_same_init_color, marker='^', s=150,
                        edgecolors='black', linewidths=1.5,
                        label='Recovered (same init)', zorder=6)
-            ax.annotate(e['name'], (e['w0_w1_recovered'], e['rec_test_min']),
+            ax.annotate(e['name'], (e['w0_w1_recovered'], e['rec_test_loss_max']),
                         textcoords="offset points", xytext=(5, 5), fontsize=8,
                         fontweight='bold', color=ind_same_init_color)
 
     # Styling
     ax.set_xlabel('L2 Distance', fontsize=12)
-    ax.set_ylabel('Minimum Test Accuracy (%)', fontsize=12)
-    ax.set_title('Test Accuracy: Original vs Recovered\n(Before and After Permutation Alignment)',
+    ax.set_ylabel('Maximum Test Loss', fontsize=12)
+    ax.set_title('Test Loss: Original vs Recovered\n(Before and After Permutation Alignment)',
                  fontsize=13, fontweight='bold')
     ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=9, loc='lower left')
-    ax.set_ylim(0, 105)
+    ax.legend(fontsize=9, loc='upper left')
 
     plt.tight_layout()
 
@@ -191,22 +175,22 @@ def main():
         plt.show()
 
     # Print summary
-    print("\n" + "=" * 80)
-    print("TEST ACCURACY SUMMARY")
-    print("=" * 80)
-    print(f"{'Experiment':<15} {'w0_w1':>10} {'Org Test':>12} {'w0_w1_rec':>10} {'Rec Test':>12} {'Δ Acc':>10}")
-    print("-" * 80)
+    print("\n" + "=" * 85)
+    print("TEST LOSS SUMMARY")
+    print("=" * 85)
+    print(f"{'Experiment':<15} {'w0_w1':>10} {'Org Loss':>12} {'w0_w1_rec':>10} {'Rec Loss':>12} {'Δ Loss':>12}")
+    print("-" * 85)
     for e in experiments:
         if e.get('is_independent', False):
             marker = " **" if e.get('is_same_init', False) else " *"
         else:
             marker = ""
-        delta = e['rec_test_min'] - e['org_test_min']
-        print(f"{e['name']:<15} {e['w0_w1']:>10.2f} {e['org_test_min']:>11.2f}% {e['w0_w1_recovered']:>10.2f} {e['rec_test_min']:>11.2f}% {delta:>+9.2f}%{marker}")
-    print("-" * 80)
+        delta = e['rec_test_loss_max'] - e['org_test_loss_max']
+        print(f"{e['name']:<15} {e['w0_w1']:>10.2f} {e['org_test_loss_max']:>12.4f} {e['w0_w1_recovered']:>10.2f} {e['rec_test_loss_max']:>12.4f} {delta:>+11.4f}{marker}")
+    print("-" * 85)
     print("* = independent (different random init)")
     print("** = independent (same random init, different training seeds)")
-    print("Δ Acc = recovered - original (positive = improvement)")
+    print("Δ Loss = recovered - original (negative = improvement)")
 
 
 if __name__ == '__main__':
