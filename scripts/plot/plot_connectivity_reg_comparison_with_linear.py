@@ -1,15 +1,16 @@
 """
-Plot connectivity comparison for seed0-seed1_reg and seed0-mirror_reg configurations.
+Plot connectivity comparison for different modes vs permuted modes.
 
 4 subplots showing both curve and linear interpolation:
-- Train Loss
-- Test Loss
-- Train Error
-- Test Error
+- Test Error (top left)
+- Test Loss (top right)
+- Train Error (bottom left)
+- Train Loss (bottom right)
 
-Solid lines = Bezier curves (seed pairs)
-Dashed lines = Bezier curves (mirrored)
-Dotted lines = Linear interpolation
+Dotted lines = Bezier curves
+Solid lines = Linear interpolation
+Blue = Different modes (seed pairs)
+Orange = Permuted modes (mirrored)
 """
 
 import argparse
@@ -56,125 +57,126 @@ def main():
     parser.add_argument('--show', action='store_true', help='Show plot interactively')
     args = parser.parse_args()
 
-    # Data paths - seeds and bezier curves
-    seed_curve_paths = {
-        'seed0-seed1': 'results/vgg16/cifar10/curves/standard/seed0-seed1_reg/evaluations/curve.npz',
-        'seed0-seed2': 'results/vgg16/cifar10/curves/standard/seed0-seed2_bezier/evaluations/curve.npz',
-        'seed1-seed2': 'results/vgg16/cifar10/curves/standard/seed1-seed2_bezier/evaluations/curve.npz',
-    }
+    # Data paths - different modes (seed pairs)
+    diff_modes_curve = 'results/vgg16/cifar10/curves/standard/seed0-seed1_reg/evaluations/curve.npz'
+    diff_modes_linear = 'results/vgg16/cifar10/curves/standard/seed0-seed1_reg/evaluations/linear.npz'
 
-    # Data paths - mirrored versions (curves)
-    mirror_curve_paths = {
-        'seed0-mirror': 'results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations/curve.npz',
-    }
+    # Data paths - permuted modes (mirrored) - seed0
+    perm0_modes_curve = 'results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations/curve.npz'
+    perm0_modes_linear = 'results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations/linear.npz'
 
-    # Data paths - linear interpolations (only for those with linear.npz)
-    seed_linear_paths = {
-        'seed0-seed1': 'results/vgg16/cifar10/curves/standard/seed0-seed1_reg/evaluations/linear.npz',
-    }
+    # Data paths - permuted modes (mirrored) - seed1
+    perm1_modes_curve = 'results/vgg16/cifar10/curves/standard/seed1-mirror_reg/evaluations/curve.npz'
+    perm1_modes_linear = 'results/vgg16/cifar10/curves/standard/seed1-mirror_reg/evaluations/linear.npz'
 
-    mirror_linear_paths = {
-        'seed0-mirror': 'results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations/linear.npz',
-    }
+    # Load data
+    data = {}
 
-    # Load seed curve data
-    seed_curves = {}
-    for name, path in seed_curve_paths.items():
-        full_path = os.path.join(project_root, path)
-        if os.path.exists(full_path):
-            seed_curves[name] = load_curve_data(full_path)
-            print(f"Loaded curve {name} from {path}")
-        else:
-            print(f"Warning: {full_path} not found, skipping {name}")
+    full_path = os.path.join(project_root, diff_modes_curve)
+    if os.path.exists(full_path):
+        data['diff_curve'] = load_curve_data(full_path)
+        print(f"Loaded different modes curve")
+    else:
+        print(f"Warning: {full_path} not found")
 
-    # Load mirror curve data
-    mirror_curves = {}
-    for name, path in mirror_curve_paths.items():
-        full_path = os.path.join(project_root, path)
-        if os.path.exists(full_path):
-            mirror_curves[name] = load_curve_data(full_path)
-            print(f"Loaded curve {name} from {path}")
-        else:
-            print(f"Warning: {full_path} not found, skipping {name}")
+    full_path = os.path.join(project_root, diff_modes_linear)
+    if os.path.exists(full_path):
+        data['diff_linear'] = load_linear_data(full_path)
+        print(f"Loaded different modes linear")
+    else:
+        print(f"Warning: {full_path} not found")
 
-    # Load seed linear data
-    seed_linears = {}
-    for name, path in seed_linear_paths.items():
-        full_path = os.path.join(project_root, path)
-        if os.path.exists(full_path):
-            seed_linears[name] = load_linear_data(full_path)
-            print(f"Loaded linear {name} from {path}")
-        else:
-            print(f"Warning: {full_path} not found, skipping linear {name}")
+    full_path = os.path.join(project_root, perm0_modes_curve)
+    if os.path.exists(full_path):
+        data['perm0_curve'] = load_curve_data(full_path)
+        print(f"Loaded permuted modes (seed0) curve")
+    else:
+        print(f"Warning: {full_path} not found")
 
-    # Load mirror linear data
-    mirror_linears = {}
-    for name, path in mirror_linear_paths.items():
-        full_path = os.path.join(project_root, path)
-        if os.path.exists(full_path):
-            mirror_linears[name] = load_linear_data(full_path)
-            print(f"Loaded linear {name} from {path}")
-        else:
-            print(f"Warning: {full_path} not found, skipping linear {name}")
+    full_path = os.path.join(project_root, perm0_modes_linear)
+    if os.path.exists(full_path):
+        data['perm0_linear'] = load_linear_data(full_path)
+        print(f"Loaded permuted modes (seed0) linear")
+    else:
+        print(f"Warning: {full_path} not found")
 
-    if not seed_curves and not mirror_curves:
+    full_path = os.path.join(project_root, perm1_modes_curve)
+    if os.path.exists(full_path):
+        data['perm1_curve'] = load_curve_data(full_path)
+        print(f"Loaded permuted modes (seed1) curve")
+    else:
+        print(f"Warning: {full_path} not found")
+
+    full_path = os.path.join(project_root, perm1_modes_linear)
+    if os.path.exists(full_path):
+        data['perm1_linear'] = load_linear_data(full_path)
+        print(f"Loaded permuted modes (seed1) linear")
+    else:
+        print(f"Warning: {full_path} not found")
+
+    if not data:
         print("No data files found!")
         return
 
-    # Colors for seeds
-    seed_colors = {
-        'seed0-seed1': '#1f77b4',  # Blue
-        'seed0-seed2': '#2ca02c',  # Green
-        'seed1-seed2': '#9467bd',  # Purple
-    }
-
-    # Colors for mirrored
-    mirror_colors = {
-        'seed0-mirror': '#ff7f0e',  # Orange
-        'seed1-mirror': '#d62728',  # Red
-    }
+    # Colors
+    diff_color = '#1f77b4'  # Blue for different modes
+    perm0_color = '#ff7f0e'  # Orange for permuted modes (seed0)
+    perm1_color = '#ffbb78'  # Light orange for permuted modes (seed1)
 
     # Create 2x2 subplot
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8))
 
-    # Plot configuration
+    # Plot configuration: top left to bottom right
+    # Test Error, Test Loss, Train Error, Train Loss
     plots = [
-        ('tr_loss', 'Train Loss', axes[0, 0]),
+        ('te_err', 'Test Error (%)', axes[0, 0]),
         ('te_loss', 'Test Loss', axes[0, 1]),
         ('tr_err', 'Train Error (%)', axes[1, 0]),
-        ('te_err', 'Test Error (%)', axes[1, 1]),
+        ('tr_loss', 'Train Loss', axes[1, 1]),
     ]
 
-    for key, ylabel, ax in plots:
-        # Plot seed curves (solid lines)
-        for name, data in seed_curves.items():
-            ax.plot(data['ts'], data[key], '-', color=seed_colors[name],
-                    linewidth=2, label=f'{name} (curve)')
+    for idx, (key, title, ax) in enumerate(plots):
+        # Plot different modes - curve (dotted)
+        if 'diff_curve' in data:
+            label = 'Different modes (curve)' if idx == 0 else None
+            ax.plot(data['diff_curve']['ts'], data['diff_curve'][key], ':',
+                    color=diff_color, linewidth=2, label=label)
 
-        # Plot mirror curves (dashed lines)
-        for name, data in mirror_curves.items():
-            ax.plot(data['ts'], data[key], '--', color=mirror_colors[name],
-                    linewidth=2, label=f'{name} (curve)')
+        # Plot different modes - linear (solid)
+        if 'diff_linear' in data:
+            label = 'Different modes (linear)' if idx == 0 else None
+            ax.plot(data['diff_linear']['ts'], data['diff_linear'][key], '-',
+                    color=diff_color, linewidth=2, label=label)
 
-        # Plot seed linear (dotted lines, same color but lighter)
-        for name, data in seed_linears.items():
-            ax.plot(data['ts'], data[key], ':', color=seed_colors[name],
-                    linewidth=2, alpha=0.7, label=f'{name} (linear)')
+        # Plot permuted modes seed0 - curve (dotted)
+        if 'perm0_curve' in data:
+            label = 'Permuted modes (curve)' if idx == 0 else None
+            ax.plot(data['perm0_curve']['ts'], data['perm0_curve'][key], ':',
+                    color=perm0_color, linewidth=2, label=label)
 
-        # Plot mirror linear (dotted lines, same color but lighter)
-        for name, data in mirror_linears.items():
-            ax.plot(data['ts'], data[key], ':', color=mirror_colors[name],
-                    linewidth=2, alpha=0.7, label=f'{name} (linear)')
+        # Plot permuted modes seed0 - linear (solid)
+        if 'perm0_linear' in data:
+            label = 'Permuted modes (linear)' if idx == 0 else None
+            ax.plot(data['perm0_linear']['ts'], data['perm0_linear'][key], '-',
+                    color=perm0_color, linewidth=2, label=label)
 
-        ax.set_xlabel('t (interpolation parameter)', fontsize=11)
-        ax.set_ylabel(ylabel, fontsize=11)
+        # Plot permuted modes seed1 - curve (dotted, no label - same category)
+        if 'perm1_curve' in data:
+            ax.plot(data['perm1_curve']['ts'], data['perm1_curve'][key], ':',
+                    color=perm1_color, linewidth=2)
+
+        # Plot permuted modes seed1 - linear (solid, no label - same category)
+        if 'perm1_linear' in data:
+            ax.plot(data['perm1_linear']['ts'], data['perm1_linear'][key], '-',
+                    color=perm1_color, linewidth=2)
+
+        ax.set_title(title, fontsize=12, fontweight='bold')
+        ax.set_xlabel('t (interpolation parameter)', fontsize=10)
         ax.set_xlim(0, 1)
         ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=8, loc='best')
 
-    # Add title
-    fig.suptitle('Bezier Curve vs Linear Interpolation Connectivity\n(solid/dashed = Bezier, dotted = linear)',
-                 fontsize=14, fontweight='bold')
+    # Add single legend to first subplot
+    axes[0, 0].legend(fontsize=9, loc='best')
 
     plt.tight_layout()
 
@@ -188,30 +190,44 @@ def main():
         plt.show()
 
     # Print summary
-    print("\n" + "=" * 90)
+    print("\n" + "=" * 80)
     print("CONNECTIVITY SUMMARY")
-    print("=" * 90)
-    print(f"{'Config':<15} {'Type':<8} {'Interp':<8} {'Train Loss':>12} {'Test Loss':>12} {'Train Err':>12} {'Test Err':>12}")
-    print(f"{'':15} {'':8} {'':8} {'(max)':>12} {'(max)':>12} {'(max)':>12} {'(max)':>12}")
-    print("-" * 90)
+    print("=" * 80)
+    print(f"{'Mode Type':<20} {'Interp':<10} {'Train Loss':>12} {'Test Loss':>12} {'Train Err':>12} {'Test Err':>12}")
+    print(f"{'':20} {'':10} {'(max)':>12} {'(max)':>12} {'(max)':>12} {'(max)':>12}")
+    print("-" * 80)
 
-    for name, data in seed_curves.items():
-        print(f"{name:<15} {'seed':<8} {'curve':<8} {max(data['tr_loss']):>12.4f} {max(data['te_loss']):>12.4f} "
-              f"{max(data['tr_err']):>11.2f}% {max(data['te_err']):>11.2f}%")
+    if 'diff_curve' in data:
+        d = data['diff_curve']
+        print(f"{'Different modes':<20} {'curve':<10} {max(d['tr_loss']):>12.4f} {max(d['te_loss']):>12.4f} "
+              f"{max(d['tr_err']):>11.2f}% {max(d['te_err']):>11.2f}%")
 
-    for name, data in seed_linears.items():
-        print(f"{name:<15} {'seed':<8} {'linear':<8} {max(data['tr_loss']):>12.4f} {max(data['te_loss']):>12.4f} "
-              f"{max(data['tr_err']):>11.2f}% {max(data['te_err']):>11.2f}%")
+    if 'diff_linear' in data:
+        d = data['diff_linear']
+        print(f"{'Different modes':<20} {'linear':<10} {max(d['tr_loss']):>12.4f} {max(d['te_loss']):>12.4f} "
+              f"{max(d['tr_err']):>11.2f}% {max(d['te_err']):>11.2f}%")
 
-    for name, data in mirror_curves.items():
-        print(f"{name:<15} {'mirror':<8} {'curve':<8} {max(data['tr_loss']):>12.4f} {max(data['te_loss']):>12.4f} "
-              f"{max(data['tr_err']):>11.2f}% {max(data['te_err']):>11.2f}%")
+    if 'perm0_curve' in data:
+        d = data['perm0_curve']
+        print(f"{'Permuted seed0':<20} {'curve':<10} {max(d['tr_loss']):>12.4f} {max(d['te_loss']):>12.4f} "
+              f"{max(d['tr_err']):>11.2f}% {max(d['te_err']):>11.2f}%")
 
-    for name, data in mirror_linears.items():
-        print(f"{name:<15} {'mirror':<8} {'linear':<8} {max(data['tr_loss']):>12.4f} {max(data['te_loss']):>12.4f} "
-              f"{max(data['tr_err']):>11.2f}% {max(data['te_err']):>11.2f}%")
+    if 'perm0_linear' in data:
+        d = data['perm0_linear']
+        print(f"{'Permuted seed0':<20} {'linear':<10} {max(d['tr_loss']):>12.4f} {max(d['te_loss']):>12.4f} "
+              f"{max(d['tr_err']):>11.2f}% {max(d['te_err']):>11.2f}%")
 
-    print("-" * 90)
+    if 'perm1_curve' in data:
+        d = data['perm1_curve']
+        print(f"{'Permuted seed1':<20} {'curve':<10} {max(d['tr_loss']):>12.4f} {max(d['te_loss']):>12.4f} "
+              f"{max(d['tr_err']):>11.2f}% {max(d['te_err']):>11.2f}%")
+
+    if 'perm1_linear' in data:
+        d = data['perm1_linear']
+        print(f"{'Permuted seed1':<20} {'linear':<10} {max(d['tr_loss']):>12.4f} {max(d['te_loss']):>12.4f} "
+              f"{max(d['tr_err']):>11.2f}% {max(d['te_err']):>11.2f}%")
+
+    print("-" * 80)
 
 
 if __name__ == '__main__':
