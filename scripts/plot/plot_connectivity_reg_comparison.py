@@ -1,11 +1,14 @@
 """
-Plot connectivity comparison for seed0-seed1_reg and seed0-mirror_reg configurations.
+Plot connectivity comparison for different modes vs permuted modes.
 
-4 subplots showing curve interpolation only (no linear):
-- Train Loss
-- Test Loss
-- Train Accuracy
-- Test Accuracy
+4 subplots showing Bezier curve interpolation only (no linear):
+- Test Error (top left)
+- Test Loss (top right)
+- Train Error (bottom left)
+- Train Loss (bottom right)
+
+Solid lines = Different modes (seed pairs)
+Dashed lines = Permuted modes (mirrored)
 """
 
 import argparse
@@ -50,6 +53,7 @@ def main():
     # Data paths - mirrored versions
     mirror_paths = {
         'seed0-mirror': 'results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations/curve.npz',
+        'seed1-mirror': 'results/vgg16/cifar10/curves/standard/seed1-mirror_reg/evaluations/curve.npz',
     }
 
     # Load seed data
@@ -92,34 +96,38 @@ def main():
     # Create 2x2 subplot
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
 
-    # Plot configuration
+    # Plot configuration: top left to bottom right
+    # Test Error, Test Loss, Train Error, Train Loss
     plots = [
-        ('tr_loss', 'Train Loss', axes[0, 0]),
+        ('te_err', 'Test Error (%)', axes[0, 0]),
         ('te_loss', 'Test Loss', axes[0, 1]),
         ('tr_err', 'Train Error (%)', axes[1, 0]),
-        ('te_err', 'Test Error (%)', axes[1, 1]),
+        ('tr_loss', 'Train Loss', axes[1, 1]),
     ]
 
-    for key, ylabel, ax in plots:
-        # Plot seed curves (solid lines)
+    for idx, (key, title, ax) in enumerate(plots):
+        # Plot seed curves (solid lines) - different modes
         for name, data in seed_curves.items():
             ax.plot(data['ts'], data[key], '-', color=seed_colors[name],
-                    linewidth=2, label=name)
+                    linewidth=2)
 
-        # Plot mirror curves (dashed lines)
+        # Plot mirror curves (dashed lines) - permuted modes
         for name, data in mirror_curves.items():
             ax.plot(data['ts'], data[key], '--', color=mirror_colors[name],
-                    linewidth=2, label=name)
+                    linewidth=2)
 
-        ax.set_xlabel('t (interpolation parameter)', fontsize=11)
-        ax.set_ylabel(ylabel, fontsize=11)
+        ax.set_title(title, fontsize=12, fontweight='bold')
+        ax.set_xlabel('t (interpolation parameter)', fontsize=10)
         ax.set_xlim(0, 1)
         ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=9, loc='best')
 
-    # Add title
-    fig.suptitle('Bezier Curve Connectivity Comparison\n(solid = seed pairs, dashed = mirrored)',
-                 fontsize=14, fontweight='bold')
+    # Add custom legend with grey lines to first subplot
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color='grey', linestyle='-', linewidth=2, label='Different modes (solid)'),
+        Line2D([0], [0], color='grey', linestyle='--', linewidth=2, label='Permuted modes (dashed)'),
+    ]
+    axes[0, 0].legend(handles=legend_elements, fontsize=9, loc='best')
 
     plt.tight_layout()
 
