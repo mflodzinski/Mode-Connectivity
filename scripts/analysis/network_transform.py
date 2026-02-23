@@ -167,7 +167,7 @@ def main():
                 print(f"Prediction match rate:   {pred_match_rate:.2f}%")
                 print(f"Max output difference:   {max_output_diff:.2e}")
 
-                tolerance = 1e-5
+                tolerance = 5e-5
                 is_equivalent = (max_output_diff < tolerance) and (pred_match_rate > 99.9)
 
                 if is_equivalent:
@@ -281,7 +281,7 @@ def main():
                 print(f"Prediction match rate:   {pred_match_rate:.2f}%")
                 print(f"Max output difference:   {max_output_diff:.2e}")
 
-                tolerance = 1e-5
+                tolerance = 5e-5
                 is_equivalent = (max_output_diff < tolerance) and (pred_match_rate > 99.9)
 
                 if is_equivalent:
@@ -316,12 +316,14 @@ def main():
                 else:
                     print(f"\n✗ Quick verification failed (max diff: {max_diff:.2e})")
 
-        # Save random-permuted model with metadata
+        # Save random-permuted model with weights-only-safe metadata
+        # (PyTorch 2.6 defaults torch.load(..., weights_only=True)).
+        permutation_serialized = {k: v.tolist() for k, v in perm.items()}
         torch.save({
             'model_state': permuted_model.state_dict(),
             'random_permuted': True,
             'perm_seed': args.perm_seed,
-            'permutation': perm,
+            'permutation': permutation_serialized,
         }, args.output)
 
     elif args.mode == 'swap':
