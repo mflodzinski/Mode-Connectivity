@@ -400,6 +400,20 @@ def align_models_exhaustive(model_a, model_b, verbose=False):
 # =============================================================================
 # Decision Boundary Visualization
 # =============================================================================
+def plot_confidence_boundary(ax, xx, yy, probs):
+    """Plot confidence heatmap and 0.5 decision contour."""
+    contour = ax.contourf(
+        xx, yy, probs,
+        levels=np.linspace(0.0, 1.0, 41),
+        cmap='RdYlGn',
+        vmin=0.0,
+        vmax=1.0,
+        alpha=0.85,
+    )
+    ax.contour(xx, yy, probs, levels=[0.5], colors=['black'], linewidths=2)
+    return contour
+
+
 def plot_decision_boundaries(models, output_path, grid_resolution=200):
     """Plot decision boundaries for all trained networks.
 
@@ -441,14 +455,13 @@ def plot_decision_boundaries(models, output_path, grid_resolution=200):
         model.eval()
         with torch.no_grad():
             outputs = model(grid_points)
-            preds = (torch.sigmoid(outputs) >= 0.5).long().squeeze(1).numpy()
+            probs = torch.sigmoid(outputs).squeeze(1).numpy()
 
-        # Reshape predictions to grid
-        Z = preds.reshape(xx.shape)
+        # Reshape probabilities to grid
+        Z = probs.reshape(xx.shape)
 
-        # Plot decision boundary
-        ax.contourf(xx, yy, Z, levels=[-0.5, 0.5, 1.5], colors=['#ffcccc', '#ccffcc'], alpha=0.7)
-        ax.contour(xx, yy, Z, levels=[0.5], colors=['black'], linewidths=2)
+        # Plot confidence and decision boundary
+        plot_confidence_boundary(ax, xx, yy, Z)
 
         # Plot XOR data points
         labels = XOR_LABELS.long().squeeze(1).numpy()
@@ -528,17 +541,16 @@ def plot_interpolation_boundaries(model_a, model_b, seed_a, seed_b, output_path,
         interp_model.eval()
         with torch.no_grad():
             outputs = interp_model(grid_points)
-            preds = (torch.sigmoid(outputs) >= 0.5).long().squeeze(1).numpy()
+            probs = torch.sigmoid(outputs).squeeze(1).numpy()
 
         # Evaluate accuracy
         res = evaluate_model(interp_model)
         acc = res['accuracy']
 
-        Z = preds.reshape(xx.shape)
+        Z = probs.reshape(xx.shape)
 
-        # Plot decision boundary
-        ax.contourf(xx, yy, Z, levels=[-0.5, 0.5, 1.5], colors=['#ffcccc', '#ccffcc'], alpha=0.7)
-        ax.contour(xx, yy, Z, levels=[0.5], colors=['black'], linewidths=2)
+        # Plot confidence and decision boundary
+        plot_confidence_boundary(ax, xx, yy, Z)
 
         # Plot XOR data points
         labels = XOR_LABELS.long().squeeze(1).numpy()
@@ -605,13 +617,11 @@ def plot_interpolation_boundaries_stacked(model_a, model_b_before, model_b_after
         interp_before.eval()
         with torch.no_grad():
             outputs = interp_before(grid_points)
-            preds = (torch.sigmoid(outputs) >= 0.5).long().squeeze(1).numpy()
+            probs = torch.sigmoid(outputs).squeeze(1).numpy()
         acc_before = evaluate_model(interp_before)['accuracy']
-        Z_before = preds.reshape(xx.shape)
+        Z_before = probs.reshape(xx.shape)
 
-        ax_before.contourf(xx, yy, Z_before, levels=[-0.5, 0.5, 1.5],
-                           colors=['#ffcccc', '#ccffcc'], alpha=0.7)
-        ax_before.contour(xx, yy, Z_before, levels=[0.5], colors=['black'], linewidths=2)
+        plot_confidence_boundary(ax_before, xx, yy, Z_before)
         for point, label in zip(XOR_DATA.numpy(), labels):
             ax_before.scatter(point[0], point[1], c=colors[label], s=150,
                               edgecolors='black', linewidths=2, zorder=5)
@@ -625,13 +635,11 @@ def plot_interpolation_boundaries_stacked(model_a, model_b_before, model_b_after
         interp_after.eval()
         with torch.no_grad():
             outputs = interp_after(grid_points)
-            preds = (torch.sigmoid(outputs) >= 0.5).long().squeeze(1).numpy()
+            probs = torch.sigmoid(outputs).squeeze(1).numpy()
         acc_after = evaluate_model(interp_after)['accuracy']
-        Z_after = preds.reshape(xx.shape)
+        Z_after = probs.reshape(xx.shape)
 
-        ax_after.contourf(xx, yy, Z_after, levels=[-0.5, 0.5, 1.5],
-                          colors=['#ffcccc', '#ccffcc'], alpha=0.7)
-        ax_after.contour(xx, yy, Z_after, levels=[0.5], colors=['black'], linewidths=2)
+        plot_confidence_boundary(ax_after, xx, yy, Z_after)
         for point, label in zip(XOR_DATA.numpy(), labels):
             ax_after.scatter(point[0], point[1], c=colors[label], s=150,
                              edgecolors='black', linewidths=2, zorder=5)
@@ -689,16 +697,15 @@ def compute_boundary_grid(model, grid_resolution=200):
     model.eval()
     with torch.no_grad():
         outputs = model(grid_points)
-        preds = (torch.sigmoid(outputs) >= 0.5).long().squeeze(1).numpy()
-    Z = preds.reshape(xx.shape)
+        probs = torch.sigmoid(outputs).squeeze(1).numpy()
+    Z = probs.reshape(xx.shape)
     return xx, yy, Z
 
 
 def save_boundary_plot(xx, yy, Z, output_path):
     """Save a single decision boundary plot to disk."""
     fig, ax = plt.subplots(1, 1, figsize=(4, 4))
-    ax.contourf(xx, yy, Z, levels=[-0.5, 0.5, 1.5], colors=['#ffcccc', '#ccffcc'], alpha=0.7)
-    ax.contour(xx, yy, Z, levels=[0.5], colors=['black'], linewidths=2)
+    plot_confidence_boundary(ax, xx, yy, Z)
 
     labels = XOR_LABELS.long().squeeze(1).numpy()
     colors = ['#d62728', '#2ca02c']
@@ -729,9 +736,22 @@ def create_training_animation(frames, xx, yy, seed, output_path):
         x=xx[0],
         y=yy[:, 0],
         z=first['Z'],
+        zmin=0.0,
+        zmax=1.0,
+        showscale=True,
+        colorbar=dict(title='P(y=1)'),
+        colorscale='RdYlGn',
+        contours=dict(start=0.0, end=1.0, size=0.025, coloring='heatmap', showlines=False),
+        hovertemplate='x=%{x:.2f}<br>y=%{y:.2f}<br>P(y=1)=%{z:.3f}<extra></extra>',
+    ))
+    fig.add_trace(go.Contour(
+        x=xx[0],
+        y=yy[:, 0],
+        z=first['Z'],
+        zmin=0.0,
+        zmax=1.0,
         showscale=False,
-        colorscale=[[0, '#ffcccc'], [1, '#ccffcc']],
-        contours=dict(start=0.5, end=0.5, size=1, showlines=True, coloring='fill'),
+        contours=dict(start=0.5, end=0.5, size=1, coloring='lines', showlabels=False),
         line=dict(width=3, color='black'),
         hoverinfo='skip'
     ))
@@ -756,9 +776,21 @@ def create_training_animation(frames, xx, yy, seed, output_path):
                     x=xx[0],
                     y=yy[:, 0],
                     z=frame['Z'],
+                    zmin=0.0,
+                    zmax=1.0,
                     showscale=False,
-                    colorscale=[[0, '#ffcccc'], [1, '#ccffcc']],
-                    contours=dict(start=0.5, end=0.5, size=1, showlines=True, coloring='fill'),
+                    colorscale='RdYlGn',
+                    contours=dict(start=0.0, end=1.0, size=0.025, coloring='heatmap', showlines=False),
+                    hovertemplate='x=%{x:.2f}<br>y=%{y:.2f}<br>P(y=1)=%{z:.3f}<extra></extra>',
+                ),
+                go.Contour(
+                    x=xx[0],
+                    y=yy[:, 0],
+                    z=frame['Z'],
+                    zmin=0.0,
+                    zmax=1.0,
+                    showscale=False,
+                    contours=dict(start=0.5, end=0.5, size=1, coloring='lines', showlabels=False),
                     line=dict(width=3, color='black'),
                     hoverinfo='skip'
                 ),
@@ -1179,10 +1211,7 @@ def main():
 
     # Default output directory based on hidden neurons
     if args.output is None:
-        if args.hidden_neurons == 4:
-            output_dir = 'results/xor'
-        else:
-            output_dir = f'results/xor_{args.hidden_neurons}h'
+        output_dir = f'results/xor_{args.hidden_neurons}h'
     else:
         output_dir = args.output
 

@@ -118,6 +118,7 @@ def main():
 
         ax.set_title(title, fontsize=12, fontweight='bold')
         ax.set_xlabel('t (interpolation parameter)', fontsize=10)
+        ax.set_ylabel(title, fontsize=10)
         ax.set_xlim(0, 1)
         ax.grid(True, alpha=0.3)
 
