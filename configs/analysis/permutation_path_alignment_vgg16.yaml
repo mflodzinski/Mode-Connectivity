@@ -1,0 +1,58 @@
+defaults: []
+
+experiment_name: "seed0-seed1_polychain_path_alignment"
+
+endpoint_a: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
+endpoint_b: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt"
+output_root: "results/vgg16/cifar10/alignment/permutation_path"
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+num_classes: 10
+
+path:
+  curve: "PolyChain"
+  num_bends: 3
+  pretrained_checkpoint: "results/vgg16/cifar10/advanced_geometry/polygon/seed0-seed1/checkpoint-150.pt"
+  skip_eval: true
+  epochs: 200
+  lr: 0.015
+  wd: 5e-4
+  seed: 0
+  save_freq: 200
+  use_test: true
+  momentum: 0.9
+  batch_size: 128
+  num_workers: 4
+
+sampling:
+  ts: [0.0, 0.25, 0.5, 0.75, 1.0]
+  precomputed_dir: null
+
+matching:
+  pairwise_fw:
+    max_iter: 200
+    initialization_method: "identity"
+    num_trials: 1
+  global_fw:
+    max_iter: 200
+    initialization_method: "identity"
+  greedy_adjacent:
+    max_iter: 100
+
+evaluation:
+  num_points: 61
+  batch_size: 128
+  num_workers: 4
+
+equivalence:
+  batch_index: 0
+  atol: 1.0e-4
+  rtol: 1.0e-4
+
+runtime:
+  device: "auto"
+
+overwrite: false

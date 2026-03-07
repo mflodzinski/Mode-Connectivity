@@ -50,10 +50,10 @@ def main():
         'seed1-seed2': 'results/vgg16/cifar10/curves/standard/seed1-seed2_bezier/evaluations/curve.npz',
     }
 
-    # Data paths - mirrored versions
+    # Data paths - random-permuted versions
     mirror_paths = {
-        'seed0-mirror': 'results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations/curve.npz',
-        'seed1-mirror': 'results/vgg16/cifar10/curves/standard/seed1-mirror_reg/evaluations/curve.npz',
+        'seed0-randperm': 'results/vgg16/cifar10/curves/standard/seed0-randperm_reg/evaluations/curve.npz',
+        'seed1-randperm': 'results/vgg16/cifar10/curves/standard/seed1-randperm_reg/evaluations/curve.npz',
     }
 
     # Load seed data
@@ -89,8 +89,8 @@ def main():
 
     # Colors for mirrored (dashed lines)
     mirror_colors = {
-        'seed0-mirror': '#ff7f0e',  # Orange
-        'seed1-mirror': '#d62728',  # Red
+        'seed0-randperm': '#ff7f0e',  # Orange
+        'seed1-randperm': '#d62728',  # Red
     }
 
     # Create 2x2 subplot

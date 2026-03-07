@@ -10,3 +10,6 @@
 [submodule "external/git-rebasin"]
 	path = external/git-rebasin
 	url = https://github.com/samuela/git-re-basin.git
+[submodule "external/cycle-consistent-model-merging"]
+	path = external/cycle-consistent-model-merging
+	url = https://github.com/crisostomi/cycle-consistent-model-merging.git
