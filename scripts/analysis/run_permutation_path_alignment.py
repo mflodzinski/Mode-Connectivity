@@ -67,6 +67,23 @@ BASELINE_KEYS = [
     "baseline_4_c2m3_global",
 ]
 
+BASELINE_DISPLAY_NAMES = {
+    "baseline_1_no_permutation": "Baseline 1 - no permutation",
+    "baseline_2_c2m3_direct": "Baseline 2 - direct C2M3 endpoint matching",
+    "baseline_3_greedy_adjacent": "Baseline 3 - greedy adjacent matching",
+    "baseline_4_c2m3_global": "Baseline 4 - global multi-checkpoint C2M3",
+}
+
+
+def print_stage(title: str) -> None:
+    print("\n" + "=" * 80)
+    print(title)
+    print("=" * 80)
+
+
+def print_kv(label: str, value) -> None:
+    print(f"{label}: {value}")
+
 
 @hydra.main(
     version_base=None,
@@ -91,11 +108,23 @@ def main(cfg: DictConfig):
     endpoint_b_path = to_absolute_path(cfg.endpoint_b)
     curve_checkpoint_path = path_checkpoint_dir / f"checkpoint-{cfg.path.epochs}.pt"
 
+    print_stage("Permutation Path Alignment Pipeline")
+    print_kv("experiment_name", cfg.experiment_name)
+    print_kv("pipeline_root", pipeline_root)
+    print_kv("endpoint_a", endpoint_a_path)
+    print_kv("endpoint_b", endpoint_b_path)
+    print_kv("runtime_device", runtime_device)
+    print_kv("matching_device", matching_device)
+    print_kv("path_pretrained_checkpoint", cfg.path.get("pretrained_checkpoint"))
+    print_kv("sampling_precomputed_dir", cfg.sampling.precomputed_dir)
+    print_kv("overwrite", cfg.overwrite)
+
     path_checkpoint_dir.mkdir(parents=True, exist_ok=True)
     path_evaluation_dir.mkdir(parents=True, exist_ok=True)
     summary_dir.mkdir(parents=True, exist_ok=True)
 
     if cfg.sampling.precomputed_dir:
+        print_stage("Stage 1 - Reuse Precomputed Path Samples")
         materialize_precomputed_samples(
             cfg,
             source_dir=Path(to_absolute_path(cfg.sampling.precomputed_dir)),
@@ -104,7 +133,9 @@ def main(cfg: DictConfig):
             endpoint_b_path=endpoint_b_path,
         )
     else:
+        print_stage("Stage 1 - Prepare Curve Checkpoint")
         train_path_if_needed(cfg, path_checkpoint_dir, curve_checkpoint_path, endpoint_a_path, endpoint_b_path)
+        print_stage("Stage 2 - Sample Path Checkpoints")
         sample_checkpoints_if_needed(
             cfg,
             curve_checkpoint_path=str(curve_checkpoint_path),
@@ -115,6 +146,7 @@ def main(cfg: DictConfig):
         )
 
     sampled_checkpoint_paths = [str(sampled_dir / f"C{i}.pt") for i in range(len(cfg.sampling.ts))]
+    print_kv("sampled_checkpoint_paths", sampled_checkpoint_paths)
     sampled_state_dicts = load_sampled_state_dicts(sampled_checkpoint_paths)
 
     state_a = sampled_state_dicts[0]
@@ -134,6 +166,8 @@ def main(cfg: DictConfig):
     for baseline_key in BASELINE_KEYS:
         baseline_dir = pipeline_root / baseline_key
         baseline_dir.mkdir(parents=True, exist_ok=True)
+        print_stage(f"Stage 3 - {BASELINE_DISPLAY_NAMES[baseline_key]}")
+        print_kv("baseline_dir", baseline_dir)
 
         _, equivalence_metrics = run_baseline(
             cfg=cfg,
@@ -160,7 +194,12 @@ def main(cfg: DictConfig):
                 "allclose": equivalence_metrics["allclose"],
             }
         )
+        print_kv("max_abs_logit_diff", equivalence_metrics["max_abs_logit_diff"])
+        print_kv("mean_abs_logit_diff", equivalence_metrics["mean_abs_logit_diff"])
+        print_kv("same_argmax_fraction", equivalence_metrics["same_argmax_fraction"])
+        print_kv("allclose", equivalence_metrics["allclose"])
 
+    print_stage("Stage 4 - Write Summary")
     write_summary_files(str(summary_dir), summary_rows)
     print(f"Pipeline outputs written to: {pipeline_root}")
 
@@ -186,6 +225,7 @@ def train_path_if_needed(
     pretrained_checkpoint = cfg.path.get("pretrained_checkpoint")
     if pretrained_checkpoint:
         source_checkpoint = Path(to_absolute_path(pretrained_checkpoint))
+        print_kv("curve_checkpoint_source", source_checkpoint)
         if not source_checkpoint.exists():
             raise FileNotFoundError(f"Configured pretrained path checkpoint does not exist: {source_checkpoint}")
 
@@ -207,6 +247,8 @@ def train_path_if_needed(
 
     repo_root = Path(to_absolute_path("external/dnn-mode-connectivity"))
     train_script = repo_root / "train.py"
+    print_kv("train_script", train_script)
+    print_kv("curve_checkpoint_target", expected_checkpoint_path)
 
     train_cfg = OmegaConf.create(
         {
@@ -254,6 +296,9 @@ def sample_checkpoints_if_needed(
         print(f"Skipping checkpoint sampling, found existing samples under: {sampled_dir}")
         return
 
+    print_kv("curve_checkpoint_path", curve_checkpoint_path)
+    print_kv("sampled_dir", sampled_dir)
+    print_kv("sampling_ts", [float(t) for t in cfg.sampling.ts])
     sample_curve_checkpoints(
         curve_checkpoint_path,
         output_dir=str(sampled_dir),
@@ -306,6 +351,8 @@ def materialize_precomputed_samples(
         print(f"Using existing sampled checkpoints from: {sampled_dir}")
         return
 
+    print_kv("precomputed_source_dir", source_dir)
+    print_kv("sampled_dir", sampled_dir)
     for index in range(len(cfg.sampling.ts)):
         source_path = source_dir / f"C{index}.pt"
         if not source_path.exists():
@@ -363,12 +410,15 @@ def run_baseline(
         required_paths.append(factored_path)
 
     if all(path.exists() for path in required_paths) and not cfg.overwrite:
+        print(f"Reusing existing artifacts for {baseline_key} from: {baseline_dir}")
         return None, load_json_file(equivalence_path)
 
     if baseline_key == "baseline_1_no_permutation":
+        print("Using identity permutation for endpoint B.")
         endpoint_q = identity_permutation(state_b, local_spec)
         b_perm_state = state_b
     elif baseline_key == "baseline_2_c2m3_direct":
+        print("Running pairwise C2M3 Frank-Wolfe on endpoints C0 and C4.")
         endpoint_q = compute_c2m3_direct_endpoint_permutation(
             cfg,
             local_spec=local_spec,
@@ -379,6 +429,7 @@ def run_baseline(
         )
         b_perm_state = apply_endpoint_permutation_to_state_dict(state_b, endpoint_q)
     elif baseline_key == "baseline_3_greedy_adjacent":
+        print("Running greedy adjacent pairwise matching on C0->C1->C2->C3->C4.")
         endpoint_q = compute_greedy_adjacent_endpoint_permutation(
             cfg,
             local_spec=local_spec,
@@ -386,6 +437,7 @@ def run_baseline(
         )
         b_perm_state = apply_endpoint_permutation_to_state_dict(state_b, endpoint_q)
     elif baseline_key == "baseline_4_c2m3_global":
+        print("Running synchronized C2M3 Frank-Wolfe on all sampled checkpoints.")
         factored_permutations = compute_c2m3_global_factored_permutations(
             cfg,
             local_spec=local_spec,
@@ -433,6 +485,7 @@ def run_baseline(
         permutation_applied=(baseline_key != "baseline_1_no_permutation"),
     )
     write_json(str(equivalence_path), equivalence_metrics)
+    print(f"Saved baseline artifacts to: {baseline_dir}")
     return None, equivalence_metrics
 
 
@@ -445,6 +498,8 @@ def compute_c2m3_direct_endpoint_permutation(
     state_b,
     matching_device: str,
 ):
+    print_kv("pairwise_matching_device", matching_device)
+    print_kv("pairwise_fw_max_iter", cfg.matching.pairwise_fw.max_iter)
     permutation, _ = run_pairwise_frank_wolfe(
         state_dict_to_perm_params(state_a, local_spec),
         state_dict_to_perm_params(state_b, local_spec),
@@ -465,6 +520,7 @@ def compute_greedy_adjacent_endpoint_permutation(
 ):
     adjacent_permutations = []
     for index in range(len(sampled_state_dicts) - 1):
+        print(f"Matching adjacent checkpoints: C{index} -> C{index + 1}")
         fixed = state_dict_to_perm_params(sampled_state_dicts[index], local_spec)
         permutee = state_dict_to_perm_params(sampled_state_dicts[index + 1], local_spec)
         permutation = local_weight_matching(
@@ -487,6 +543,9 @@ def compute_c2m3_global_factored_permutations(
     matching_device: str,
 ):
     symbols = [f"C{index}" for index in range(len(sampled_state_dicts))]
+    print_kv("global_matching_symbols", symbols)
+    print_kv("global_matching_device", matching_device)
+    print_kv("global_fw_max_iter", cfg.matching.global_fw.max_iter)
     params_by_symbol = {
         symbol: state_dict_to_perm_params(state_dict, local_spec)
         for symbol, state_dict in zip(symbols, sampled_state_dicts)
