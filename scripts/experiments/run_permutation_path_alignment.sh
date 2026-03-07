@@ -12,9 +12,27 @@ else
   EXTRA_ARGS=()
 fi
 
+mkdir -p "${OUTPUT_ROOT}/${EXPERIMENT_NAME}"
+
+echo "========================================"
+echo "Permutation Path Alignment"
+echo "========================================"
+echo "endpoint_a: ${ENDPOINT_A}"
+echo "endpoint_b: ${ENDPOINT_B}"
+echo "output_root: ${OUTPUT_ROOT}"
+echo "experiment_name: ${EXPERIMENT_NAME}"
+echo ""
+
 python scripts/analysis/run_permutation_path_alignment.py \
   endpoint_a="${ENDPOINT_A}" \
   endpoint_b="${ENDPOINT_B}" \
   output_root="${OUTPUT_ROOT}" \
   experiment_name="${EXPERIMENT_NAME}" \
   "${EXTRA_ARGS[@]}"
+
+echo ""
+echo "========================================"
+echo "PIPELINE COMPLETE!"
+echo "========================================"
+echo ""
+echo "Results saved to: ${OUTPUT_ROOT}/${EXPERIMENT_NAME}"
