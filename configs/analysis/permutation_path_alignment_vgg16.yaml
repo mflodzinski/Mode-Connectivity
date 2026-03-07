@@ -15,6 +15,8 @@ num_classes: 10
 path:
   curve: "PolyChain"
   num_bends: 3
+  pretrained_checkpoint: "results/vgg16/cifar10/advanced_geometry/polygon/seed0-seed1/checkpoint-150.pt"
+  skip_eval: true
   epochs: 200
   lr: 0.015
   wd: 5e-4

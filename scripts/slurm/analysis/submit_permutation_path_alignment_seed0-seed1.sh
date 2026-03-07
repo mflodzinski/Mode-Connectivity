@@ -40,11 +40,15 @@ echo "output_root: $OUTPUT_ROOT"
 echo "experiment_name: $EXPERIMENT_NAME"
 echo ""
 
-srun python scripts/analysis/run_permutation_path_alignment.py \
-    endpoint_a="$ENDPOINT_A" \
-    endpoint_b="$ENDPOINT_B" \
-    output_root="$OUTPUT_ROOT" \
+CMD=(
+    python scripts/analysis/run_permutation_path_alignment.py
+    endpoint_a="$ENDPOINT_A"
+    endpoint_b="$ENDPOINT_B"
+    output_root="$OUTPUT_ROOT"
     experiment_name="$EXPERIMENT_NAME"
+)
+
+srun "${CMD[@]}"
 
 echo ""
 echo "========================================"

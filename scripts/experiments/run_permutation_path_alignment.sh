@@ -23,12 +23,15 @@ echo "output_root: ${OUTPUT_ROOT}"
 echo "experiment_name: ${EXPERIMENT_NAME}"
 echo ""
 
-python scripts/analysis/run_permutation_path_alignment.py \
-  endpoint_a="${ENDPOINT_A}" \
-  endpoint_b="${ENDPOINT_B}" \
-  output_root="${OUTPUT_ROOT}" \
-  experiment_name="${EXPERIMENT_NAME}" \
+CMD=(
+  python scripts/analysis/run_permutation_path_alignment.py
+  endpoint_a="${ENDPOINT_A}"
+  endpoint_b="${ENDPOINT_B}"
+  output_root="${OUTPUT_ROOT}"
+  experiment_name="${EXPERIMENT_NAME}"
   "${EXTRA_ARGS[@]}"
+)
+"${CMD[@]}"
 
 echo ""
 echo "========================================"

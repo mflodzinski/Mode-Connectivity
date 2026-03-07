@@ -183,6 +183,24 @@ def train_path_if_needed(
     endpoint_a_path: str,
     endpoint_b_path: str,
 ) -> None:
+    pretrained_checkpoint = cfg.path.get("pretrained_checkpoint")
+    if pretrained_checkpoint:
+        source_checkpoint = Path(to_absolute_path(pretrained_checkpoint))
+        if not source_checkpoint.exists():
+            raise FileNotFoundError(f"Configured pretrained path checkpoint does not exist: {source_checkpoint}")
+
+        if expected_checkpoint_path.exists() and not cfg.overwrite:
+            print(f"Skipping path checkpoint copy, found existing checkpoint: {expected_checkpoint_path}")
+            return
+
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        if source_checkpoint.resolve() != expected_checkpoint_path.resolve():
+            shutil.copy2(source_checkpoint, expected_checkpoint_path)
+            print(f"Copied pretrained curve checkpoint to: {expected_checkpoint_path}")
+        else:
+            print(f"Using pretrained curve checkpoint in place: {expected_checkpoint_path}")
+        return
+
     if expected_checkpoint_path.exists() and not cfg.overwrite:
         print(f"Skipping path training, found existing checkpoint: {expected_checkpoint_path}")
         return
@@ -214,6 +232,7 @@ def train_path_if_needed(
     add_seed_arg(cmd, cfg.path.seed)
     add_optional_arg(cmd, train_cfg, "save_freq", "--save_freq")
     add_optional_arg(cmd, train_cfg, "use_test", "--use_test", is_flag=True)
+    add_optional_arg(cmd, train_cfg, "skip_eval", "--skip_eval", is_flag=True)
 
     print_and_format_command(cmd)
     subprocess.run(cmd, check=True)
