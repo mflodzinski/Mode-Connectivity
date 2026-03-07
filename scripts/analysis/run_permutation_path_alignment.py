@@ -32,18 +32,13 @@ from scripts.lib.alignment.path_checkpoint_sampling import (
 )
 from scripts.lib.alignment.permutation_pipeline import (
     apply_endpoint_permutation_to_state_dict,
-    build_summary_row,
-    compute_barrier_metrics,
     convert_perm_keys_to_apply_format,
     derive_endpoint_permutation_from_factored,
-    evaluate_linear_interpolation,
     get_test_batch,
     identity_permutation,
-    load_checkpoint_state_dict,
     load_vgg16_cifar10_loaders,
     resolve_device,
     save_checkpoint_with_state_dict,
-    save_interpolation_results,
     serialize_permutation,
     state_dict_to_perm_params,
     to_numpy_permutation,
@@ -140,7 +135,7 @@ def main(cfg: DictConfig):
         baseline_dir = pipeline_root / baseline_key
         baseline_dir.mkdir(parents=True, exist_ok=True)
 
-        barrier_metrics, equivalence_metrics = run_baseline(
+        _, equivalence_metrics = run_baseline(
             cfg=cfg,
             baseline_key=baseline_key,
             baseline_dir=baseline_dir,
@@ -156,7 +151,15 @@ def main(cfg: DictConfig):
             matching_device=matching_device,
         )
 
-        summary_rows.append(build_summary_row(baseline_key, barrier_metrics, equivalence_metrics))
+        summary_rows.append(
+            {
+                "baseline_key": baseline_key,
+                "max_abs_logit_diff": equivalence_metrics["max_abs_logit_diff"],
+                "mean_abs_logit_diff": equivalence_metrics["mean_abs_logit_diff"],
+                "same_argmax_fraction": equivalence_metrics["same_argmax_fraction"],
+                "allclose": equivalence_metrics["allclose"],
+            }
+        )
 
     write_summary_files(str(summary_dir), summary_rows)
     print(f"Pipeline outputs written to: {pipeline_root}")
@@ -329,8 +332,6 @@ def run_baseline(
     endpoint_q_converted_path = baseline_dir / "endpoint_q_converted.json"
     b_perm_path = baseline_dir / "b_perm.pt"
     equivalence_path = baseline_dir / "functional_equivalence.json"
-    interpolation_path = baseline_dir / "interpolation.npz"
-    barrier_path = baseline_dir / "barrier_metrics.json"
     factored_path = baseline_dir / "factored_permutations.json"
 
     required_paths = [
@@ -338,14 +339,12 @@ def run_baseline(
         endpoint_q_converted_path,
         b_perm_path,
         equivalence_path,
-        interpolation_path,
-        barrier_path,
     ]
     if baseline_key == "baseline_4_c2m3_global":
         required_paths.append(factored_path)
 
     if all(path.exists() for path in required_paths) and not cfg.overwrite:
-        return load_json_file(barrier_path), load_json_file(equivalence_path)
+        return None, load_json_file(equivalence_path)
 
     if baseline_key == "baseline_1_no_permutation":
         endpoint_q = identity_permutation(state_b, local_spec)
@@ -415,20 +414,7 @@ def run_baseline(
         permutation_applied=(baseline_key != "baseline_1_no_permutation"),
     )
     write_json(str(equivalence_path), equivalence_metrics)
-
-    interpolation_results = evaluate_linear_interpolation(
-        state_a,
-        b_perm_state,
-        loaders,
-        num_points=cfg.evaluation.num_points,
-        device=runtime_device,
-        num_classes=cfg.num_classes,
-    )
-    save_interpolation_results(str(interpolation_path), interpolation_results)
-
-    barrier_metrics = compute_barrier_metrics(interpolation_results)
-    write_json(str(barrier_path), barrier_metrics)
-    return barrier_metrics, equivalence_metrics
+    return None, equivalence_metrics
 
 
 def compute_c2m3_direct_endpoint_permutation(
