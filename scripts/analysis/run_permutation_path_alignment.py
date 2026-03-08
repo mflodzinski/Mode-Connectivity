@@ -412,6 +412,7 @@ def run_baseline(
     interpolation_path = baseline_dir / "interpolation.npz"
     barrier_path = baseline_dir / "barrier_metrics.json"
     factored_path = baseline_dir / "factored_permutations.json"
+    greedy_debug_path = baseline_dir / "greedy_alignment_debug.json"
     global_debug_path = baseline_dir / "global_alignment_debug.json"
     global_opt_info_path = baseline_dir / "global_fw_opt_info.json"
 
@@ -423,6 +424,8 @@ def run_baseline(
         interpolation_path,
         barrier_path,
     ]
+    if baseline_key == "baseline_3_greedy_adjacent":
+        required_paths.append(greedy_debug_path)
     if baseline_key == "baseline_4_c2m3_global":
         required_paths.append(factored_path)
         required_paths.append(global_debug_path)
@@ -449,12 +452,18 @@ def run_baseline(
         b_perm_state = apply_endpoint_permutation_to_state_dict(state_b, endpoint_q)
     elif baseline_key == "baseline_3_greedy_adjacent":
         print("Running greedy adjacent pairwise matching on C0->C1->C2->C3->C4.")
-        endpoint_q = compute_greedy_adjacent_endpoint_permutation(
+        endpoint_q, adjacent_permutations = compute_greedy_adjacent_endpoint_permutation(
             cfg,
             local_spec=local_spec,
             sampled_state_dicts=sampled_state_dicts,
         )
         b_perm_state = apply_endpoint_permutation_to_state_dict(state_b, endpoint_q)
+        greedy_debug_metrics = compute_adjacent_alignment_debug_metrics(
+            sampled_state_dicts,
+            adjacent_permutations,
+        )
+        write_json(str(greedy_debug_path), greedy_debug_metrics)
+        log_alignment_debug_metrics("Greedy adjacent", greedy_debug_metrics)
     elif baseline_key == "baseline_4_c2m3_global":
         print("Running synchronized C2M3 Frank-Wolfe on all sampled checkpoints.")
         factored_permutations, global_opt_info = compute_c2m3_global_factored_permutations(
@@ -477,7 +486,7 @@ def run_baseline(
         b_perm_state = apply_endpoint_permutation_to_state_dict(state_b, endpoint_q)
         global_debug_metrics = compute_global_alignment_debug_metrics(sampled_state_dicts, factored_permutations)
         write_json(str(global_debug_path), global_debug_metrics)
-        log_global_alignment_debug_metrics(global_debug_metrics)
+        log_alignment_debug_metrics("Global alignment", global_debug_metrics)
     else:
         raise ValueError(f"Unknown baseline: {baseline_key}")
 
@@ -566,7 +575,7 @@ def compute_greedy_adjacent_endpoint_permutation(
             silent=True,
         )
         adjacent_permutations.append(permutation)
-    return compose_permutation_sequence(adjacent_permutations)
+    return compose_permutation_sequence(adjacent_permutations), adjacent_permutations
 
 
 def compute_c2m3_global_factored_permutations(
@@ -698,8 +707,29 @@ def compute_global_alignment_debug_metrics(sampled_state_dicts, factored_permuta
     }
 
 
-def log_global_alignment_debug_metrics(metrics: dict) -> None:
-    print("Global alignment adjacent-pair L2 diagnostics:")
+def compute_adjacent_alignment_debug_metrics(sampled_state_dicts, adjacent_permutations):
+    adjacent_pairs = []
+    for index, permutation in enumerate(adjacent_permutations):
+        fixed_symbol = f"C{index}"
+        permutee_symbol = f"C{index + 1}"
+        aligned_state = apply_endpoint_permutation_to_state_dict(sampled_state_dicts[index + 1], permutation)
+        before = state_dict_l2_distance(sampled_state_dicts[index], sampled_state_dicts[index + 1])
+        after = state_dict_l2_distance(sampled_state_dicts[index], aligned_state)
+        adjacent_pairs.append(
+            {
+                "fixed_symbol": fixed_symbol,
+                "permutee_symbol": permutee_symbol,
+                "l2_before": before,
+                "l2_after": after,
+                "l2_improvement": before - after,
+                "relative_after_over_before": (after / before) if before > 0.0 else 0.0,
+            }
+        )
+    return {"adjacent_pairs": adjacent_pairs}
+
+
+def log_alignment_debug_metrics(label: str, metrics: dict) -> None:
+    print(f"{label} adjacent-pair L2 diagnostics:")
     for record in metrics["adjacent_pairs"]:
         print(
             f"  {record['fixed_symbol']} <- {record['permutee_symbol']}: "
