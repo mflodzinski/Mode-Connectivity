@@ -1,6 +1,6 @@
 defaults: []
 
-experiment_name: "seed0-seed1_polychain_path_alignment"
+experiment_name: "seed0-seed1_polychain_path_alignment_2trainable"
 
 endpoint_a: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
 endpoint_b: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt"
@@ -14,43 +14,44 @@ num_classes: 10
 
 path:
   curve: "PolyChain"
-  num_bends: 3
-  pretrained_checkpoint: "results/vgg16/cifar10/advanced_geometry/polygon/seed0-seed1/checkpoint-150.pt"
+  num_bends: 11
+  pretrained_checkpoint: null
   skip_eval: true
-  epochs: 200
+  epochs: 100
   lr: 0.015
-  wd: 5e-4
-  seed: 0
-  save_freq: 200
+  wd: 1e-3
+  seed: 1
+  save_freq: 15
   use_test: true
   momentum: 0.9
   batch_size: 128
   num_workers: 4
 
 sampling:
-  ts: [0.0, 0.25, 0.5, 0.75, 1.0]
+  ts: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
   precomputed_dir: null
 
 matching:
   pairwise_fw:
-    max_iter: 200
+    max_iter: 300
     initialization_method: "identity"
-    num_trials: 1
+    num_trials: 3
   global_fw:
-    max_iter: 200
+    max_iter: 300
     initialization_method: "identity"
+    try_both_endpoint_directions: true
   greedy_adjacent:
-    max_iter: 100
+    max_iter: 300
 
 evaluation:
-  num_points: 61
+  num_points: 11
   batch_size: 128
   num_workers: 4
 
 equivalence:
   batch_index: 0
-  atol: 1.0e-4
-  rtol: 1.0e-4
+  atol: 1.0e-3
+  rtol: 1.0e-3
 
 runtime:
   device: "auto"

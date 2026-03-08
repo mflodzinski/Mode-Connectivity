@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import hydra
+import torch
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, OmegaConf
 
@@ -26,21 +27,27 @@ from scripts.lib.alignment.c2m3_bridge import (
     run_synchronized_frank_wolfe,
 )
 from scripts.lib.alignment.path_checkpoint_sampling import (
+    extract_curve_control_point_state_dicts,
     load_sampled_state_dicts,
     sample_curve_checkpoints,
     validate_endpoint_samples,
 )
 from scripts.lib.alignment.permutation_pipeline import (
     apply_endpoint_permutation_to_state_dict,
+    build_summary_row,
+    compute_barrier_metrics,
     convert_perm_keys_to_apply_format,
     derive_endpoint_permutation_from_factored,
+    evaluate_linear_interpolation,
     get_test_batch,
     identity_permutation,
     load_vgg16_cifar10_loaders,
     resolve_device,
     save_checkpoint_with_state_dict,
+    save_interpolation_results,
     serialize_permutation,
     state_dict_to_perm_params,
+    state_dict_l2_distance,
     to_numpy_permutation,
     verify_functional_equivalence,
     write_json,
@@ -67,6 +74,23 @@ BASELINE_KEYS = [
     "baseline_4_c2m3_global",
 ]
 
+BASELINE_DISPLAY_NAMES = {
+    "baseline_1_no_permutation": "Baseline 1 - no permutation",
+    "baseline_2_c2m3_direct": "Baseline 2 - direct C2M3 endpoint matching",
+    "baseline_3_greedy_adjacent": "Baseline 3 - greedy adjacent matching",
+    "baseline_4_c2m3_global": "Baseline 4 - global multi-checkpoint C2M3",
+}
+
+
+def print_stage(title: str) -> None:
+    print("\n" + "=" * 80)
+    print(title)
+    print("=" * 80)
+
+
+def print_kv(label: str, value) -> None:
+    print(f"{label}: {value}")
+
 
 @hydra.main(
     version_base=None,
@@ -91,11 +115,23 @@ def main(cfg: DictConfig):
     endpoint_b_path = to_absolute_path(cfg.endpoint_b)
     curve_checkpoint_path = path_checkpoint_dir / f"checkpoint-{cfg.path.epochs}.pt"
 
+    print_stage("Permutation Path Alignment Pipeline")
+    print_kv("experiment_name", cfg.experiment_name)
+    print_kv("pipeline_root", pipeline_root)
+    print_kv("endpoint_a", endpoint_a_path)
+    print_kv("endpoint_b", endpoint_b_path)
+    print_kv("runtime_device", runtime_device)
+    print_kv("matching_device", matching_device)
+    print_kv("path_pretrained_checkpoint", cfg.path.get("pretrained_checkpoint"))
+    print_kv("sampling_precomputed_dir", cfg.sampling.precomputed_dir)
+    print_kv("overwrite", cfg.overwrite)
+
     path_checkpoint_dir.mkdir(parents=True, exist_ok=True)
     path_evaluation_dir.mkdir(parents=True, exist_ok=True)
     summary_dir.mkdir(parents=True, exist_ok=True)
 
     if cfg.sampling.precomputed_dir:
+        print_stage("Stage 1 - Reuse Precomputed Path Samples")
         materialize_precomputed_samples(
             cfg,
             source_dir=Path(to_absolute_path(cfg.sampling.precomputed_dir)),
@@ -104,7 +140,18 @@ def main(cfg: DictConfig):
             endpoint_b_path=endpoint_b_path,
         )
     else:
+        print_stage("Stage 1 - Prepare Curve Checkpoint")
         train_path_if_needed(cfg, path_checkpoint_dir, curve_checkpoint_path, endpoint_a_path, endpoint_b_path)
+        print_stage("Stage 1b - Analyze Curve Control Points")
+        analyze_curve_control_points_if_available(
+            cfg,
+            curve_checkpoint_path=curve_checkpoint_path,
+            output_dir=path_evaluation_dir,
+            endpoint_a_path=endpoint_a_path,
+            endpoint_b_path=endpoint_b_path,
+            device=matching_device,
+        )
+        print_stage("Stage 2 - Sample Path Checkpoints")
         sample_checkpoints_if_needed(
             cfg,
             curve_checkpoint_path=str(curve_checkpoint_path),
@@ -115,6 +162,7 @@ def main(cfg: DictConfig):
         )
 
     sampled_checkpoint_paths = [str(sampled_dir / f"C{i}.pt") for i in range(len(cfg.sampling.ts))]
+    print_kv("sampled_checkpoint_paths", sampled_checkpoint_paths)
     sampled_state_dicts = load_sampled_state_dicts(sampled_checkpoint_paths)
 
     state_a = sampled_state_dicts[0]
@@ -134,8 +182,10 @@ def main(cfg: DictConfig):
     for baseline_key in BASELINE_KEYS:
         baseline_dir = pipeline_root / baseline_key
         baseline_dir.mkdir(parents=True, exist_ok=True)
+        print_stage(f"Stage 3 - {BASELINE_DISPLAY_NAMES[baseline_key]}")
+        print_kv("baseline_dir", baseline_dir)
 
-        _, equivalence_metrics = run_baseline(
+        barrier_metrics, equivalence_metrics = run_baseline(
             cfg=cfg,
             baseline_key=baseline_key,
             baseline_dir=baseline_dir,
@@ -151,16 +201,16 @@ def main(cfg: DictConfig):
             matching_device=matching_device,
         )
 
-        summary_rows.append(
-            {
-                "baseline_key": baseline_key,
-                "max_abs_logit_diff": equivalence_metrics["max_abs_logit_diff"],
-                "mean_abs_logit_diff": equivalence_metrics["mean_abs_logit_diff"],
-                "same_argmax_fraction": equivalence_metrics["same_argmax_fraction"],
-                "allclose": equivalence_metrics["allclose"],
-            }
-        )
+        summary_rows.append(build_summary_row(baseline_key, barrier_metrics, equivalence_metrics))
+        print_kv("max_abs_logit_diff", equivalence_metrics["max_abs_logit_diff"])
+        print_kv("mean_abs_logit_diff", equivalence_metrics["mean_abs_logit_diff"])
+        print_kv("same_argmax_fraction", equivalence_metrics["same_argmax_fraction"])
+        print_kv("allclose", equivalence_metrics["allclose"])
+        print_kv("test_loss_barrier_avg", barrier_metrics["test_loss_barrier_avg"])
+        print_kv("test_loss_barrier_max_endpoint", barrier_metrics["test_loss_barrier_max_endpoint"])
+        print_kv("min_test_acc", barrier_metrics["min_test_acc"])
 
+    print_stage("Stage 4 - Write Summary")
     write_summary_files(str(summary_dir), summary_rows)
     print(f"Pipeline outputs written to: {pipeline_root}")
 
@@ -172,8 +222,13 @@ def validate_config(cfg: DictConfig) -> None:
         raise ValueError(f"This pipeline is CIFAR10-only. Received dataset={cfg.dataset}.")
     if cfg.path.curve != "PolyChain":
         raise ValueError(f"This pipeline expects PolyChain path training. Received curve={cfg.path.curve}.")
-    if len(cfg.sampling.ts) != 5:
-        raise ValueError(f"This pipeline requires exactly five sampled checkpoints. Received {len(cfg.sampling.ts)}.")
+    if len(cfg.sampling.ts) < 2:
+        raise ValueError(f"This pipeline requires at least two sampled checkpoints. Received {len(cfg.sampling.ts)}.")
+    ts = [float(t) for t in cfg.sampling.ts]
+    if ts[0] != 0.0 or ts[-1] != 1.0:
+        raise ValueError(f"Sampling must include endpoints t=0.0 and t=1.0. Received {ts}.")
+    if any(ts[i] >= ts[i + 1] for i in range(len(ts) - 1)):
+        raise ValueError(f"Sampling ts must be strictly increasing. Received {ts}.")
 
 
 def train_path_if_needed(
@@ -186,6 +241,7 @@ def train_path_if_needed(
     pretrained_checkpoint = cfg.path.get("pretrained_checkpoint")
     if pretrained_checkpoint:
         source_checkpoint = Path(to_absolute_path(pretrained_checkpoint))
+        print_kv("curve_checkpoint_source", source_checkpoint)
         if not source_checkpoint.exists():
             raise FileNotFoundError(f"Configured pretrained path checkpoint does not exist: {source_checkpoint}")
 
@@ -207,6 +263,8 @@ def train_path_if_needed(
 
     repo_root = Path(to_absolute_path("external/dnn-mode-connectivity"))
     train_script = repo_root / "train.py"
+    print_kv("train_script", train_script)
+    print_kv("curve_checkpoint_target", expected_checkpoint_path)
 
     train_cfg = OmegaConf.create(
         {
@@ -254,6 +312,9 @@ def sample_checkpoints_if_needed(
         print(f"Skipping checkpoint sampling, found existing samples under: {sampled_dir}")
         return
 
+    print_kv("curve_checkpoint_path", curve_checkpoint_path)
+    print_kv("sampled_dir", sampled_dir)
+    print_kv("sampling_ts", [float(t) for t in cfg.sampling.ts])
     sample_curve_checkpoints(
         curve_checkpoint_path,
         output_dir=str(sampled_dir),
@@ -306,6 +367,8 @@ def materialize_precomputed_samples(
         print(f"Using existing sampled checkpoints from: {sampled_dir}")
         return
 
+    print_kv("precomputed_source_dir", source_dir)
+    print_kv("sampled_dir", sampled_dir)
     for index in range(len(cfg.sampling.ts)):
         source_path = source_dir / f"C{index}.pt"
         if not source_path.exists():
@@ -347,28 +410,47 @@ def run_baseline(
     runtime_device,
     matching_device: str,
 ):
+    start_symbol = "C0"
+    end_symbol = f"C{len(sampled_state_dicts) - 1}"
+    sampled_path_str = "->".join(f"C{i}" for i in range(len(sampled_state_dicts)))
     endpoint_q_path = baseline_dir / "endpoint_q.json"
     endpoint_q_converted_path = baseline_dir / "endpoint_q_converted.json"
     b_perm_path = baseline_dir / "b_perm.pt"
     equivalence_path = baseline_dir / "functional_equivalence.json"
+    interpolation_path = baseline_dir / "interpolation.npz"
+    barrier_path = baseline_dir / "barrier_metrics.json"
     factored_path = baseline_dir / "factored_permutations.json"
+    greedy_debug_path = baseline_dir / "greedy_alignment_debug.json"
+    global_debug_path = baseline_dir / "global_alignment_debug.json"
+    global_opt_info_path = baseline_dir / "global_fw_opt_info.json"
+    global_endpoint_candidate_path = baseline_dir / "global_endpoint_candidates.json"
 
     required_paths = [
         endpoint_q_path,
         endpoint_q_converted_path,
         b_perm_path,
         equivalence_path,
+        interpolation_path,
+        barrier_path,
     ]
+    if baseline_key == "baseline_3_greedy_adjacent":
+        required_paths.append(greedy_debug_path)
     if baseline_key == "baseline_4_c2m3_global":
         required_paths.append(factored_path)
+        required_paths.append(global_debug_path)
+        required_paths.append(global_opt_info_path)
+        required_paths.append(global_endpoint_candidate_path)
 
     if all(path.exists() for path in required_paths) and not cfg.overwrite:
-        return None, load_json_file(equivalence_path)
+        print(f"Reusing existing artifacts for {baseline_key} from: {baseline_dir}")
+        return load_json_file(barrier_path), load_json_file(equivalence_path)
 
     if baseline_key == "baseline_1_no_permutation":
+        print("Using identity permutation for endpoint B.")
         endpoint_q = identity_permutation(state_b, local_spec)
         b_perm_state = state_b
     elif baseline_key == "baseline_2_c2m3_direct":
+        print(f"Running pairwise C2M3 Frank-Wolfe on endpoints {start_symbol} and {end_symbol}.")
         endpoint_q = compute_c2m3_direct_endpoint_permutation(
             cfg,
             local_spec=local_spec,
@@ -379,14 +461,22 @@ def run_baseline(
         )
         b_perm_state = apply_endpoint_permutation_to_state_dict(state_b, endpoint_q)
     elif baseline_key == "baseline_3_greedy_adjacent":
-        endpoint_q = compute_greedy_adjacent_endpoint_permutation(
+        print(f"Running greedy adjacent pairwise matching on {sampled_path_str}.")
+        endpoint_q, adjacent_permutations = compute_greedy_adjacent_endpoint_permutation(
             cfg,
             local_spec=local_spec,
             sampled_state_dicts=sampled_state_dicts,
         )
         b_perm_state = apply_endpoint_permutation_to_state_dict(state_b, endpoint_q)
+        greedy_debug_metrics = compute_adjacent_alignment_debug_metrics(
+            sampled_state_dicts,
+            adjacent_permutations,
+        )
+        write_json(str(greedy_debug_path), greedy_debug_metrics)
+        log_alignment_debug_metrics("Greedy adjacent", greedy_debug_metrics)
     elif baseline_key == "baseline_4_c2m3_global":
-        factored_permutations = compute_c2m3_global_factored_permutations(
+        print("Running synchronized C2M3 Frank-Wolfe on all sampled checkpoints.")
+        factored_permutations, global_opt_info = compute_c2m3_global_factored_permutations(
             cfg,
             local_spec=local_spec,
             c2m3_spec=c2m3_spec,
@@ -397,12 +487,26 @@ def run_baseline(
             str(factored_path),
             {symbol: serialize_permutation(perms) for symbol, perms in factored_permutations.items()},
         )
-        endpoint_q = derive_endpoint_permutation_from_factored(
-            factored_permutations,
-            fixed_symbol="C0",
-            permutee_symbol="C4",
+        write_json(str(global_opt_info_path), serialize_nested(global_opt_info))
+        candidate_results = evaluate_global_endpoint_candidates(
+            cfg=cfg,
+            factored_permutations=factored_permutations,
+            fixed_symbol=start_symbol,
+            permutee_symbol=end_symbol,
+            state_a=state_a,
+            state_b=state_b,
+            loaders=loaders,
+            runtime_device=runtime_device,
+            equivalence_batch=equivalence_batch,
         )
-        b_perm_state = apply_endpoint_permutation_to_state_dict(state_b, endpoint_q)
+        write_json(str(global_endpoint_candidate_path), candidate_results["report"])
+        selected_candidate = candidate_results["selected_candidate"]
+        endpoint_q = candidate_results["selected_permutation"]
+        b_perm_state = candidate_results["selected_state"]
+        print_kv("selected_global_endpoint_candidate", selected_candidate)
+        global_debug_metrics = compute_global_alignment_debug_metrics(sampled_state_dicts, factored_permutations)
+        write_json(str(global_debug_path), global_debug_metrics)
+        log_alignment_debug_metrics("Global alignment", global_debug_metrics)
     else:
         raise ValueError(f"Unknown baseline: {baseline_key}")
 
@@ -422,18 +526,39 @@ def run_baseline(
         },
     )
 
-    equivalence_metrics = verify_functional_equivalence(
-        state_b,
-        b_perm_state,
-        equivalence_batch,
-        device=runtime_device,
-        atol=cfg.equivalence.atol,
-        rtol=cfg.equivalence.rtol,
-        num_classes=cfg.num_classes,
-        permutation_applied=(baseline_key != "baseline_1_no_permutation"),
-    )
-    write_json(str(equivalence_path), equivalence_metrics)
-    return None, equivalence_metrics
+    if baseline_key == "baseline_4_c2m3_global" and cfg.matching.global_fw.try_both_endpoint_directions:
+        equivalence_metrics = candidate_results["selected_equivalence_metrics"]
+        interpolation_results = candidate_results["selected_interpolation_results"]
+        barrier_metrics = candidate_results["selected_barrier_metrics"]
+        write_json(str(equivalence_path), equivalence_metrics)
+        save_interpolation_results(str(interpolation_path), interpolation_results)
+        write_json(str(barrier_path), barrier_metrics)
+    else:
+        equivalence_metrics = verify_functional_equivalence(
+            state_b,
+            b_perm_state,
+            equivalence_batch,
+            device=runtime_device,
+            atol=cfg.equivalence.atol,
+            rtol=cfg.equivalence.rtol,
+            num_classes=cfg.num_classes,
+            permutation_applied=(baseline_key != "baseline_1_no_permutation"),
+        )
+        write_json(str(equivalence_path), equivalence_metrics)
+        print("Evaluating interpolation curve for this baseline.")
+        interpolation_results = evaluate_linear_interpolation(
+            state_a,
+            b_perm_state,
+            loaders,
+            num_points=cfg.evaluation.num_points,
+            device=runtime_device,
+            num_classes=cfg.num_classes,
+        )
+        save_interpolation_results(str(interpolation_path), interpolation_results)
+        barrier_metrics = compute_barrier_metrics(interpolation_results)
+        write_json(str(barrier_path), barrier_metrics)
+    print(f"Saved baseline artifacts to: {baseline_dir}")
+    return barrier_metrics, equivalence_metrics
 
 
 def compute_c2m3_direct_endpoint_permutation(
@@ -445,6 +570,8 @@ def compute_c2m3_direct_endpoint_permutation(
     state_b,
     matching_device: str,
 ):
+    print_kv("pairwise_matching_device", matching_device)
+    print_kv("pairwise_fw_max_iter", cfg.matching.pairwise_fw.max_iter)
     permutation, _ = run_pairwise_frank_wolfe(
         state_dict_to_perm_params(state_a, local_spec),
         state_dict_to_perm_params(state_b, local_spec),
@@ -465,6 +592,7 @@ def compute_greedy_adjacent_endpoint_permutation(
 ):
     adjacent_permutations = []
     for index in range(len(sampled_state_dicts) - 1):
+        print(f"Matching adjacent checkpoints: C{index} -> C{index + 1}")
         fixed = state_dict_to_perm_params(sampled_state_dicts[index], local_spec)
         permutee = state_dict_to_perm_params(sampled_state_dicts[index + 1], local_spec)
         permutation = local_weight_matching(
@@ -475,7 +603,7 @@ def compute_greedy_adjacent_endpoint_permutation(
             silent=True,
         )
         adjacent_permutations.append(permutation)
-    return compose_permutation_sequence(adjacent_permutations)
+    return compose_permutation_sequence(adjacent_permutations), adjacent_permutations
 
 
 def compute_c2m3_global_factored_permutations(
@@ -487,11 +615,14 @@ def compute_c2m3_global_factored_permutations(
     matching_device: str,
 ):
     symbols = [f"C{index}" for index in range(len(sampled_state_dicts))]
+    print_kv("global_matching_symbols", symbols)
+    print_kv("global_matching_device", matching_device)
+    print_kv("global_fw_max_iter", cfg.matching.global_fw.max_iter)
     params_by_symbol = {
         symbol: state_dict_to_perm_params(state_dict, local_spec)
         for symbol, state_dict in zip(symbols, sampled_state_dicts)
     }
-    factored_permutations, _ = run_synchronized_frank_wolfe(
+    factored_permutations, opt_info = run_synchronized_frank_wolfe(
         params_by_symbol,
         c2m3_spec,
         symbols=symbols,
@@ -500,7 +631,248 @@ def compute_c2m3_global_factored_permutations(
         max_iter=cfg.matching.global_fw.max_iter,
         device=matching_device,
     )
-    return {symbol: to_numpy_permutation(perms) for symbol, perms in factored_permutations.items()}
+    return {symbol: to_numpy_permutation(perms) for symbol, perms in factored_permutations.items()}, opt_info
+
+
+def analyze_curve_control_points_if_available(
+    cfg: DictConfig,
+    *,
+    curve_checkpoint_path: Path,
+    output_dir: Path,
+    endpoint_a_path: str,
+    endpoint_b_path: str,
+    device: str,
+) -> None:
+    output_path = output_dir / "control_point_distances.json"
+    if output_path.exists() and not cfg.overwrite:
+        print(f"Reusing existing curve control-point analysis from: {output_path}")
+        return
+
+    if not curve_checkpoint_path.exists():
+        print(f"Skipping curve control-point analysis because checkpoint is missing: {curve_checkpoint_path}")
+        return
+
+    control_points = extract_curve_control_point_state_dicts(
+        str(curve_checkpoint_path),
+        model_name=cfg.model,
+        curve_type=cfg.path.curve,
+        num_bends=cfg.path.num_bends,
+        num_classes=cfg.num_classes,
+        device=device,
+    )
+    endpoint_a = sampled_or_loaded_state(endpoint_a_path)
+    endpoint_b = sampled_or_loaded_state(endpoint_b_path)
+
+    pairwise_distances = []
+    for i in range(len(control_points)):
+        for j in range(i + 1, len(control_points)):
+            pairwise_distances.append(
+                {
+                    "source": control_point_label(i, len(control_points)),
+                    "target": control_point_label(j, len(control_points)),
+                    "l2_distance": state_dict_l2_distance(control_points[i], control_points[j]),
+                }
+            )
+
+    trainable_to_endpoints = []
+    for index in range(1, len(control_points) - 1):
+        trainable_to_endpoints.append(
+            {
+                "control_point": control_point_label(index, len(control_points)),
+                "to_endpoint_a_l2": state_dict_l2_distance(control_points[index], endpoint_a),
+                "to_endpoint_b_l2": state_dict_l2_distance(control_points[index], endpoint_b),
+            }
+        )
+
+    payload = {
+        "curve_checkpoint_path": str(curve_checkpoint_path.resolve()),
+        "num_bends": int(cfg.path.num_bends),
+        "pairwise_l2_distances": pairwise_distances,
+        "trainable_to_endpoints": trainable_to_endpoints,
+    }
+    write_json(str(output_path), payload)
+    print(f"Saved curve control-point analysis to: {output_path}")
+    for record in trainable_to_endpoints:
+        print(
+            f"{record['control_point']}: "
+            f"L2 to endpoint A = {record['to_endpoint_a_l2']:.4f}, "
+            f"L2 to endpoint B = {record['to_endpoint_b_l2']:.4f}"
+        )
+
+
+def compute_global_alignment_debug_metrics(sampled_state_dicts, factored_permutations):
+    symbols = [f"C{index}" for index in range(len(sampled_state_dicts))]
+    adjacent_pairs = []
+    all_pairs = []
+
+    for i in range(len(sampled_state_dicts)):
+        for j in range(i + 1, len(sampled_state_dicts)):
+            fixed_symbol = symbols[i]
+            permutee_symbol = symbols[j]
+            induced_permutation = derive_endpoint_permutation_from_factored(
+                factored_permutations,
+                fixed_symbol=fixed_symbol,
+                permutee_symbol=permutee_symbol,
+            )
+            aligned_state = apply_endpoint_permutation_to_state_dict(sampled_state_dicts[j], induced_permutation)
+            before = state_dict_l2_distance(sampled_state_dicts[i], sampled_state_dicts[j])
+            after = state_dict_l2_distance(sampled_state_dicts[i], aligned_state)
+            record = {
+                "fixed_symbol": fixed_symbol,
+                "permutee_symbol": permutee_symbol,
+                "l2_before": before,
+                "l2_after": after,
+                "l2_improvement": before - after,
+                "relative_after_over_before": (after / before) if before > 0.0 else 0.0,
+            }
+            all_pairs.append(record)
+            if j == i + 1:
+                adjacent_pairs.append(record)
+
+    return {
+        "adjacent_pairs": adjacent_pairs,
+        "all_pairs": all_pairs,
+    }
+
+
+def evaluate_global_endpoint_candidates(
+    *,
+    cfg: DictConfig,
+    factored_permutations,
+    fixed_symbol: str,
+    permutee_symbol: str,
+    state_a,
+    state_b,
+    loaders,
+    runtime_device,
+    equivalence_batch,
+):
+    candidates = [
+        ("fixed_perm_permutee_t", "Q = P_fixed @ P_permutee.T"),
+        ("permutee_perm_fixed_t", "Q = P_permutee @ P_fixed.T"),
+    ]
+    if not cfg.matching.global_fw.try_both_endpoint_directions:
+        candidates = [candidates[0]]
+
+    reports = {}
+    best_name = None
+    best_payload = None
+    best_score = None
+
+    for convention, label in candidates:
+        print(f"Evaluating global endpoint candidate: {label}")
+        permutation = derive_endpoint_permutation_from_factored(
+            factored_permutations,
+            fixed_symbol=fixed_symbol,
+            permutee_symbol=permutee_symbol,
+            convention=convention,
+        )
+        permuted_state = apply_endpoint_permutation_to_state_dict(state_b, permutation)
+        equivalence_metrics = verify_functional_equivalence(
+            state_b,
+            permuted_state,
+            equivalence_batch,
+            device=runtime_device,
+            atol=cfg.equivalence.atol,
+            rtol=cfg.equivalence.rtol,
+            num_classes=cfg.num_classes,
+            permutation_applied=True,
+        )
+        interpolation_results = evaluate_linear_interpolation(
+            state_a,
+            permuted_state,
+            loaders,
+            num_points=cfg.evaluation.num_points,
+            device=runtime_device,
+            num_classes=cfg.num_classes,
+        )
+        barrier_metrics = compute_barrier_metrics(interpolation_results)
+        endpoint_l2 = state_dict_l2_distance(state_a, permuted_state)
+        reports[convention] = {
+            "label": label,
+            "endpoint_l2_distance": endpoint_l2,
+            "equivalence_metrics": equivalence_metrics,
+            "barrier_metrics": barrier_metrics,
+        }
+        score = barrier_metrics["test_loss_barrier_avg"]
+        if best_score is None or score < best_score:
+            best_score = score
+            best_name = convention
+            best_payload = {
+                "selected_permutation": permutation,
+                "selected_state": permuted_state,
+                "selected_equivalence_metrics": equivalence_metrics,
+                "selected_interpolation_results": interpolation_results,
+                "selected_barrier_metrics": barrier_metrics,
+            }
+
+    reports["selected_candidate"] = best_name
+    return {
+        "selected_candidate": best_name,
+        "report": reports,
+        **best_payload,
+    }
+
+
+def compute_adjacent_alignment_debug_metrics(sampled_state_dicts, adjacent_permutations):
+    adjacent_pairs = []
+    for index, permutation in enumerate(adjacent_permutations):
+        fixed_symbol = f"C{index}"
+        permutee_symbol = f"C{index + 1}"
+        aligned_state = apply_endpoint_permutation_to_state_dict(sampled_state_dicts[index + 1], permutation)
+        before = state_dict_l2_distance(sampled_state_dicts[index], sampled_state_dicts[index + 1])
+        after = state_dict_l2_distance(sampled_state_dicts[index], aligned_state)
+        adjacent_pairs.append(
+            {
+                "fixed_symbol": fixed_symbol,
+                "permutee_symbol": permutee_symbol,
+                "l2_before": before,
+                "l2_after": after,
+                "l2_improvement": before - after,
+                "relative_after_over_before": (after / before) if before > 0.0 else 0.0,
+            }
+        )
+    return {"adjacent_pairs": adjacent_pairs}
+
+
+def log_alignment_debug_metrics(label: str, metrics: dict) -> None:
+    print(f"{label} adjacent-pair L2 diagnostics:")
+    for record in metrics["adjacent_pairs"]:
+        print(
+            f"  {record['fixed_symbol']} <- {record['permutee_symbol']}: "
+            f"before={record['l2_before']:.4f}, "
+            f"after={record['l2_after']:.4f}, "
+            f"improvement={record['l2_improvement']:.4f}"
+        )
+
+
+def control_point_label(index: int, num_bends: int) -> str:
+    if index == 0:
+        return "endpoint_a"
+    if index == num_bends - 1:
+        return "endpoint_b"
+    return f"trainable_point_{index}"
+
+
+def sampled_or_loaded_state(path: str):
+    return load_sampled_state_dicts([path])[0]
+
+
+def serialize_nested(payload):
+    if isinstance(payload, dict):
+        return {key: serialize_nested(value) for key, value in payload.items()}
+    if isinstance(payload, (list, tuple)):
+        return [serialize_nested(value) for value in payload]
+    if isinstance(payload, torch.Tensor):
+        return serialize_nested(payload.detach().cpu().numpy())
+    if hasattr(payload, "tolist") and not isinstance(payload, (str, bytes)):
+        try:
+            return payload.tolist()
+        except TypeError:
+            pass
+    if isinstance(payload, (float, int, str, bool)) or payload is None:
+        return payload
+    return str(payload)
 
 
 def load_json_file(path: Path):

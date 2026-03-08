@@ -54,6 +54,22 @@ def load_checkpoint_state_dict(path: str) -> Dict[str, torch.Tensor]:
     return load_state_dict(path)
 
 
+def state_dict_l2_distance(
+    state_a: Dict[str, torch.Tensor],
+    state_b: Dict[str, torch.Tensor],
+) -> float:
+    """Compute the Euclidean distance between two state dicts."""
+
+    if set(state_a.keys()) != set(state_b.keys()):
+        raise ValueError("State dict keys do not match for L2 distance computation.")
+
+    sq_sum = torch.zeros((), dtype=torch.float64)
+    for key in state_a:
+        delta = state_a[key].detach().cpu().to(torch.float64) - state_b[key].detach().cpu().to(torch.float64)
+        sq_sum = sq_sum + torch.sum(delta * delta)
+    return float(torch.sqrt(sq_sum).item())
+
+
 def identity_permutation(state_dict: Dict[str, torch.Tensor], permutation_spec) -> Dict[str, np.ndarray]:
     """Create an identity permutation matching the local permutation spec."""
 
@@ -186,6 +202,7 @@ def derive_endpoint_permutation_from_factored(
     *,
     fixed_symbol: str,
     permutee_symbol: str,
+    convention: str = "fixed_perm_permutee_t",
 ) -> Dict[str, np.ndarray]:
     """Derive the endpoint permutation ``permutee -> fixed`` from factored global permutations."""
 
@@ -194,7 +211,12 @@ def derive_endpoint_permutation_from_factored(
     for perm_name in factored_np[fixed_symbol]:
         fixed_matrix = perm_indices_to_matrix(factored_np[fixed_symbol][perm_name])
         permutee_matrix = perm_indices_to_matrix(factored_np[permutee_symbol][perm_name])
-        derived[perm_name] = perm_matrix_to_indices(fixed_matrix @ permutee_matrix.T)
+        if convention == "fixed_perm_permutee_t":
+            derived[perm_name] = perm_matrix_to_indices(fixed_matrix @ permutee_matrix.T)
+        elif convention == "permutee_perm_fixed_t":
+            derived[perm_name] = perm_matrix_to_indices(permutee_matrix @ fixed_matrix.T)
+        else:
+            raise ValueError(f"Unknown factored-permutation convention: {convention}")
     return derived
 
 

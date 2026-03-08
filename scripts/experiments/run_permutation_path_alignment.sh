@@ -4,7 +4,7 @@ set -euo pipefail
 ENDPOINT_A="${1:-${ENDPOINT_A:-results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt}}"
 ENDPOINT_B="${2:-${ENDPOINT_B:-results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt}}"
 OUTPUT_ROOT="${3:-${OUTPUT_ROOT:-results/vgg16/cifar10/alignment/permutation_path}}"
-EXPERIMENT_NAME="${4:-${EXPERIMENT_NAME:-seed0-seed1_polychain_path_alignment}}"
+EXPERIMENT_NAME="${4:-${EXPERIMENT_NAME:-seed0-seed1_polychain_path_alignment_2trainable}}"
 
 if [ "$#" -gt 4 ]; then
   EXTRA_ARGS=("${@:5}")

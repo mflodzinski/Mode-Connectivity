@@ -65,6 +65,9 @@ def run_pairwise_frank_wolfe(
     ensure_c2m3_frank_wolfe_imports()
     from ccmm.matching.frank_wolfe_matching import frank_wolfe_weight_matching
 
+    fixed_params = move_params_to_device(fixed_params, device)
+    permutee_params = move_params_to_device(permutee_params, device)
+
     return frank_wolfe_weight_matching(
         ps=permutation_spec,
         fixed=fixed_params,
@@ -92,6 +95,11 @@ def run_synchronized_frank_wolfe(
 
     ensure_c2m3_frank_wolfe_imports()
     from ccmm.matching.frank_wolfe_sync_matching import frank_wolfe_synchronized_matching
+
+    params_by_symbol = {
+        symbol: move_params_to_device(symbol_params, device)
+        for symbol, symbol_params in params_by_symbol.items()
+    }
 
     if symbols is None:
         symbols = sorted(params_by_symbol.keys())
@@ -129,6 +137,15 @@ def ensure_c2m3_frank_wolfe_imports() -> None:
         _C2M3_MATCHING_ROOT / "frank_wolfe_sync_matching.py",
     )
     _MODULES_LOADED = True
+
+
+def move_params_to_device(params: Dict[str, torch.Tensor], device: str) -> Dict[str, torch.Tensor]:
+    """Move a raw parameter dictionary onto the requested device."""
+
+    return {
+        name: tensor.to(device) if isinstance(tensor, torch.Tensor) else tensor
+        for name, tensor in params.items()
+    }
 
 
 def _install_pytorch_lightning_shim() -> None:
