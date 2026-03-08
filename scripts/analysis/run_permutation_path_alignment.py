@@ -222,8 +222,13 @@ def validate_config(cfg: DictConfig) -> None:
         raise ValueError(f"This pipeline is CIFAR10-only. Received dataset={cfg.dataset}.")
     if cfg.path.curve != "PolyChain":
         raise ValueError(f"This pipeline expects PolyChain path training. Received curve={cfg.path.curve}.")
-    if len(cfg.sampling.ts) != 5:
-        raise ValueError(f"This pipeline requires exactly five sampled checkpoints. Received {len(cfg.sampling.ts)}.")
+    if len(cfg.sampling.ts) < 2:
+        raise ValueError(f"This pipeline requires at least two sampled checkpoints. Received {len(cfg.sampling.ts)}.")
+    ts = [float(t) for t in cfg.sampling.ts]
+    if ts[0] != 0.0 or ts[-1] != 1.0:
+        raise ValueError(f"Sampling must include endpoints t=0.0 and t=1.0. Received {ts}.")
+    if any(ts[i] >= ts[i + 1] for i in range(len(ts) - 1)):
+        raise ValueError(f"Sampling ts must be strictly increasing. Received {ts}.")
 
 
 def train_path_if_needed(
@@ -405,6 +410,9 @@ def run_baseline(
     runtime_device,
     matching_device: str,
 ):
+    start_symbol = "C0"
+    end_symbol = f"C{len(sampled_state_dicts) - 1}"
+    sampled_path_str = "->".join(f"C{i}" for i in range(len(sampled_state_dicts)))
     endpoint_q_path = baseline_dir / "endpoint_q.json"
     endpoint_q_converted_path = baseline_dir / "endpoint_q_converted.json"
     b_perm_path = baseline_dir / "b_perm.pt"
@@ -440,7 +448,7 @@ def run_baseline(
         endpoint_q = identity_permutation(state_b, local_spec)
         b_perm_state = state_b
     elif baseline_key == "baseline_2_c2m3_direct":
-        print("Running pairwise C2M3 Frank-Wolfe on endpoints C0 and C4.")
+        print(f"Running pairwise C2M3 Frank-Wolfe on endpoints {start_symbol} and {end_symbol}.")
         endpoint_q = compute_c2m3_direct_endpoint_permutation(
             cfg,
             local_spec=local_spec,
@@ -451,7 +459,7 @@ def run_baseline(
         )
         b_perm_state = apply_endpoint_permutation_to_state_dict(state_b, endpoint_q)
     elif baseline_key == "baseline_3_greedy_adjacent":
-        print("Running greedy adjacent pairwise matching on C0->C1->C2->C3->C4.")
+        print(f"Running greedy adjacent pairwise matching on {sampled_path_str}.")
         endpoint_q, adjacent_permutations = compute_greedy_adjacent_endpoint_permutation(
             cfg,
             local_spec=local_spec,
@@ -480,8 +488,8 @@ def run_baseline(
         write_json(str(global_opt_info_path), serialize_nested(global_opt_info))
         endpoint_q = derive_endpoint_permutation_from_factored(
             factored_permutations,
-            fixed_symbol="C0",
-            permutee_symbol="C4",
+            fixed_symbol=start_symbol,
+            permutee_symbol=end_symbol,
         )
         b_perm_state = apply_endpoint_permutation_to_state_dict(state_b, endpoint_q)
         global_debug_metrics = compute_global_alignment_debug_metrics(sampled_state_dicts, factored_permutations)
