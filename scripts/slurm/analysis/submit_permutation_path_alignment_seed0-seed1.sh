@@ -12,7 +12,8 @@
 #SBATCH --gres=gpu:a40:1
 
 # Permutation-only endpoint alignment on seed0/seed1 via low-loss path samples
-# Trains a PolyChain path, samples C0..C4, runs all baselines, and saves comparison outputs.
+# Trains a 4-bend PolyChain path (2 trainable interior points), samples endpoints plus trainable points,
+# runs all baselines, and saves comparison outputs.
 
 # Activate virtual environment
 source $HOME/venvs/mode-connectivity/bin/activate || . $HOME/venvs/mode-connectivity/bin/activate
@@ -29,7 +30,7 @@ mkdir -p results/vgg16/cifar10/alignment/permutation_path
 ENDPOINT_A="results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
 ENDPOINT_B="results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt"
 OUTPUT_ROOT="results/vgg16/cifar10/alignment/permutation_path"
-EXPERIMENT_NAME="seed0-seed1_polychain_path_alignment"
+EXPERIMENT_NAME="seed0-seed1_polychain_path_alignment_2trainable"
 
 echo "========================================"
 echo "Permutation Path Alignment"
