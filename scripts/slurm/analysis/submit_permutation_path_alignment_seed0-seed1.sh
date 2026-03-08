@@ -46,6 +46,7 @@ CMD=(
     endpoint_b="$ENDPOINT_B"
     output_root="$OUTPUT_ROOT"
     experiment_name="$EXPERIMENT_NAME"
+    overwrite=true
 )
 
 srun "${CMD[@]}"
