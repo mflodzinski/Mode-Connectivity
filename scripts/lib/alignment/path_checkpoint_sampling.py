@@ -75,6 +75,37 @@ def load_curve_model(
     return curve_model
 
 
+def extract_curve_control_point_state_dicts(
+    curve_checkpoint_path: str,
+    *,
+    model_name: str,
+    curve_type: str,
+    num_bends: int,
+    num_classes: int = 10,
+    device: str = "cpu",
+) -> List[OrderedDict]:
+    """Export each curve control point into a base-model state dict."""
+
+    curve_model = load_curve_model(
+        curve_checkpoint_path,
+        model_name=model_name,
+        curve_type=curve_type,
+        num_bends=num_bends,
+        num_classes=num_classes,
+        device=device,
+    )
+
+    architecture = get_architecture(model_name)
+    control_points = []
+    for index in range(num_bends):
+        base_model = create_model(architecture, num_classes=num_classes, device=torch.device(device))
+        curve_model.export_base_parameters(base_model, index)
+        control_points.append(
+            OrderedDict((name, tensor.detach().cpu().clone()) for name, tensor in base_model.state_dict().items())
+        )
+    return control_points
+
+
 def sample_curve_checkpoints(
     curve_checkpoint_path: str,
     *,

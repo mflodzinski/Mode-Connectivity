@@ -54,6 +54,22 @@ def load_checkpoint_state_dict(path: str) -> Dict[str, torch.Tensor]:
     return load_state_dict(path)
 
 
+def state_dict_l2_distance(
+    state_a: Dict[str, torch.Tensor],
+    state_b: Dict[str, torch.Tensor],
+) -> float:
+    """Compute the Euclidean distance between two state dicts."""
+
+    if set(state_a.keys()) != set(state_b.keys()):
+        raise ValueError("State dict keys do not match for L2 distance computation.")
+
+    sq_sum = torch.zeros((), dtype=torch.float64)
+    for key in state_a:
+        delta = state_a[key].detach().cpu().to(torch.float64) - state_b[key].detach().cpu().to(torch.float64)
+        sq_sum = sq_sum + torch.sum(delta * delta)
+    return float(torch.sqrt(sq_sum).item())
+
+
 def identity_permutation(state_dict: Dict[str, torch.Tensor], permutation_spec) -> Dict[str, np.ndarray]:
     """Create an identity permutation matching the local permutation spec."""
 
