@@ -202,6 +202,7 @@ def derive_endpoint_permutation_from_factored(
     *,
     fixed_symbol: str,
     permutee_symbol: str,
+    convention: str = "fixed_perm_permutee_t",
 ) -> Dict[str, np.ndarray]:
     """Derive the endpoint permutation ``permutee -> fixed`` from factored global permutations."""
 
@@ -210,7 +211,12 @@ def derive_endpoint_permutation_from_factored(
     for perm_name in factored_np[fixed_symbol]:
         fixed_matrix = perm_indices_to_matrix(factored_np[fixed_symbol][perm_name])
         permutee_matrix = perm_indices_to_matrix(factored_np[permutee_symbol][perm_name])
-        derived[perm_name] = perm_matrix_to_indices(fixed_matrix @ permutee_matrix.T)
+        if convention == "fixed_perm_permutee_t":
+            derived[perm_name] = perm_matrix_to_indices(fixed_matrix @ permutee_matrix.T)
+        elif convention == "permutee_perm_fixed_t":
+            derived[perm_name] = perm_matrix_to_indices(permutee_matrix @ fixed_matrix.T)
+        else:
+            raise ValueError(f"Unknown factored-permutation convention: {convention}")
     return derived
 
 

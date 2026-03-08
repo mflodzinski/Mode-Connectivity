@@ -423,6 +423,7 @@ def run_baseline(
     greedy_debug_path = baseline_dir / "greedy_alignment_debug.json"
     global_debug_path = baseline_dir / "global_alignment_debug.json"
     global_opt_info_path = baseline_dir / "global_fw_opt_info.json"
+    global_endpoint_candidate_path = baseline_dir / "global_endpoint_candidates.json"
 
     required_paths = [
         endpoint_q_path,
@@ -438,6 +439,7 @@ def run_baseline(
         required_paths.append(factored_path)
         required_paths.append(global_debug_path)
         required_paths.append(global_opt_info_path)
+        required_paths.append(global_endpoint_candidate_path)
 
     if all(path.exists() for path in required_paths) and not cfg.overwrite:
         print(f"Reusing existing artifacts for {baseline_key} from: {baseline_dir}")
@@ -486,12 +488,22 @@ def run_baseline(
             {symbol: serialize_permutation(perms) for symbol, perms in factored_permutations.items()},
         )
         write_json(str(global_opt_info_path), serialize_nested(global_opt_info))
-        endpoint_q = derive_endpoint_permutation_from_factored(
-            factored_permutations,
+        candidate_results = evaluate_global_endpoint_candidates(
+            cfg=cfg,
+            factored_permutations=factored_permutations,
             fixed_symbol=start_symbol,
             permutee_symbol=end_symbol,
+            state_a=state_a,
+            state_b=state_b,
+            loaders=loaders,
+            runtime_device=runtime_device,
+            equivalence_batch=equivalence_batch,
         )
-        b_perm_state = apply_endpoint_permutation_to_state_dict(state_b, endpoint_q)
+        write_json(str(global_endpoint_candidate_path), candidate_results["report"])
+        selected_candidate = candidate_results["selected_candidate"]
+        endpoint_q = candidate_results["selected_permutation"]
+        b_perm_state = candidate_results["selected_state"]
+        print_kv("selected_global_endpoint_candidate", selected_candidate)
         global_debug_metrics = compute_global_alignment_debug_metrics(sampled_state_dicts, factored_permutations)
         write_json(str(global_debug_path), global_debug_metrics)
         log_alignment_debug_metrics("Global alignment", global_debug_metrics)
@@ -514,29 +526,37 @@ def run_baseline(
         },
     )
 
-    equivalence_metrics = verify_functional_equivalence(
-        state_b,
-        b_perm_state,
-        equivalence_batch,
-        device=runtime_device,
-        atol=cfg.equivalence.atol,
-        rtol=cfg.equivalence.rtol,
-        num_classes=cfg.num_classes,
-        permutation_applied=(baseline_key != "baseline_1_no_permutation"),
-    )
-    write_json(str(equivalence_path), equivalence_metrics)
-    print("Evaluating interpolation curve for this baseline.")
-    interpolation_results = evaluate_linear_interpolation(
-        state_a,
-        b_perm_state,
-        loaders,
-        num_points=cfg.evaluation.num_points,
-        device=runtime_device,
-        num_classes=cfg.num_classes,
-    )
-    save_interpolation_results(str(interpolation_path), interpolation_results)
-    barrier_metrics = compute_barrier_metrics(interpolation_results)
-    write_json(str(barrier_path), barrier_metrics)
+    if baseline_key == "baseline_4_c2m3_global" and cfg.matching.global_fw.try_both_endpoint_directions:
+        equivalence_metrics = candidate_results["selected_equivalence_metrics"]
+        interpolation_results = candidate_results["selected_interpolation_results"]
+        barrier_metrics = candidate_results["selected_barrier_metrics"]
+        write_json(str(equivalence_path), equivalence_metrics)
+        save_interpolation_results(str(interpolation_path), interpolation_results)
+        write_json(str(barrier_path), barrier_metrics)
+    else:
+        equivalence_metrics = verify_functional_equivalence(
+            state_b,
+            b_perm_state,
+            equivalence_batch,
+            device=runtime_device,
+            atol=cfg.equivalence.atol,
+            rtol=cfg.equivalence.rtol,
+            num_classes=cfg.num_classes,
+            permutation_applied=(baseline_key != "baseline_1_no_permutation"),
+        )
+        write_json(str(equivalence_path), equivalence_metrics)
+        print("Evaluating interpolation curve for this baseline.")
+        interpolation_results = evaluate_linear_interpolation(
+            state_a,
+            b_perm_state,
+            loaders,
+            num_points=cfg.evaluation.num_points,
+            device=runtime_device,
+            num_classes=cfg.num_classes,
+        )
+        save_interpolation_results(str(interpolation_path), interpolation_results)
+        barrier_metrics = compute_barrier_metrics(interpolation_results)
+        write_json(str(barrier_path), barrier_metrics)
     print(f"Saved baseline artifacts to: {baseline_dir}")
     return barrier_metrics, equivalence_metrics
 
@@ -712,6 +732,85 @@ def compute_global_alignment_debug_metrics(sampled_state_dicts, factored_permuta
     return {
         "adjacent_pairs": adjacent_pairs,
         "all_pairs": all_pairs,
+    }
+
+
+def evaluate_global_endpoint_candidates(
+    *,
+    cfg: DictConfig,
+    factored_permutations,
+    fixed_symbol: str,
+    permutee_symbol: str,
+    state_a,
+    state_b,
+    loaders,
+    runtime_device,
+    equivalence_batch,
+):
+    candidates = [
+        ("fixed_perm_permutee_t", "Q = P_fixed @ P_permutee.T"),
+        ("permutee_perm_fixed_t", "Q = P_permutee @ P_fixed.T"),
+    ]
+    if not cfg.matching.global_fw.try_both_endpoint_directions:
+        candidates = [candidates[0]]
+
+    reports = {}
+    best_name = None
+    best_payload = None
+    best_score = None
+
+    for convention, label in candidates:
+        print(f"Evaluating global endpoint candidate: {label}")
+        permutation = derive_endpoint_permutation_from_factored(
+            factored_permutations,
+            fixed_symbol=fixed_symbol,
+            permutee_symbol=permutee_symbol,
+            convention=convention,
+        )
+        permuted_state = apply_endpoint_permutation_to_state_dict(state_b, permutation)
+        equivalence_metrics = verify_functional_equivalence(
+            state_b,
+            permuted_state,
+            equivalence_batch,
+            device=runtime_device,
+            atol=cfg.equivalence.atol,
+            rtol=cfg.equivalence.rtol,
+            num_classes=cfg.num_classes,
+            permutation_applied=True,
+        )
+        interpolation_results = evaluate_linear_interpolation(
+            state_a,
+            permuted_state,
+            loaders,
+            num_points=cfg.evaluation.num_points,
+            device=runtime_device,
+            num_classes=cfg.num_classes,
+        )
+        barrier_metrics = compute_barrier_metrics(interpolation_results)
+        endpoint_l2 = state_dict_l2_distance(state_a, permuted_state)
+        reports[convention] = {
+            "label": label,
+            "endpoint_l2_distance": endpoint_l2,
+            "equivalence_metrics": equivalence_metrics,
+            "barrier_metrics": barrier_metrics,
+        }
+        score = barrier_metrics["test_loss_barrier_avg"]
+        if best_score is None or score < best_score:
+            best_score = score
+            best_name = convention
+            best_payload = {
+                "selected_permutation": permutation,
+                "selected_state": permuted_state,
+                "selected_equivalence_metrics": equivalence_metrics,
+                "selected_interpolation_results": interpolation_results,
+                "selected_barrier_metrics": barrier_metrics,
+            }
+
+    reports["selected_candidate"] = best_name
+    return {
+        "selected_candidate": best_name,
+        "report": reports,
+        **best_payload,
     }
 
 
