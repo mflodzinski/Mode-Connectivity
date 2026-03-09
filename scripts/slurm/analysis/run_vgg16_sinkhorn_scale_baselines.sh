@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=general
-#SBATCH --qos=medium
-#SBATCH --time=08:00:00
+#SBATCH --qos=short
+#SBATCH --time=01:30:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=16GB
+#SBATCH --mem=6GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_vgg16_sinkhorn_scale_%j.out
 #SBATCH --error=slurm_vgg16_sinkhorn_scale_%j.err
