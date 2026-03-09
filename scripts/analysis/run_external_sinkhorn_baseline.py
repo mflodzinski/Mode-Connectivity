@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import os
 import sys
+import importlib.util
 from collections import OrderedDict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, Mapping
+from typing import Any, Dict, Iterator, Mapping
 
 project_root = Path(__file__).resolve().parents[2]
 os.environ.setdefault("MPLCONFIGDIR", str(project_root / ".mplcache"))
@@ -87,20 +88,27 @@ def import_external_sinkhorn():
 
     sinkhorn_root = project_root / "external" / "sinkhorn-rebasin"
     examples_root = sinkhorn_root / "examples"
-    for path in (sinkhorn_root, examples_root):
-        path_str = str(path)
-        if path_str not in sys.path:
-            sys.path.insert(0, path_str)
+    sinkhorn_root_str = str(sinkhorn_root)
+    if sinkhorn_root_str not in sys.path:
+        sys.path.insert(0, sinkhorn_root_str)
+
+    vgg_module_path = examples_root / "models" / "vgg.py"
+    spec = importlib.util.spec_from_file_location("_external_sinkhorn_vgg", vgg_module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load external VGG definition from {vgg_module_path}.")
+
+    vgg_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vgg_module)
 
     try:
-        from models.vgg import VGG
+        VGG = vgg_module.VGG
         from rebasin import RebasinNet, matching
         from rebasin.loss import RndLoss
     except ImportError as exc:
         raise RuntimeError(
             "Unable to import external/sinkhorn-rebasin. "
-            "The vendored baseline requires its Python dependencies, notably "
-            "`torchviz` and `graphviz`, to be available in the current environment."
+            "This is usually either a missing dependency in the vendored repo "
+            "(notably `torchviz` and `graphviz`) or a module-path collision."
         ) from exc
 
     return VGG, RebasinNet, matching, RndLoss
