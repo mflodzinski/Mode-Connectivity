@@ -668,6 +668,7 @@ def run_external_sinkhorn_baseline(cfg: DictConfig | Mapping[str, Any]) -> Dict[
         "model_a_checkpoint": model_a_checkpoint,
         "model_b_checkpoint": model_b_checkpoint,
         "output_root": str(output_root),
+        "metadata_path": metadata_path,
         "soft_checkpoint_path": soft_checkpoint_path,
         "hard_checkpoint_path": hard_checkpoint_path,
         "artifact_path": artifact_path,
