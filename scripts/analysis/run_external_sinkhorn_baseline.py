@@ -522,8 +522,18 @@ def run_external_sinkhorn_baseline(cfg: DictConfig | Mapping[str, Any]) -> Dict[
         )
 
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        try:
+            loss.backward()
+            optimizer.step()
+        except RuntimeError as exc:
+            message = str(exc)
+            if "torch.linalg.solve" in message or "singular" in message:
+                raise RuntimeError(
+                    "External Sinkhorn backward became numerically singular "
+                    f"at step={step} with lr={cfg.lr}, tau={cfg.tau}, "
+                    f"sinkhorn_l={cfg.sinkhorn_l}, objective={cfg.train_objective}."
+                ) from exc
+            raise
 
         step_metrics = {
             "step": step,

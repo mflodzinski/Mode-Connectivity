@@ -39,7 +39,7 @@ fi
 
 START_INDEX="${START_INDEX:-0}"
 END_INDEX="${END_INDEX:-null}"
-CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-false}"
+CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-true}"
 
 echo "========================================"
 echo "External Sinkhorn Full Sweep"
