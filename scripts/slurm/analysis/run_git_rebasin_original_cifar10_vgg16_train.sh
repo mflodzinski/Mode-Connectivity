@@ -27,6 +27,8 @@ mkdir -p "${MPLCONFIGDIR}" "${WANDB_DIR}" "${WANDB_CACHE_DIR}"
 SEED="${SEED:-0}"
 WIDTH_MULTIPLIER="${WIDTH_MULTIPLIER:-64}"
 WANDB_MODE="${WANDB_MODE:-online}"
+WANDB_PROJECT="${WANDB_PROJECT:-git-re-basin}"
+WANDB_ENTITY="${WANDB_ENTITY:-thesis-team-mode}"
 EXTRA_ARGS="${EXTRA_ARGS:-}"
 
 if [ ! -f "${PROJECT_ROOT}/external/git-rebasin/src/cifar10_vgg_run.py" ]; then
@@ -43,18 +45,26 @@ echo "PROJECT_ROOT: ${PROJECT_ROOT}"
 echo "SEED: ${SEED}"
 echo "WIDTH_MULTIPLIER: ${WIDTH_MULTIPLIER}"
 echo "WANDB_MODE: ${WANDB_MODE}"
+echo "WANDB_PROJECT: ${WANDB_PROJECT}"
+echo "WANDB_ENTITY: ${WANDB_ENTITY}"
 echo "PYTHON: $(which python)"
 echo ""
 
 if [ "${WANDB_MODE}" = "disabled" ]; then
-    WANDB_MODE="${WANDB_MODE}" srun python external/git-rebasin/src/cifar10_vgg_run.py \
+    WANDB_MODE="${WANDB_MODE}" WANDB_PROJECT="${WANDB_PROJECT}" WANDB_ENTITY="${WANDB_ENTITY}" \
+    srun python external/git-rebasin/src/cifar10_vgg_run.py \
         --seed "${SEED}" \
         --width-multiplier "${WIDTH_MULTIPLIER}" \
+        --wandb-project "${WANDB_PROJECT}" \
+        --wandb-entity "${WANDB_ENTITY}" \
         --test \
         ${EXTRA_ARGS}
 else
-    WANDB_MODE="${WANDB_MODE}" srun python external/git-rebasin/src/cifar10_vgg_run.py \
+    WANDB_MODE="${WANDB_MODE}" WANDB_PROJECT="${WANDB_PROJECT}" WANDB_ENTITY="${WANDB_ENTITY}" \
+    srun python external/git-rebasin/src/cifar10_vgg_run.py \
         --seed "${SEED}" \
         --width-multiplier "${WIDTH_MULTIPLIER}" \
+        --wandb-project "${WANDB_PROJECT}" \
+        --wandb-entity "${WANDB_ENTITY}" \
         ${EXTRA_ARGS}
 fi
