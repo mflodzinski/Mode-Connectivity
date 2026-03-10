@@ -439,14 +439,13 @@ def plot_variant_curves(output_path: str, variant_results: Mapping[str, Dict[str
     plt.close(fig)
 
 
-@hydra.main(
-    version_base=None,
-    config_path="../../configs/analysis",
-    config_name="external_sinkhorn_rebasin_vgg16",
-)
-def main(cfg: DictConfig) -> None:
-    set_global_seed(int(cfg.seed))
+def run_external_sinkhorn_baseline(cfg: DictConfig | Mapping[str, Any]) -> Dict[str, Any]:
+    """Run one external Sinkhorn baseline experiment from a config mapping."""
 
+    if not isinstance(cfg, DictConfig):
+        cfg = OmegaConf.create(dict(cfg))
+
+    set_global_seed(int(cfg.seed))
     runtime_device = resolve_device(str(cfg.device))
     output_root = Path(to_absolute_path(cfg.output_root))
     output_root.mkdir(parents=True, exist_ok=True)
@@ -689,6 +688,17 @@ def main(cfg: DictConfig) -> None:
     print(f"Artifacts: {artifact_path}")
     print(f"Evaluation summary: {Path(evaluation_dir) / 'comparison.json'}")
     print(f"Comparison plot: {plot_path}")
+
+    return metadata
+
+
+@hydra.main(
+    version_base=None,
+    config_path="../../configs/analysis",
+    config_name="external_sinkhorn_rebasin_vgg16",
+)
+def main(cfg: DictConfig) -> None:
+    run_external_sinkhorn_baseline(cfg)
 
 
 if __name__ == "__main__":
