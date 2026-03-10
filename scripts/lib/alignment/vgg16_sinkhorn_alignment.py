@@ -35,7 +35,7 @@ from scipy.optimize import linear_sum_assignment
 from torch.func import functional_call
 from torch.utils.data import DataLoader, Subset
 
-from scripts.lib.analysis.alignment import create_vgg16_model, load_cifar10_eval_loaders
+from scripts.lib.analysis.alignment import create_vgg16_model, load_dataset_eval_loaders
 from scripts.lib.alignment.permutation_pipeline import (
     load_checkpoint_state_dict,
     resolve_device,
@@ -391,6 +391,7 @@ def barrier_loss_on_batch(
 
 def _calibration_loader(
     *,
+    dataset: str,
     data_path: str,
     calibration_size: int,
     batch_size: int,
@@ -399,7 +400,12 @@ def _calibration_loader(
 ) -> DataLoader:
     """Build a deterministic train-subset loader with eval transforms."""
 
-    loaders, _ = load_cifar10_eval_loaders(data_path=data_path, batch_size=batch_size, num_workers=num_workers)
+    loaders, _ = load_dataset_eval_loaders(
+        dataset=dataset,
+        data_path=data_path,
+        batch_size=batch_size,
+        num_workers=num_workers,
+    )
     dataset = loaders["train"].dataset
     subset_size = min(calibration_size, len(dataset))
     subset = Subset(dataset, list(range(subset_size)))
@@ -499,6 +505,7 @@ def _validate_state_dict_keys(state_dict: Mapping[str, torch.Tensor]) -> None:
 def train_alignment_for_method(
     *,
     method: str,
+    dataset: str,
     model_a_checkpoint: str,
     model_b_checkpoint: str,
     output_root: str,
@@ -536,6 +543,7 @@ def train_alignment_for_method(
         parameter.requires_grad_(False)
 
     train_loader = _calibration_loader(
+        dataset=dataset,
         data_path=data_path,
         calibration_size=calibration_size,
         batch_size=alignment_batch_size,
@@ -600,6 +608,7 @@ def train_alignment_for_method(
 
     config_snapshot = {
         "method": method,
+        "dataset": dataset,
         "model_a_checkpoint": model_a_checkpoint,
         "model_b_checkpoint": model_b_checkpoint,
         "data_path": data_path,
@@ -663,6 +672,7 @@ def run_vgg16_alignment_experiment(
     model_b_checkpoint: str,
     output_root: str,
     methods: Sequence[str],
+    dataset: str = "CIFAR10",
     data_path: str = "./data",
     alpha_grid_train: Sequence[float] = (0.25, 0.5, 0.75),
     alignment_steps: int = 500,
@@ -685,6 +695,7 @@ def run_vgg16_alignment_experiment(
         "model_b_checkpoint": model_b_checkpoint,
         "output_root": str(root),
         "methods": list(methods),
+        "dataset": dataset,
         "data_path": data_path,
         "alpha_grid_train": list(alpha_grid_train),
         "alignment_steps": alignment_steps,
@@ -705,6 +716,7 @@ def run_vgg16_alignment_experiment(
     for method in methods:
         results[method] = train_alignment_for_method(
             method=method,
+            dataset=dataset,
             model_a_checkpoint=model_a_checkpoint,
             model_b_checkpoint=model_b_checkpoint,
             output_root=str(root),

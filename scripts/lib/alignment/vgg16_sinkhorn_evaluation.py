@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from scripts.lib.analysis.alignment import create_vgg16_model, load_cifar10_eval_loaders
+from scripts.lib.analysis.alignment import create_vgg16_model, load_dataset_eval_loaders
 from scripts.lib.alignment.permutation_pipeline import compute_barrier_metrics, write_summary_files
 from scripts.lib.alignment.vgg16_sinkhorn_alignment import load_alignment_artifact
 from scripts.lib.core.output import ResultSaver, ensure_dir, save_json
@@ -254,6 +254,7 @@ def run_vgg16_alignment_evaluation(
     model_b_checkpoint: str,
     output_root: str,
     methods: Sequence[str],
+    dataset: str = "CIFAR10",
     data_path: str = "./data",
     num_eval_points: int = 21,
     evaluation_batch_size: int = 128,
@@ -273,7 +274,8 @@ def run_vgg16_alignment_evaluation(
     root = Path(output_root)
     evaluation_dir = ensure_dir(root / "evaluation")
 
-    loaders, _ = load_cifar10_eval_loaders(
+    loaders, _ = load_dataset_eval_loaders(
+        dataset=dataset,
         data_path=data_path,
         batch_size=evaluation_batch_size,
         num_workers=num_workers,

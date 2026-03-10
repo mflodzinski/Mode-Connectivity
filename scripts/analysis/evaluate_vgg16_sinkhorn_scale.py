@@ -1,4 +1,4 @@
-"""Evaluate the VGG16/CIFAR10 Sinkhorn alignment prototype."""
+"""Evaluate the VGG16 Sinkhorn alignment prototype."""
 
 import os
 import sys
@@ -29,6 +29,7 @@ def main(cfg: DictConfig) -> None:
         model_b_checkpoint=to_absolute_path(cfg.model_b_checkpoint),
         output_root=to_absolute_path(cfg.output_root),
         methods=list(cfg.methods),
+        dataset=str(cfg.dataset),
         data_path=to_absolute_path(cfg.data_path),
         num_eval_points=int(cfg.num_eval_points),
         evaluation_batch_size=int(cfg.evaluation_batch_size),

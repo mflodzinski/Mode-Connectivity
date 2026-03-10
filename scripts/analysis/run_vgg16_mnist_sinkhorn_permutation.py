@@ -1,11 +1,4 @@
-"""Run VGG16 baseline comparisons for the Sinkhorn+scale prototype.
-
-This is the single entrypoint intended for cluster jobs. It trains the learned
-alignment baselines and then evaluates the comparison set that includes:
-1. No alignment
-2. Sinkhorn permutation-only re-basin
-3. Sinkhorn + diagonal scaling
-"""
+"""Run VGG16/MNIST Sinkhorn permutation alignment and evaluation."""
 
 import os
 import sys
@@ -29,7 +22,7 @@ from scripts.lib.core.output import save_json
 @hydra.main(
     version_base=None,
     config_path="../../configs/analysis",
-    config_name="vgg16_sinkhorn_scale",
+    config_name="vgg16_mnist_sinkhorn_permutation",
 )
 def main(cfg: DictConfig) -> None:
     set_global_seed(int(cfg.seed))
@@ -41,7 +34,7 @@ def main(cfg: DictConfig) -> None:
     methods = list(cfg.methods)
 
     print("=" * 80)
-    print("VGG16 SINKHORN BASELINE PIPELINE")
+    print("VGG16/MNIST SINKHORN PERMUTATION PIPELINE")
     print("=" * 80)
     print(f"experiment_name: {cfg.experiment_name}")
     print(f"model_a_checkpoint: {model_a_checkpoint}")
@@ -53,7 +46,7 @@ def main(cfg: DictConfig) -> None:
     print("")
 
     print("=" * 80)
-    print("STAGE 1: TRAIN ALIGNMENT BASELINES")
+    print("STAGE 1: TRAIN SINKHORN PERMUTATION ALIGNMENT")
     print("=" * 80)
     train_results = run_vgg16_alignment_experiment(
         model_a_checkpoint=model_a_checkpoint,
@@ -78,7 +71,7 @@ def main(cfg: DictConfig) -> None:
 
     print("")
     print("=" * 80)
-    print("STAGE 2: EVALUATE BASELINE COMPARISONS")
+    print("STAGE 2: EVALUATE INTERPOLATION")
     print("=" * 80)
     eval_results = run_vgg16_alignment_evaluation(
         model_a_checkpoint=model_a_checkpoint,
