@@ -1,20 +1,12 @@
-"""Run original git-rebasin weight matching on local VGG16/MNIST checkpoints.
-
-This wrapper uses the original iterative weight-matching implementation from
-``external/git-rebasin/src/weight_matching.py``. The original upstream script
-expects Flax checkpoints and W&B artifacts; this wrapper instead feeds it the
-local PyTorch VGG16 checkpoints from this repo, while keeping the matching
-algorithm itself unchanged.
-"""
+"""Run local git-rebasin-style weight matching on VGG16/MNIST checkpoints."""
 
 from __future__ import annotations
 
-import importlib
 import os
 import sys
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Dict
+from typing import Dict
 
 project_root = Path(__file__).resolve().parents[2]
 os.environ.setdefault("MPLCONFIGDIR", str(project_root / ".mplcache"))
@@ -44,7 +36,10 @@ from scripts.lib.alignment.permutation_pipeline import (
     write_summary_files,
 )
 from scripts.lib.alignment.permutation_spec import vgg16_permutation_spec
-from scripts.lib.alignment.weight_matching import apply_permutation as apply_permutation_torch
+from scripts.lib.alignment.weight_matching import (
+    apply_permutation as apply_permutation_torch,
+    weight_matching,
+)
 from scripts.lib.core.output import ensure_dir, save_json
 
 
@@ -57,46 +52,6 @@ VARIANT_STYLES = {
     "no_alignment": {"color": "#111827", "linestyle": "-"},
     "git_rebasin_weight_matching": {"color": "#059669", "linestyle": "-"},
 }
-
-
-def import_git_rebasin_weight_matching():
-    """Import the original JAX git-rebasin weight-matching module."""
-
-    repo_src = project_root / "external" / "git-rebasin" / "src"
-    if not repo_src.exists():
-        raise RuntimeError(
-            f"Missing vendored repo at {repo_src}. "
-            "Initialize the git-rebasin checkout in this workspace first."
-        )
-
-    repo_src_str = str(repo_src)
-    if repo_src_str not in sys.path:
-        sys.path.insert(0, repo_src_str)
-
-    try:
-        module = importlib.import_module("weight_matching")
-        jax_random = importlib.import_module("jax.random")
-        jnp = importlib.import_module("jax.numpy")
-    except ImportError as exc:
-        raise RuntimeError(
-            "Unable to import original git-rebasin weight matching. "
-            "This wrapper requires the git-rebasin JAX dependencies to be installed."
-        ) from exc
-
-    return module, jax_random, jnp
-
-
-def state_dict_to_jax_params(state_dict: Dict[str, torch.Tensor], jnp_module) -> Dict[str, Any]:
-    """Convert local checkpoint tensors to JAX arrays without renaming keys."""
-
-    return {
-        key: jnp_module.asarray(value.detach().cpu().numpy())
-        for key, value in state_dict.items()
-    }
-
-
-def jax_perm_to_numpy(perm: Dict[str, Any]) -> Dict[str, np.ndarray]:
-    return {name: np.asarray(values, dtype=np.int64) for name, values in perm.items()}
 
 
 def evaluate_endpoint_metrics(
@@ -185,10 +140,9 @@ def main(cfg: DictConfig) -> None:
     state_a = load_checkpoint_state_dict(model_a_checkpoint)
     state_b = load_checkpoint_state_dict(model_b_checkpoint)
 
-    git_wm_module, jax_random, jnp_module = import_git_rebasin_weight_matching()
     ps = vgg16_permutation_spec()
-    params_a = state_dict_to_jax_params(state_a, jnp_module)
-    params_b = state_dict_to_jax_params(state_b, jnp_module)
+    params_a = OrderedDict((key, value.detach().cpu()) for key, value in state_a.items())
+    params_b = OrderedDict((key, value.detach().cpu()) for key, value in state_b.items())
 
     print("=" * 80)
     print("GIT-REBASIN WEIGHT MATCHING (VGG16/MNIST)")
@@ -202,15 +156,14 @@ def main(cfg: DictConfig) -> None:
     print(f"max_iter: {cfg.max_iter}")
     print("")
 
-    permutation = git_wm_module.weight_matching(
-        jax_random.PRNGKey(int(cfg.seed)),
+    permutation_np = weight_matching(
         ps,
         params_a,
         params_b,
         max_iter=int(cfg.max_iter),
+        seed=int(cfg.seed),
         silent=False,
     )
-    permutation_np = jax_perm_to_numpy(permutation)
     aligned_state_b = apply_permutation_torch(ps, permutation_np, state_b)
 
     aligned_checkpoint_path = str(output_root / "aligned.pt")
