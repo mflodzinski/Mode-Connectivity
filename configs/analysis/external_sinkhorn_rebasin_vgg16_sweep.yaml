@@ -40,8 +40,7 @@ continue_on_error: true
 
 sweep:
   alignment_steps:
-    - 1000
-    - 2000
+    - 1500
   tau:
     - 0.5
     - 1.0
@@ -49,6 +48,7 @@ sweep:
     - 0.3
     - 1.0
     - 3.0
-    - 7.0
   sinkhorn_l:
     - 1.0
+    - 3.0
+
