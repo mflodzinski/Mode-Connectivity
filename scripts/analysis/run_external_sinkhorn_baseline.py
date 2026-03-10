@@ -369,7 +369,10 @@ def evaluate_external_interpolation_on_batches(
     if not alpha_grid:
         raise ValueError("log_alpha_grid must contain at least one interpolation coefficient.")
 
-    template_model = deepcopy(build_external_vgg(external_to_native_state_dict(state_a), device=device))
+    state_a_cpu = OrderedDict((key, value.detach().cpu().clone()) for key, value in state_a.items())
+    state_b_cpu = OrderedDict((key, value.detach().cpu().clone()) for key, value in state_b.items())
+
+    template_model = deepcopy(build_external_vgg(external_to_native_state_dict(state_a_cpu), device=device))
     template_model.eval()
 
     per_alpha_mean_loss: list[float] = []
@@ -378,7 +381,7 @@ def evaluate_external_interpolation_on_batches(
     with torch.no_grad():
         for alpha in alpha_grid:
             interpolated_state = OrderedDict(
-                (key, ((1.0 - alpha) * state_a[key] + alpha * state_b[key]).detach().cpu()) for key in state_a
+                (key, ((1.0 - alpha) * state_a_cpu[key] + alpha * state_b_cpu[key]).detach().cpu()) for key in state_a_cpu
             )
             template_model.load_state_dict(interpolated_state)
             template_model.eval()
