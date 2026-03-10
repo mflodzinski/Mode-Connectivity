@@ -1,11 +1,12 @@
 defaults: []
 
-experiment_name: "external_sinkhorn_rebasin_vgg16_sweep_seed0_seed1"
+experiment_name: "external_sinkhorn_rebasin_vgg16_mnist_sweep_seed0_seed1"
 
-model_a_checkpoint: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoint-200.pt"
-model_b_checkpoint: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoint-200.pt"
-base_output_root: "results/vgg16/cifar10/alignment/external_sinkhorn_rebasin_sweep/seed0-seed1"
+model_a_checkpoint: "results/vgg16/mnist/endpoints/standard/seed0/checkpoint-50.pt"
+model_b_checkpoint: "results/vgg16/mnist/endpoints/standard/seed1/checkpoint-50.pt"
+base_output_root: "results/vgg16/mnist/alignment/external_sinkhorn_rebasin_sweep/seed0-seed1"
 
+dataset: "MNIST"
 data_path: "./data"
 seed: 0
 num_workers: 4
@@ -15,7 +16,7 @@ calibration_size: 2048
 evaluation_batch_size: 128
 num_eval_points: 21
 
-train_objective: "midpoint"
+train_objective: "random_t"
 midpoint_alpha: 0.5
 train_alpha_grid:
   - 0.25
@@ -40,15 +41,13 @@ continue_on_error: true
 
 sweep:
   alignment_steps:
-    - 1500
+    - 2000
   tau:
     - 0.5
     - 1.0
-  lr:
-    - 0.3
-    - 1.0
     - 3.0
+  lr:
+    - 1.0
   sinkhorn_l:
     - 1.0
-    - 3.0
-
+    - 0.5

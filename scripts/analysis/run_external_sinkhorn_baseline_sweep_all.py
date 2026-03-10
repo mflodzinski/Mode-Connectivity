@@ -129,12 +129,7 @@ def print_top_runs(rows: list[Dict[str, Any]], *, top_k: int = 5) -> None:
         )
 
 
-@hydra.main(
-    version_base=None,
-    config_path="../../configs/analysis",
-    config_name="external_sinkhorn_rebasin_vgg16_sweep",
-)
-def main(cfg: DictConfig) -> None:
+def run_external_sinkhorn_sweep_all(cfg: DictConfig) -> None:
     combos = enumerate_sweep_combinations(cfg.sweep)
     total_runs = len(combos)
 
@@ -183,6 +178,7 @@ def main(cfg: DictConfig) -> None:
                 "model_a_checkpoint": to_absolute_path(cfg.model_a_checkpoint),
                 "model_b_checkpoint": to_absolute_path(cfg.model_b_checkpoint),
                 "output_root": output_root,
+                "dataset": str(cfg.dataset),
                 "data_path": to_absolute_path(cfg.data_path),
                 "seed": int(cfg.seed),
                 "num_workers": int(cfg.num_workers),
@@ -257,6 +253,15 @@ def main(cfg: DictConfig) -> None:
     print(f"Summary: {base_output_root / 'sweep_summary.json'}")
     if comparison_rows:
         print(f"Comparison table: {base_output_root / 'sweep_comparison.json'}")
+
+
+@hydra.main(
+    version_base=None,
+    config_path="../../configs/analysis",
+    config_name="external_sinkhorn_rebasin_vgg16_sweep",
+)
+def main(cfg: DictConfig) -> None:
+    run_external_sinkhorn_sweep_all(cfg)
 
 
 if __name__ == "__main__":

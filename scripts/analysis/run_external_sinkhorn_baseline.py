@@ -1,4 +1,4 @@
-"""Run the vendored sinkhorn-rebasin baseline on VGG16/CIFAR10 endpoints.
+"""Run the vendored sinkhorn-rebasin baseline on VGG16 endpoints.
 
 This wrapper uses the implementation in ``external/sinkhorn-rebasin`` directly
 and adapts the checkpoint format used in this repo to the external VGG layout.
@@ -36,7 +36,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from src.utils import set_global_seed
-from scripts.lib.analysis.alignment import create_vgg16_model, evaluate_model, load_cifar10_eval_loaders
+from scripts.lib.analysis.alignment import create_vgg16_model, evaluate_model, load_dataset_eval_loaders
 from scripts.lib.alignment.permutation_pipeline import (
     compute_barrier_metrics,
     evaluate_linear_interpolation,
@@ -158,15 +158,21 @@ def build_external_vgg(state_dict: Mapping[str, torch.Tensor], *, device: torch.
 
 def build_calibration_loader(
     *,
+    dataset: str,
     data_path: str,
     calibration_size: int,
     batch_size: int,
     num_workers: int,
     seed: int,
 ) -> DataLoader:
-    """Reuse the repo's eval-mode CIFAR loader for external baseline training."""
+    """Reuse the repo's eval-mode VGG loader for external baseline training."""
 
-    loaders, _ = load_cifar10_eval_loaders(data_path=data_path, batch_size=batch_size, num_workers=num_workers)
+    loaders, _ = load_dataset_eval_loaders(
+        dataset=dataset,
+        data_path=data_path,
+        batch_size=batch_size,
+        num_workers=num_workers,
+    )
     dataset = loaders["train"].dataset
     subset_size = min(calibration_size, len(dataset))
     subset = Subset(dataset, list(range(subset_size)))
@@ -453,6 +459,7 @@ def run_external_sinkhorn_baseline(cfg: DictConfig | Mapping[str, Any]) -> Dict[
     output_root = Path(to_absolute_path(cfg.output_root))
     output_root.mkdir(parents=True, exist_ok=True)
 
+    dataset = str(cfg.dataset)
     model_a_checkpoint = to_absolute_path(cfg.model_a_checkpoint)
     model_b_checkpoint = to_absolute_path(cfg.model_b_checkpoint)
     data_path = to_absolute_path(cfg.data_path)
@@ -482,6 +489,7 @@ def run_external_sinkhorn_baseline(cfg: DictConfig | Mapping[str, Any]) -> Dict[
     optimizer = torch.optim.AdamW(rebasin_net.parameters(), lr=float(cfg.lr))
 
     calibration_loader = build_calibration_loader(
+        dataset=dataset,
         data_path=data_path,
         calibration_size=int(cfg.calibration_size),
         batch_size=int(cfg.alignment_batch_size),
@@ -501,6 +509,7 @@ def run_external_sinkhorn_baseline(cfg: DictConfig | Mapping[str, Any]) -> Dict[
     print(f"model_a_checkpoint: {model_a_checkpoint}")
     print(f"model_b_checkpoint: {model_b_checkpoint}")
     print(f"output_root: {output_root}")
+    print(f"dataset: {dataset}")
     print(f"device: {runtime_device}")
     print("")
 
@@ -620,7 +629,8 @@ def run_external_sinkhorn_baseline(cfg: DictConfig | Mapping[str, Any]) -> Dict[
     )
     save_json(history, history_path, indent=2)
 
-    loaders, _ = load_cifar10_eval_loaders(
+    loaders, _ = load_dataset_eval_loaders(
+        dataset=dataset,
         data_path=data_path,
         batch_size=int(cfg.evaluation_batch_size),
         num_workers=int(cfg.num_workers),
