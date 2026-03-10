@@ -46,21 +46,36 @@ def load_vgg16_model(
     return model
 
 
-def load_cifar10_eval_loaders(
+def load_dataset_eval_loaders(
+    dataset: str = "CIFAR10",
     data_path: str = "./data",
     batch_size: int = 128,
     num_workers: int = 4,
 ):
-    """Load CIFAR10 eval-mode loaders used by alignment workflows."""
+    """Load eval-mode loaders used by alignment workflows."""
     _, data_module = _get_external_modules()
     return data_module.loaders(
-        "CIFAR10",
+        dataset,
         data_path,
         batch_size,
         num_workers=num_workers,
         transform_name="VGG",
         use_test=True,
         eval_mode=True,
+    )
+
+
+def load_cifar10_eval_loaders(
+    data_path: str = "./data",
+    batch_size: int = 128,
+    num_workers: int = 4,
+):
+    """Load CIFAR10 eval-mode loaders used by alignment workflows."""
+    return load_dataset_eval_loaders(
+        dataset="CIFAR10",
+        data_path=data_path,
+        batch_size=batch_size,
+        num_workers=num_workers,
     )
 
 

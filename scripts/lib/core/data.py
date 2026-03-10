@@ -104,6 +104,33 @@ class FashionMNISTUtils:
         return img
 
 
+class MNISTUtils:
+    """MNIST-specific constants and utilities."""
+
+    CLASS_NAMES = [str(idx) for idx in range(10)]
+
+    # MNIST stats replicated for 3 channels after grayscale expansion.
+    MEAN = np.array([0.1307, 0.1307, 0.1307])
+    STD = np.array([0.3081, 0.3081, 0.3081])
+
+    @classmethod
+    def get_class_name(cls, idx: int) -> str:
+        """Get class name for given index."""
+        return cls.CLASS_NAMES[idx]
+
+    @classmethod
+    def get_class_names(cls) -> List[str]:
+        """Get all class names."""
+        return cls.CLASS_NAMES.copy()
+
+    @classmethod
+    def denormalize(cls, img: np.ndarray) -> np.ndarray:
+        """Denormalize MNIST image to displayable format."""
+        img = img.transpose(1, 2, 0)
+        img = img * cls.STD + cls.MEAN
+        return np.clip(img * 255, 0, 255).astype(np.uint8)
+
+
 def get_loaders(dataset: str,
                 data_path: str = './data',
                 batch_size: int = 128,
@@ -114,7 +141,7 @@ def get_loaders(dataset: str,
     """Get data loaders for specified dataset.
 
     Args:
-        dataset: Dataset name (e.g., 'CIFAR10', 'CIFAR100')
+        dataset: Dataset name (e.g., 'CIFAR10', 'FashionMNIST', 'MNIST')
         data_path: Path to dataset directory
         batch_size: Batch size for loaders
         num_workers: Number of worker processes
@@ -150,6 +177,8 @@ def get_class_names(dataset: str) -> List[str]:
     """
     if dataset.upper() == 'CIFAR10':
         return CIFAR10Utils.get_class_names()
+    elif dataset.upper() == 'MNIST':
+        return MNISTUtils.get_class_names()
     elif dataset.upper() == 'FASHIONMNIST':
         return FashionMNISTUtils.get_class_names()
     else:

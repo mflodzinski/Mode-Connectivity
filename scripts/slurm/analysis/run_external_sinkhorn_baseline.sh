@@ -25,6 +25,13 @@ export PYTHONPATH="${PROJECT_ROOT}:${PROJECT_ROOT}/scripts:${PYTHONPATH:-}"
 export MPLCONFIGDIR="${PROJECT_ROOT}/.mplcache"
 export XDG_CACHE_HOME="${PROJECT_ROOT}/.mplcache"
 
+if [ ! -f "${PROJECT_ROOT}/external/sinkhorn-rebasin/examples/models/vgg.py" ]; then
+    echo "Missing external/sinkhorn-rebasin in this checkout."
+    echo "Initialize the submodule first, for example:"
+    echo "  git submodule update --init --recursive external/sinkhorn-rebasin"
+    exit 1
+fi
+
 # The vendored sinkhorn-rebasin repo depends on the Graphviz `dot` binary via
 # torchviz. Load a cluster module if available; otherwise rely on the current
 # environment already providing it.
@@ -47,6 +54,8 @@ LR="${LR:-1e-1}"
 TAU="${TAU:-1.0}"
 SINKHORN_ITERS="${SINKHORN_ITERS:-20}"
 SINKHORN_L="${SINKHORN_L:-1.0}"
+TRAIN_OBJECTIVE="${TRAIN_OBJECTIVE:-midpoint}"
+MIDPOINT_ALPHA="${MIDPOINT_ALPHA:-0.5}"
 LOG_INTERVAL="${LOG_INTERVAL:-25}"
 IDENTITY_INIT="${IDENTITY_INIT:-true}"
 
@@ -81,6 +90,8 @@ srun python scripts/analysis/run_external_sinkhorn_baseline.py \
     tau="${TAU}" \
     sinkhorn_iters="${SINKHORN_ITERS}" \
     sinkhorn_l="${SINKHORN_L}" \
+    train_objective="${TRAIN_OBJECTIVE}" \
+    midpoint_alpha="${MIDPOINT_ALPHA}" \
     log_interval="${LOG_INTERVAL}" \
     identity_init="${IDENTITY_INIT}" \
     device=cuda

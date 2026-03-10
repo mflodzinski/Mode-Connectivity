@@ -29,6 +29,7 @@ import numpy as np
 import torch
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, OmegaConf
+from torch.func import functional_call
 from torch.utils.data import DataLoader, Subset
 
 matplotlib.use("Agg")
@@ -88,11 +89,22 @@ def import_external_sinkhorn():
 
     sinkhorn_root = project_root / "external" / "sinkhorn-rebasin"
     examples_root = sinkhorn_root / "examples"
+    if not sinkhorn_root.exists():
+        raise RuntimeError(
+            f"Missing vendored repo at {sinkhorn_root}. "
+            "Initialize the git submodule on this checkout first."
+        )
+
     sinkhorn_root_str = str(sinkhorn_root)
     if sinkhorn_root_str not in sys.path:
         sys.path.insert(0, sinkhorn_root_str)
 
     vgg_module_path = examples_root / "models" / "vgg.py"
+    if not vgg_module_path.exists():
+        raise RuntimeError(
+            f"Expected external VGG file at {vgg_module_path}, but it does not exist. "
+            "This usually means the sinkhorn-rebasin submodule was not checked out correctly."
+        )
     spec = importlib.util.spec_from_file_location("_external_sinkhorn_vgg", vgg_module_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Unable to load external VGG definition from {vgg_module_path}.")
@@ -103,7 +115,6 @@ def import_external_sinkhorn():
     try:
         VGG = vgg_module.VGG
         from rebasin import RebasinNet, matching
-        from rebasin.loss import RndLoss
     except ImportError as exc:
         raise RuntimeError(
             "Unable to import external/sinkhorn-rebasin. "
@@ -111,7 +122,7 @@ def import_external_sinkhorn():
             "(notably `torchviz` and `graphviz`) or a module-path collision."
         ) from exc
 
-    return VGG, RebasinNet, matching, RndLoss
+    return VGG, RebasinNet, matching
 
 
 def native_to_external_state_dict(state_dict: Mapping[str, torch.Tensor]) -> OrderedDict[str, torch.Tensor]:
@@ -137,7 +148,7 @@ def external_to_native_state_dict(state_dict: Mapping[str, torch.Tensor]) -> Ord
 def build_external_vgg(state_dict: Mapping[str, torch.Tensor], *, device: torch.device):
     """Instantiate the external VGG16 and load weights translated from local checkpoints."""
 
-    VGG, _, _, _ = import_external_sinkhorn()
+    VGG, _, _ = import_external_sinkhorn()
     model = VGG("VGG16", in_channels=3, out_features=10, h_in=32, w_in=32)
     model.load_state_dict(native_to_external_state_dict(state_dict))
     model.to(device)
@@ -175,6 +186,23 @@ def cycle_loader(loader: DataLoader) -> Iterator[tuple[torch.Tensor, torch.Tenso
     while True:
         for batch in loader:
             yield batch
+
+
+def collect_logging_batches(loader: DataLoader, *, num_batches: int) -> list[tuple[torch.Tensor, torch.Tensor]]:
+    """Cache a small deterministic set of calibration batches for periodic logging."""
+
+    if num_batches <= 0:
+        raise ValueError(f"log_eval_batches must be positive, received {num_batches}.")
+
+    collected: list[tuple[torch.Tensor, torch.Tensor]] = []
+    for batch_index, (inputs, targets) in enumerate(loader):
+        if batch_index >= num_batches:
+            break
+        collected.append((inputs.detach().cpu().clone(), targets.detach().cpu().clone()))
+
+    if not collected:
+        raise ValueError("Unable to collect logging batches from the calibration loader.")
+    return collected
 
 
 def evaluate_endpoint_metrics(
@@ -246,6 +274,142 @@ def validate_state_translation(
     }
 
 
+def external_state_dict_cpu(model: torch.nn.Module) -> OrderedDict[str, torch.Tensor]:
+    """Clone one external-model state dict onto CPU for interpolation diagnostics."""
+
+    return OrderedDict((key, value.detach().cpu().clone()) for key, value in model.state_dict().items())
+
+
+def snapshot_external_aligned_states(rebasin_net) -> tuple[OrderedDict[str, torch.Tensor], OrderedDict[str, torch.Tensor]]:
+    """Materialize the current soft and hard rebased external models as state dicts."""
+
+    previous_mode = rebasin_net.training
+
+    rebasin_net.train()
+    soft_model = rebasin_net()
+    soft_model.eval()
+    soft_state = external_state_dict_cpu(soft_model)
+
+    rebasin_net.eval()
+    hard_model = rebasin_net()
+    hard_model.eval()
+    hard_state = external_state_dict_cpu(hard_model)
+
+    rebasin_net.train(previous_mode)
+    return soft_state, hard_state
+
+
+def external_parameter_dict(model: torch.nn.Module) -> OrderedDict[str, torch.Tensor]:
+    """Return ordered named parameters for functional interpolation."""
+
+    return OrderedDict((name, parameter) for name, parameter in model.named_parameters())
+
+
+def interpolated_external_parameter_dict(
+    params_a: Mapping[str, torch.Tensor],
+    params_b: Mapping[str, torch.Tensor],
+    alpha: float,
+) -> OrderedDict[str, torch.Tensor]:
+    """Construct an interpolated parameter dict for one interpolation coefficient."""
+
+    return OrderedDict((name, (1.0 - alpha) * params_a[name] + alpha * params_b[name]) for name in params_a)
+
+
+def compute_external_training_objective(
+    model_a: torch.nn.Module,
+    rebased_model: torch.nn.Module,
+    inputs: torch.Tensor,
+    targets: torch.Tensor,
+    *,
+    objective: str,
+    midpoint_alpha: float,
+    train_alpha_grid: list[float],
+) -> tuple[torch.Tensor, Dict[str, Any]]:
+    """Compute the chosen interpolation objective for the external baseline."""
+
+    params_a = external_parameter_dict(model_a)
+    params_b = external_parameter_dict(rebased_model)
+
+    if objective == "random_t":
+        alphas = [float(torch.rand((), device=inputs.device).item())]
+    elif objective == "midpoint":
+        alphas = [float(midpoint_alpha)]
+    elif objective == "grid_mean":
+        if not train_alpha_grid:
+            raise ValueError("train_alpha_grid must be non-empty when train_objective=grid_mean.")
+        alphas = [float(alpha) for alpha in train_alpha_grid]
+    else:
+        raise ValueError(f"Unsupported train_objective '{objective}'.")
+
+    losses = []
+    for alpha in alphas:
+        interpolated_params = interpolated_external_parameter_dict(params_a, params_b, alpha)
+        logits = functional_call(model_a, interpolated_params, (inputs,))
+        losses.append(torch.nn.functional.cross_entropy(logits, targets))
+
+    loss_tensor = torch.stack(losses)
+    diagnostics = {
+        "objective": objective,
+        "alphas": list(alphas),
+        "alpha_losses": [float(loss.detach().cpu().item()) for loss in loss_tensor],
+    }
+    return loss_tensor.mean(), diagnostics
+
+
+def evaluate_external_interpolation_on_batches(
+    state_a: Mapping[str, torch.Tensor],
+    state_b: Mapping[str, torch.Tensor],
+    batches: list[tuple[torch.Tensor, torch.Tensor]],
+    alpha_grid: list[float],
+    *,
+    device: torch.device,
+) -> Dict[str, Any]:
+    """Evaluate mean/max interpolation loss and min accuracy on cached batches."""
+
+    if not alpha_grid:
+        raise ValueError("log_alpha_grid must contain at least one interpolation coefficient.")
+
+    state_a_cpu = OrderedDict((key, value.detach().cpu().clone()) for key, value in state_a.items())
+    state_b_cpu = OrderedDict((key, value.detach().cpu().clone()) for key, value in state_b.items())
+
+    template_model = deepcopy(build_external_vgg(external_to_native_state_dict(state_a_cpu), device=device))
+    template_model.eval()
+
+    per_alpha_mean_loss: list[float] = []
+    per_alpha_accuracy: list[float] = []
+
+    with torch.no_grad():
+        for alpha in alpha_grid:
+            interpolated_state = OrderedDict(
+                (key, ((1.0 - alpha) * state_a_cpu[key] + alpha * state_b_cpu[key]).detach().cpu()) for key in state_a_cpu
+            )
+            template_model.load_state_dict(interpolated_state)
+            template_model.eval()
+
+            total_loss = 0.0
+            total_correct = 0
+            total_examples = 0
+            for inputs_cpu, targets_cpu in batches:
+                inputs = inputs_cpu.to(device)
+                targets = targets_cpu.to(device)
+                logits = template_model(inputs)
+                total_loss += torch.nn.functional.cross_entropy(logits, targets, reduction="sum").item()
+                total_correct += logits.argmax(dim=1).eq(targets).sum().item()
+                total_examples += targets.size(0)
+
+            per_alpha_mean_loss.append(total_loss / total_examples)
+            per_alpha_accuracy.append(100.0 * total_correct / total_examples)
+
+    return {
+        "alpha_grid": list(alpha_grid),
+        "per_alpha_mean_loss": per_alpha_mean_loss,
+        "per_alpha_accuracy": per_alpha_accuracy,
+        "mean_interp_loss": float(np.mean(per_alpha_mean_loss)),
+        "max_interp_loss": float(np.max(per_alpha_mean_loss)),
+        "min_interp_acc": float(np.min(per_alpha_accuracy)),
+    }
+
+
 def plot_variant_curves(output_path: str, variant_results: Mapping[str, Dict[str, np.ndarray]]) -> None:
     """Write a compact train/test interpolation plot for the external baseline."""
 
@@ -278,14 +442,13 @@ def plot_variant_curves(output_path: str, variant_results: Mapping[str, Dict[str
     plt.close(fig)
 
 
-@hydra.main(
-    version_base=None,
-    config_path="../../configs/analysis",
-    config_name="external_sinkhorn_rebasin_vgg16",
-)
-def main(cfg: DictConfig) -> None:
-    set_global_seed(int(cfg.seed))
+def run_external_sinkhorn_baseline(cfg: DictConfig | Mapping[str, Any]) -> Dict[str, Any]:
+    """Run one external Sinkhorn baseline experiment from a config mapping."""
 
+    if not isinstance(cfg, DictConfig):
+        cfg = OmegaConf.create(dict(cfg))
+
+    set_global_seed(int(cfg.seed))
     runtime_device = resolve_device(str(cfg.device))
     output_root = Path(to_absolute_path(cfg.output_root))
     output_root.mkdir(parents=True, exist_ok=True)
@@ -305,7 +468,7 @@ def main(cfg: DictConfig) -> None:
         "model_b": validate_state_translation(state_b_native, model_b_external, device=runtime_device),
     }
 
-    _, RebasinNet, matching, RndLoss = import_external_sinkhorn()
+    _, RebasinNet, matching = import_external_sinkhorn()
     rebasin_net = RebasinNet(
         model_b_external,
         input_shape=(1, 3, 32, 32),
@@ -316,9 +479,6 @@ def main(cfg: DictConfig) -> None:
     if bool(cfg.identity_init):
         rebasin_net.identity_init()
     rebasin_net.to(runtime_device)
-
-    criterion = RndLoss(model_a_external, criterion=torch.nn.CrossEntropyLoss())
-    criterion.to(runtime_device)
     optimizer = torch.optim.AdamW(rebasin_net.parameters(), lr=float(cfg.lr))
 
     calibration_loader = build_calibration_loader(
@@ -329,6 +489,9 @@ def main(cfg: DictConfig) -> None:
         seed=int(cfg.seed),
     )
     batch_iterator = cycle_loader(calibration_loader)
+    logging_batches = collect_logging_batches(calibration_loader, num_batches=int(cfg.log_eval_batches))
+    log_alpha_grid = [float(alpha) for alpha in cfg.log_alpha_grid]
+    train_alpha_grid = [float(alpha) for alpha in cfg.train_alpha_grid]
 
     history: list[Dict[str, Any]] = []
     print("=" * 80)
@@ -348,31 +511,73 @@ def main(cfg: DictConfig) -> None:
 
         rebasin_net.train()
         rebased_model = rebasin_net()
-        loss = criterion(rebased_model, inputs, targets)
+        loss, train_objective_stats = compute_external_training_objective(
+            model_a_external,
+            rebased_model,
+            inputs,
+            targets,
+            objective=str(cfg.train_objective),
+            midpoint_alpha=float(cfg.midpoint_alpha),
+            train_alpha_grid=train_alpha_grid,
+        )
 
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        try:
+            loss.backward()
+            optimizer.step()
+        except RuntimeError as exc:
+            message = str(exc)
+            if "torch.linalg.solve" in message or "singular" in message:
+                raise RuntimeError(
+                    "External Sinkhorn backward became numerically singular "
+                    f"at step={step} with lr={cfg.lr}, tau={cfg.tau}, "
+                    f"sinkhorn_l={cfg.sinkhorn_l}, objective={cfg.train_objective}."
+                ) from exc
+            raise
 
         step_metrics = {
             "step": step,
-            "loss": float(loss.detach().cpu().item()),
+            "train_loss": float(loss.detach().cpu().item()),
+            "train_objective": dict(train_objective_stats),
         }
-        history.append(step_metrics)
-        if step == 1 or step == int(cfg.alignment_steps) or (
+
+        should_log = step == 1 or step == int(cfg.alignment_steps) or (
             int(cfg.log_interval) > 0 and step % int(cfg.log_interval) == 0
-        ):
-            print(f"[external_sinkhorn] step={step:04d} loss={step_metrics['loss']:.4f}")
+        )
+        if should_log:
+            soft_state_external, hard_state_external = snapshot_external_aligned_states(rebasin_net)
+            soft_diag = evaluate_external_interpolation_on_batches(
+                model_a_external.state_dict(),
+                soft_state_external,
+                logging_batches,
+                log_alpha_grid,
+                device=runtime_device,
+            )
+            hard_diag = evaluate_external_interpolation_on_batches(
+                model_a_external.state_dict(),
+                hard_state_external,
+                logging_batches,
+                log_alpha_grid,
+                device=runtime_device,
+            )
+            step_metrics["soft_diagnostic"] = soft_diag
+            step_metrics["hard_diagnostic"] = hard_diag
+            print(
+                f"[external_sinkhorn] step={step:04d} "
+                f"train_loss={step_metrics['train_loss']:.4f} "
+                f"soft_mean={soft_diag['mean_interp_loss']:.4f} "
+                f"soft_max={soft_diag['max_interp_loss']:.4f} "
+                f"soft_min_acc={soft_diag['min_interp_acc']:.2f} "
+                f"hard_mean={hard_diag['mean_interp_loss']:.4f} "
+                f"hard_max={hard_diag['max_interp_loss']:.4f} "
+                f"hard_min_acc={hard_diag['min_interp_acc']:.2f}"
+            )
 
-    rebasin_net.train()
-    soft_model = deepcopy(rebasin_net())
-    soft_model.eval()
-    soft_state_native = external_to_native_state_dict(soft_model.state_dict())
+        history.append(step_metrics)
 
-    rebasin_net.eval()
-    hard_model = deepcopy(rebasin_net())
-    hard_model.eval()
-    hard_state_native = external_to_native_state_dict(hard_model.state_dict())
+    soft_state_external, hard_state_external = snapshot_external_aligned_states(rebasin_net)
+    soft_state_native = external_to_native_state_dict(soft_state_external)
+    hard_state_native = external_to_native_state_dict(hard_state_external)
 
     soft_checkpoint_path = str(output_root / "soft_aligned.pt")
     hard_checkpoint_path = str(output_root / "hard_aligned.pt")
@@ -392,6 +597,11 @@ def main(cfg: DictConfig) -> None:
         "raw_parameters": permutation_matrices,
         "hard_permutations": hard_permutations,
         "translation_checks": translation_checks,
+        "train_objective": str(cfg.train_objective),
+        "midpoint_alpha": float(cfg.midpoint_alpha),
+        "train_alpha_grid": train_alpha_grid,
+        "log_alpha_grid": log_alpha_grid,
+        "log_eval_batches": int(cfg.log_eval_batches),
         "config": OmegaConf.to_container(cfg, resolve=True),
     }
     torch.save(artifact, artifact_path)
@@ -471,6 +681,7 @@ def main(cfg: DictConfig) -> None:
         "model_a_checkpoint": model_a_checkpoint,
         "model_b_checkpoint": model_b_checkpoint,
         "output_root": str(output_root),
+        "metadata_path": metadata_path,
         "soft_checkpoint_path": soft_checkpoint_path,
         "hard_checkpoint_path": hard_checkpoint_path,
         "artifact_path": artifact_path,
@@ -491,6 +702,17 @@ def main(cfg: DictConfig) -> None:
     print(f"Artifacts: {artifact_path}")
     print(f"Evaluation summary: {Path(evaluation_dir) / 'comparison.json'}")
     print(f"Comparison plot: {plot_path}")
+
+    return metadata
+
+
+@hydra.main(
+    version_base=None,
+    config_path="../../configs/analysis",
+    config_name="external_sinkhorn_rebasin_vgg16",
+)
+def main(cfg: DictConfig) -> None:
+    run_external_sinkhorn_baseline(cfg)
 
 
 if __name__ == "__main__":
