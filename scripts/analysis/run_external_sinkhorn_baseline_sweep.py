@@ -88,6 +88,7 @@ def main(cfg: DictConfig) -> None:
             "model_a_checkpoint": to_absolute_path(cfg.model_a_checkpoint),
             "model_b_checkpoint": to_absolute_path(cfg.model_b_checkpoint),
             "output_root": output_root,
+            "dataset": str(cfg.dataset),
             "data_path": to_absolute_path(cfg.data_path),
             "seed": int(cfg.seed),
             "num_workers": int(cfg.num_workers),
