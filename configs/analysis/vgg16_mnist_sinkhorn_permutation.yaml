@@ -2,8 +2,8 @@ defaults: []
 
 experiment_name: "vgg16_mnist_sinkhorn_permutation_seed0_seed1"
 
-model_a_checkpoint: "results/vgg16/mnist/endpoints/standard/seed0/checkpoints/checkpoint-50.pt"
-model_b_checkpoint: "results/vgg16/mnist/endpoints/standard/seed1/checkpoints/checkpoint-50.pt"
+model_a_checkpoint: "results/vgg16/mnist/endpoints/standard/seed0/checkpoint-50.pt"
+model_b_checkpoint: "results/vgg16/mnist/endpoints/standard/seed1/checkpoint-50.pt"
 output_root: "results/vgg16/mnist/alignment/sinkhorn_permutation/seed0-seed1"
 
 methods:

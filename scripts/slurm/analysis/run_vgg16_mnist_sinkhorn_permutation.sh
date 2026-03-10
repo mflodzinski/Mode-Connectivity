@@ -20,8 +20,8 @@ cd "${PROJECT_ROOT}"
 
 export PYTHONPATH="${PROJECT_ROOT}:${PROJECT_ROOT}/scripts:${PYTHONPATH:-}"
 
-MODEL_A_CHECKPOINT="${MODEL_A_CHECKPOINT:-results/vgg16/mnist/endpoints/standard/seed0/checkpoints/checkpoint-50.pt}"
-MODEL_B_CHECKPOINT="${MODEL_B_CHECKPOINT:-results/vgg16/mnist/endpoints/standard/seed1/checkpoints/checkpoint-50.pt}"
+MODEL_A_CHECKPOINT="${MODEL_A_CHECKPOINT:-results/vgg16/mnist/endpoints/standard/seed0/checkpoint-50.pt}"
+MODEL_B_CHECKPOINT="${MODEL_B_CHECKPOINT:-results/vgg16/mnist/endpoints/standard/seed1/checkpoint-50.pt}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/vgg16/mnist/alignment/sinkhorn_permutation/seed0-seed1}"
 DATA_PATH="${DATA_PATH:-./data}"
 ALIGNMENT_STEPS="${ALIGNMENT_STEPS:-500}"
