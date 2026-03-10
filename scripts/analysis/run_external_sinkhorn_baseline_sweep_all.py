@@ -139,7 +139,8 @@ def main(cfg: DictConfig) -> None:
     total_runs = len(combos)
 
     start_index = int(cfg.get("start_index", 0))
-    end_index = int(cfg.get("end_index", total_runs - 1))
+    end_index_cfg = cfg.get("end_index", None)
+    end_index = total_runs - 1 if end_index_cfg is None else int(end_index_cfg)
     continue_on_error = bool(cfg.get("continue_on_error", False))
 
     if start_index < 0 or start_index >= total_runs:

@@ -38,7 +38,7 @@ if command -v module >/dev/null 2>&1; then
 fi
 
 START_INDEX="${START_INDEX:-0}"
-END_INDEX="${END_INDEX:-23}"
+END_INDEX="${END_INDEX:-null}"
 CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-false}"
 
 echo "========================================"

@@ -34,6 +34,9 @@ log_alpha_grid:
   - 1.0
 
 plot_filename: "comparison.png"
+start_index: 0
+end_index: null
+continue_on_error: false
 
 sweep:
   alignment_steps:
