@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=04:00:00
+#SBATCH --time=02:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=16GB
+#SBATCH --mem=6GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_git_rebasin_orig_mnist_train_%j.out
 #SBATCH --error=slurm_git_rebasin_orig_mnist_train_%j.err
