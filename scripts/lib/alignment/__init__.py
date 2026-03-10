@@ -21,6 +21,8 @@ from .vgg16_sinkhorn_alignment import (
     run_vgg16_alignment_experiment,
 )
 from .vgg16_sinkhorn_evaluation import run_vgg16_alignment_evaluation
+from .vgg16_ste_alignment import METHOD_STE_PERM, run_vgg16_ste_alignment_experiment
+from .vgg16_ste_evaluation import run_vgg16_ste_evaluation
 
 __all__ = [
     'PermutationSpec',
@@ -37,4 +39,7 @@ __all__ = [
     'build_identity_alignment',
     'run_vgg16_alignment_experiment',
     'run_vgg16_alignment_evaluation',
+    'METHOD_STE_PERM',
+    'run_vgg16_ste_alignment_experiment',
+    'run_vgg16_ste_evaluation',
 ]
