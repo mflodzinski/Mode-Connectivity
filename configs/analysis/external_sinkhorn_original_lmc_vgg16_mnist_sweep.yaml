@@ -1,0 +1,41 @@
+defaults: []
+
+experiment_name: "external_sinkhorn_original_lmc_vgg16_mnist_sweep_seed0_seed1"
+
+model_a_checkpoint: "results/vgg16/mnist/endpoints/standard/seed0/checkpoint-50.pt"
+model_b_checkpoint: "results/vgg16/mnist/endpoints/standard/seed1/checkpoint-50.pt"
+base_output_root: "results/vgg16/mnist/alignment/external_sinkhorn_original_lmc_sweep/seed0-seed1"
+
+dataset: "MNIST"
+data_path: "./data"
+seed: 0
+num_workers: 4
+
+alignment_batch_size: 128
+calibration_size: 1000
+evaluation_batch_size: 128
+num_eval_points: 21
+
+sinkhorn_iters: 50
+identity_init: false
+device: "auto"
+log_interval: 25
+plot_filename: "comparison.png"
+start_index: 0
+end_index: null
+continue_on_error: true
+
+sweep:
+  alignment_epochs:
+    - 300
+  loss_name:
+    - "midpoint"
+  tau:
+    - 0.5
+    - 0.25
+  lr:
+    - 0.05
+    - 0.005
+  sinkhorn_l:
+    - 1.0
+    - 2.0
