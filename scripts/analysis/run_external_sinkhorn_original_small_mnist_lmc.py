@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import importlib.util
 from copy import deepcopy
 from pathlib import Path
 from time import time
@@ -17,6 +18,7 @@ sys.path.insert(0, str(project_root / "scripts"))
 
 import hydra
 import matplotlib
+import numpy as np
 import torch
 import torchvision.transforms as transforms
 from hydra.utils import to_absolute_path
@@ -38,20 +40,28 @@ MNIST_STD = 0.3081
 def import_original_mnist_components():
     sinkhorn_root = project_root / "external" / "sinkhorn-rebasin"
     examples_root = sinkhorn_root / "examples"
-    for path in (str(examples_root), str(sinkhorn_root)):
+    dnn_root = project_root / "external" / "dnn-mode-connectivity"
+    for path in (str(examples_root), str(sinkhorn_root), str(dnn_root)):
         if path not in sys.path:
             sys.path.insert(0, path)
 
-    VGG, RebasinNet, matching = import_external_sinkhorn()
+    _, RebasinNet, matching = import_external_sinkhorn()
+    vgg_module_path = dnn_root / "models" / "vgg.py"
+    spec = importlib.util.spec_from_file_location("_dnn_mode_connectivity_vgg", vgg_module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load dnn-mode-connectivity VGG definition from {vgg_module_path}.")
+    vgg_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vgg_module)
+    VGG16 = vgg_module.VGG16
     from datasets.classification import MNistDataset
     from rebasin.loss import RndLoss
     from utils import eval_loss_acc, lerp
 
-    return VGG, RebasinNet, matching, MNistDataset, RndLoss, eval_loss_acc, lerp
+    return VGG16, RebasinNet, matching, MNistDataset, RndLoss, eval_loss_acc, lerp
 
 
 class NormalizedDataset(torch.utils.data.Dataset):
-    """Apply MNIST normalization after the vendored dataset converts to float arrays."""
+    """Apply MNIST normalization and expand grayscale to 3 channels."""
 
     def __init__(self, dataset: torch.utils.data.Dataset, *, mean: float, std: float) -> None:
         self.dataset = dataset
@@ -63,8 +73,15 @@ class NormalizedDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index: int):
         x, y = self.dataset[index]
-        x = (x - self.mean) / self.std
-        return x.astype("float32"), y
+        x = ((x - self.mean) / self.std).astype("float32")
+        x = np.repeat(x[None, :, :], 3, axis=0)
+        return x, y
+
+
+def build_model(VGG16Spec, num_classes: int) -> torch.nn.Module:
+    """Instantiate the dnn-mode-connectivity VGG16 base model."""
+
+    return VGG16Spec.base(num_classes=num_classes, **VGG16Spec.kwargs)
 
 
 def save_model_checkpoint(path: Path, model: torch.nn.Module, metadata: dict[str, Any]) -> None:
@@ -129,14 +146,14 @@ def train_model(
 
 def run_one_batch_debug(
     *,
-    VGG,
+    VGG16Spec,
     dataset_train,
     device: torch.device,
     cfg: DictConfig,
 ) -> dict[str, Any]:
     """Run one manual optimization step to verify data/model wiring."""
 
-    model = VGG("VGG16", in_channels=1, out_features=10, h_in=int(cfg.image_size), w_in=int(cfg.image_size)).to(device)
+    model = build_model(VGG16Spec, num_classes=10).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(cfg.train_lr))
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -192,7 +209,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     output_root = ensure_dir(Path(to_absolute_path(str(cfg.output_root))))
 
     (
-        VGG,
+        VGG16Spec,
         RebasinNet,
         matching,
         MNistDataset,
@@ -275,7 +292,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
 
     if bool(cfg.debug_one_batch):
         debug_metrics = run_one_batch_debug(
-            VGG=VGG,
+            VGG16Spec=VGG16Spec,
             dataset_train=dataset_train,
             device=device,
             cfg=cfg,
@@ -289,7 +306,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
             "config": OmegaConf.to_container(cfg, resolve=True),
         }
 
-    modelA = VGG("VGG16", in_channels=1, out_features=10, h_in=int(cfg.image_size), w_in=int(cfg.image_size))
+    modelA = build_model(VGG16Spec, num_classes=10)
     print("Training network A")
     modelA = train_model(
         modelA,
@@ -304,7 +321,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print("Model A: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_a, acc_a))
     modelA.eval()
 
-    modelB = VGG("VGG16", in_channels=1, out_features=10, h_in=int(cfg.image_size), w_in=int(cfg.image_size))
+    modelB = build_model(VGG16Spec, num_classes=10)
     print("\nTraining network B")
     modelB = train_model(
         modelB,
@@ -330,7 +347,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
         {"test_loss": float(loss_b), "test_acc": float(acc_b), "architecture": "VGG16"},
     )
 
-    pi_modelA = RebasinNet(modelA, input_shape=(1, 1, int(cfg.image_size), int(cfg.image_size)))
+    pi_modelA = RebasinNet(modelA, input_shape=(1, 3, int(cfg.image_size), int(cfg.image_size)))
     pi_modelA.to(device)
 
     criterion = RndLoss(modelB, criterion=torch.nn.CrossEntropyLoss())
