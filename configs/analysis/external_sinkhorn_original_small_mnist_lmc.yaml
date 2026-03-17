@@ -12,7 +12,7 @@ training_size: 9000
 validation_size: 1000
 batch_size: 128
 train_epochs: 50
-train_lr: 0.01
+train_lr: 0.001
 image_size: 32
 
 alignment_iterations: 20
