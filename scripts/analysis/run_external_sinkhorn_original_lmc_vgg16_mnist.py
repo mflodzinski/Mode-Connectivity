@@ -74,9 +74,9 @@ def import_original_lmc_components():
     """Import the vendored RebasinNet API used in the original examples."""
 
     _, RebasinNet, matching = import_external_sinkhorn()
-    from rebasin.loss import MidLoss, RndLoss
+    from rebasin.loss import DistCosineLoss, DistL1Loss, DistL2Loss, MidLoss, RndLoss
 
-    return RebasinNet, matching, MidLoss, RndLoss
+    return RebasinNet, matching, MidLoss, RndLoss, DistL1Loss, DistL2Loss, DistCosineLoss
 
 
 def snapshot_rebasin_states(rebasin_net) -> tuple[OrderedDict[str, torch.Tensor], OrderedDict[str, torch.Tensor]]:
@@ -102,8 +102,14 @@ def evaluate_epoch_objective(
     loader,
     *,
     device: torch.device,
+    requires_data: bool,
 ) -> float:
     """Evaluate the original LMC loss over one loader pass."""
+
+    if not requires_data:
+        with torch.no_grad():
+            rebased_model = rebasin_net()
+            return float(criterion(rebased_model).item())
 
     total_loss = 0.0
     total_examples = 0
@@ -176,7 +182,7 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
     model_b_external = build_external_vgg(state_b_native, device=runtime_device)
     translation_checks = validate_state_translation(state_a_native, model_a_external, device=runtime_device)
 
-    RebasinNet, matching, MidLoss, RndLoss = import_original_lmc_components()
+    RebasinNet, matching, MidLoss, RndLoss, DistL1Loss, DistL2Loss, DistCosineLoss = import_original_lmc_components()
     rebasin_net = RebasinNet(
         model_a_external,
         input_shape=(1, 3, 32, 32),
@@ -191,10 +197,24 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
     loss_name = str(cfg.loss_name).lower()
     if loss_name == "midpoint":
         criterion = MidLoss(model_b_external, criterion=torch.nn.CrossEntropyLoss())
+        requires_data = True
     elif loss_name == "random":
         criterion = RndLoss(model_b_external, criterion=torch.nn.CrossEntropyLoss())
+        requires_data = True
+    elif loss_name == "dist_l2":
+        criterion = DistL2Loss(model_b_external)
+        requires_data = False
+    elif loss_name == "dist_l1":
+        criterion = DistL1Loss(model_b_external)
+        requires_data = False
+    elif loss_name == "dist_cosine":
+        criterion = DistCosineLoss(model_b_external)
+        requires_data = False
     else:
-        raise ValueError(f"Unsupported loss_name={cfg.loss_name!r}. Expected 'midpoint' or 'random'.")
+        raise ValueError(
+            f"Unsupported loss_name={cfg.loss_name!r}. "
+            "Expected one of 'midpoint', 'random', 'dist_l1', 'dist_l2', 'dist_cosine'."
+        )
 
     optimizer = torch.optim.AdamW(rebasin_net.p.parameters(), lr=float(cfg.lr))
     calibration_loader = build_calibration_loader(
@@ -221,24 +241,32 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
     history: list[Dict[str, float | int]] = []
     for epoch in range(1, int(cfg.alignment_epochs) + 1):
         rebasin_net.train()
-        cumulative_train_loss = 0.0
-        total_examples = 0
-        for inputs, targets in calibration_loader:
-            inputs = inputs.to(runtime_device)
-            targets = targets.to(runtime_device)
-            rebased_model = rebasin_net()
-            loss = criterion(rebased_model, inputs, targets)
+        if requires_data:
+            cumulative_train_loss = 0.0
+            total_examples = 0
+            for inputs, targets in calibration_loader:
+                inputs = inputs.to(runtime_device)
+                targets = targets.to(runtime_device)
+                rebased_model = rebasin_net()
+                loss = criterion(rebased_model, inputs, targets)
 
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                cumulative_train_loss += loss.item() * targets.size(0)
+                total_examples += targets.size(0)
+
+            if total_examples == 0:
+                raise ValueError("Calibration loader produced zero examples.")
+            train_loss = cumulative_train_loss / total_examples
+        else:
+            rebased_model = rebasin_net()
+            loss = criterion(rebased_model)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
-            cumulative_train_loss += loss.item() * targets.size(0)
-            total_examples += targets.size(0)
-
-        if total_examples == 0:
-            raise ValueError("Calibration loader produced zero examples.")
-        train_loss = cumulative_train_loss / total_examples
+            train_loss = float(loss.item())
 
         rebasin_net.eval()
         hard_loss = evaluate_epoch_objective(
@@ -246,6 +274,7 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
             criterion,
             calibration_loader,
             device=runtime_device,
+            requires_data=requires_data,
         )
 
         epoch_metrics = {
