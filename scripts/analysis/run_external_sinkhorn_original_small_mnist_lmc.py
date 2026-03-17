@@ -77,6 +77,62 @@ def save_model_checkpoint(path: Path, model: torch.nn.Module, metadata: dict[str
     )
 
 
+def run_one_batch_debug(
+    *,
+    VGG,
+    dataset_train,
+    device: torch.device,
+    cfg: DictConfig,
+) -> dict[str, Any]:
+    """Run one manual optimization step to verify data/model wiring."""
+
+    model = VGG("VGG16", in_channels=1, out_features=10, h_in=int(cfg.image_size), w_in=int(cfg.image_size)).to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=float(cfg.train_lr))
+    criterion = torch.nn.CrossEntropyLoss()
+
+    x, y = next(iter(dataset_train))
+    x = torch.as_tensor(x, device=device)
+    y = torch.as_tensor(y, device=device, dtype=torch.long)
+
+    model.train()
+    before = next(model.parameters()).detach().clone()
+    out = model(x)
+    loss = criterion(out, y)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    after = next(model.parameters()).detach().clone()
+
+    debug_metrics = {
+        "loss": float(loss.item()),
+        "param_change_norm": float((after - before).norm().item()),
+        "out_shape": list(out.shape),
+        "y_dtype": str(y.dtype),
+        "x_shape": list(x.shape),
+        "x_dtype": str(x.dtype),
+        "x_min": float(x.min().item()),
+        "x_max": float(x.max().item()),
+        "y_min": int(y.min().item()),
+        "y_max": int(y.max().item()),
+    }
+
+    print("")
+    print("=" * 80)
+    print("ONE-BATCH DEBUG")
+    print("=" * 80)
+    print(f"loss: {debug_metrics['loss']}")
+    print(f"param_change_norm: {debug_metrics['param_change_norm']}")
+    print(f"out_shape: {tuple(debug_metrics['out_shape'])}")
+    print(f"y_dtype: {debug_metrics['y_dtype']}")
+    print(f"x_shape: {tuple(debug_metrics['x_shape'])}")
+    print(f"x_dtype: {debug_metrics['x_dtype']}")
+    print(f"x_range: [{debug_metrics['x_min']}, {debug_metrics['x_max']}]")
+    print(f"y_range: [{debug_metrics['y_min']}, {debug_metrics['y_max']}]")
+    print("")
+
+    return debug_metrics
+
+
 def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, Any]:
     if not isinstance(cfg, DictConfig):
         cfg = OmegaConf.create(dict(cfg))
@@ -165,7 +221,24 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print(f"batch_size: {int(cfg.batch_size)}")
     print(f"train_epochs: {int(cfg.train_epochs)}")
     print(f"alignment_iterations: {int(cfg.alignment_iterations)}")
+    print(f"debug_one_batch: {bool(cfg.debug_one_batch)}")
     print("")
+
+    if bool(cfg.debug_one_batch):
+        debug_metrics = run_one_batch_debug(
+            VGG=VGG,
+            dataset_train=dataset_train,
+            device=device,
+            cfg=cfg,
+        )
+        save_json(debug_metrics, output_root / "one_batch_debug.json", indent=2)
+        print(f"One-batch debug summary: {output_root / 'one_batch_debug.json'}")
+        return {
+            "experiment_name": str(cfg.experiment_name),
+            "output_root": str(output_root),
+            "debug_metrics": debug_metrics,
+            "config": OmegaConf.to_container(cfg, resolve=True),
+        }
 
     modelA = VGG("VGG16", in_channels=1, out_features=10, h_in=int(cfg.image_size), w_in=int(cfg.image_size))
     print("Training network A")

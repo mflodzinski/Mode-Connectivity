@@ -42,6 +42,7 @@ ALIGNMENT_ITERATIONS="${ALIGNMENT_ITERATIONS:-20}"
 ALIGNMENT_LR="${ALIGNMENT_LR:-0.1}"
 BATCH_SIZE="${BATCH_SIZE:-1000}"
 NUM_EVAL_POINTS="${NUM_EVAL_POINTS:-50}"
+DEBUG_ONE_BATCH="${DEBUG_ONE_BATCH:-false}"
 
 echo "========================================"
 echo "Original Sinkhorn VGG16 MNIST LMC"
@@ -53,6 +54,7 @@ echo "TRAIN_LR: ${TRAIN_LR}"
 echo "ALIGNMENT_ITERATIONS: ${ALIGNMENT_ITERATIONS}"
 echo "ALIGNMENT_LR: ${ALIGNMENT_LR}"
 echo "BATCH_SIZE: ${BATCH_SIZE}"
+echo "DEBUG_ONE_BATCH: ${DEBUG_ONE_BATCH}"
 echo "GPU: ${CUDA_VISIBLE_DEVICES:-auto}"
 echo "dot: $(command -v dot || echo missing)"
 echo "EXTRA_PYTHONPATH: ${EXTRA_PYTHONPATH}"
@@ -66,6 +68,7 @@ srun python scripts/analysis/run_external_sinkhorn_original_small_mnist_lmc.py \
     alignment_lr="${ALIGNMENT_LR}" \
     batch_size="${BATCH_SIZE}" \
     num_eval_points="${NUM_EVAL_POINTS}" \
+    debug_one_batch="${DEBUG_ONE_BATCH}" \
     num_workers="${SLURM_CPUS_PER_TASK}" \
     device=cuda
 
