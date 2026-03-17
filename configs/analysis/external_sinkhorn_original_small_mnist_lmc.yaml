@@ -1,0 +1,23 @@
+defaults: []
+
+experiment_name: "external_sinkhorn_original_vgg16_mnist_lmc"
+output_root: "results/vgg16/mnist/original_sinkhorn_lmc"
+
+data_path: "./data"
+seed: 0
+split_seed: 1
+num_workers: 0
+
+train_fraction: 0.8
+val_fraction: 0.1
+test_fraction: 0.1
+batch_size: 128
+train_epochs: 50
+train_lr: 0.001
+image_size: 32
+
+alignment_iterations: 20
+alignment_lr: 0.1
+num_eval_points: 50
+
+device: "auto"

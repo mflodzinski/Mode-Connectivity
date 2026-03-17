@@ -223,7 +223,7 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
             "Expected one of 'midpoint', 'random', 'dist_l1', 'dist_l2', 'dist_cosine'."
         )
 
-    optimizer = torch.optim.AdamW(rebasin_net.p.parameters(), lr=float(cfg.lr))
+    optimizer = torch.optim.Adam(rebasin_net.p.parameters(), lr=float(cfg.lr))
     calibration_loader = build_calibration_loader(
         dataset=dataset,
         data_path=data_path,
