@@ -40,11 +40,11 @@ def import_original_mnist_components():
             sys.path.insert(0, path)
 
     VGG, RebasinNet, matching = import_external_sinkhorn()
-    from datasets.classification import MNistDataset, SmallMNistDataset
+    from datasets.classification import MNistDataset
     from rebasin.loss import RndLoss
     from utils import eval_loss_acc, lerp, train
 
-    return VGG, RebasinNet, matching, MNistDataset, SmallMNistDataset, RndLoss, train, eval_loss_acc, lerp
+    return VGG, RebasinNet, matching, MNistDataset, RndLoss, train, eval_loss_acc, lerp
 
 
 def save_model_checkpoint(path: Path, model: torch.nn.Module, metadata: dict[str, Any]) -> None:
@@ -70,7 +70,6 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
         RebasinNet,
         matching,
         MNistDataset,
-        SmallMNistDataset,
         RndLoss,
         train,
         eval_loss_acc,
@@ -78,16 +77,11 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     ) = import_original_mnist_components()
 
     transform = transforms.Resize((int(cfg.image_size), int(cfg.image_size)))
-    dataset = SmallMNistDataset(
+    dataset = MNistDataset(
         root=to_absolute_path(str(cfg.data_path)),
         download=True,
         train=True,
         transform=transform,
-    )
-    training, validation = torch.utils.data.random_split(
-        dataset,
-        [int(cfg.training_size), int(cfg.validation_size)],
-        generator=torch.Generator().manual_seed(int(cfg.split_seed)),
     )
     test = MNistDataset(
         root=to_absolute_path(str(cfg.data_path)),
@@ -97,13 +91,13 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     )
 
     dataset_train = torch.utils.data.DataLoader(
-        training,
+        dataset,
         batch_size=int(cfg.batch_size),
         shuffle=True,
         num_workers=int(cfg.num_workers),
     )
     dataset_val = torch.utils.data.DataLoader(
-        validation,
+        dataset,
         batch_size=int(cfg.batch_size),
         shuffle=False,
         num_workers=int(cfg.num_workers),
