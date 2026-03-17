@@ -65,10 +65,25 @@ def import_original_components():
 
     VGG, RebasinNet, matching = import_external_sinkhorn()
     from datasets.classification import MNistDataset, SmallMNistDataset
-    from rebasin.loss import MidLoss, RndLoss
+    from rebasin.loss import DistL1Loss, DistL2Loss, MidLoss, RndLoss
+    from rebasin.loss.loss import DistCosineLoss
     from utils import eval_loss_acc, lerp, train
 
-    return VGG, RebasinNet, matching, MNistDataset, SmallMNistDataset, MidLoss, RndLoss, train, eval_loss_acc, lerp
+    return (
+        VGG,
+        RebasinNet,
+        matching,
+        MNistDataset,
+        SmallMNistDataset,
+        MidLoss,
+        RndLoss,
+        DistL1Loss,
+        DistL2Loss,
+        DistCosineLoss,
+        train,
+        eval_loss_acc,
+        lerp,
+    )
 
 
 def build_mnist_loaders(
@@ -142,7 +157,7 @@ def train_one_model(
         h_in=int(cfg.image_size),
         w_in=int(cfg.image_size),
     )
-    optimizer = torch.optim.Adam(model.parameters(), lr=float(cfg.train_lr))
+    optimizer = torch.optim.AdamW(model.parameters(), lr=float(cfg.train_lr))
     criterion = torch.nn.CrossEntropyLoss()
     model = train_fn(
         model,
@@ -259,6 +274,9 @@ def train_endpoints(cfg: DictConfig):
         SmallMNistDataset,
         _MidLoss,
         _RndLoss,
+        _DistL1Loss,
+        _DistL2Loss,
+        _DistCosineLoss,
         train_fn,
         eval_loss_acc,
         _lerp,
@@ -347,6 +365,9 @@ def run_alignment_from_models(
         _SmallMNistDataset,
         MidLoss,
         RndLoss,
+        DistL1Loss,
+        DistL2Loss,
+        DistCosineLoss,
         _train_fn,
         _eval_loss_acc,
         _lerp,
@@ -363,42 +384,69 @@ def run_alignment_from_models(
         tau=float(cfg.tau),
         n_iter=int(cfg.sinkhorn_iters),
     )
-    rebasin_net.to(runtime_device)
+    rebasin_net.to(device)
     if bool(cfg.identity_init):
         rebasin_net.identity_init()
 
     loss_name = str(cfg.loss_name).lower()
     if loss_name == "random":
         criterion = RndLoss(model_b, criterion=torch.nn.CrossEntropyLoss())
+        requires_data = True
     elif loss_name == "midpoint":
         criterion = MidLoss(model_b, criterion=torch.nn.CrossEntropyLoss())
+        requires_data = True
+    elif loss_name == "dist_l2":
+        criterion = DistL2Loss(model_b)
+        requires_data = False
+    elif loss_name == "dist_l1":
+        criterion = DistL1Loss(model_b)
+        requires_data = False
+    elif loss_name == "dist_cosine":
+        criterion = DistCosineLoss(model_b)
+        requires_data = False
     else:
-        raise ValueError(f"Unsupported loss_name={cfg.loss_name!r}. Expected 'random' or 'midpoint'.")
+        raise ValueError(
+            f"Unsupported loss_name={cfg.loss_name!r}. "
+            "Expected 'random', 'midpoint', 'dist_l1', 'dist_l2', or 'dist_cosine'."
+        )
 
-    optimizer = torch.optim.Adam(rebasin_net.p.parameters(), lr=float(cfg.alignment_lr))
+    optimizer = torch.optim.AdamW(rebasin_net.p.parameters(), lr=float(cfg.alignment_lr))
     history: list[dict[str, float | int]] = []
     for epoch in range(1, int(cfg.alignment_epochs) + 1):
         rebasin_net.train()
-        cumulative_train_loss = 0.0
-        total_train = 0
-        for inputs, targets in train_loader:
+        if requires_data:
+            cumulative_train_loss = 0.0
+            total_train = 0
+            for inputs, targets in train_loader:
+                rebased_model = rebasin_net()
+                loss = criterion(rebased_model, inputs.to(device), targets.to(device))
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                cumulative_train_loss += loss.item() * inputs.shape[0]
+                total_train += inputs.shape[0]
+
+            train_loss = cumulative_train_loss / total_train
+        else:
             rebased_model = rebasin_net()
-            loss = criterion(rebased_model, inputs.to(runtime_device), targets.to(runtime_device))
+            loss = criterion(rebased_model)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            train_loss = float(loss.item())
 
-            cumulative_train_loss += loss.item() * inputs.shape[0]
-            total_train += inputs.shape[0]
-
-        train_loss = cumulative_train_loss / total_train
         rebasin_net.eval()
-        hard_loss = evaluate_alignment_objective(
-            rebasin_net,
-            criterion,
-            val_loader,
-            device=runtime_device,
-        )
+        if requires_data:
+            hard_loss = evaluate_alignment_objective(
+                rebasin_net,
+                criterion,
+                val_loader,
+                device=device,
+            )
+        else:
+            with torch.no_grad():
+                hard_loss = float(criterion(rebasin_net()).item())
         history.append({"epoch": epoch, "train_loss": float(train_loss), "hard_loss": float(hard_loss)})
 
         should_log = epoch == 1 or epoch == int(cfg.alignment_epochs) or (

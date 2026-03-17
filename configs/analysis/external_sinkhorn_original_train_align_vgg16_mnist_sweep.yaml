@@ -14,10 +14,10 @@ model_a_seed: 0
 model_b_seed: 1
 alignment_seed: 0
 
-train_batch_size: 256
-eval_batch_size: 256
+train_batch_size: 1000
+eval_batch_size: 1000
 train_epochs: 50
-train_lr: 0.01
+train_lr: 0.1
 
 num_eval_points: 25
 plot_filename: "comparison.png"
