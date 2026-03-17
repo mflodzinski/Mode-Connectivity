@@ -292,13 +292,13 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
     )
 
     save_checkpoint_with_state_dict(
-        model_b_checkpoint,
+        model_a_checkpoint,
         soft_checkpoint_path,
         soft_state_native,
         metadata={"method": "original_external_sinkhorn_lmc", "artifact_path": artifact_path},
     )
     save_checkpoint_with_state_dict(
-        model_b_checkpoint,
+        model_a_checkpoint,
         hard_checkpoint_path,
         hard_state_native,
         metadata={"method": "original_external_sinkhorn_lmc", "artifact_path": artifact_path},
@@ -311,20 +311,31 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
         batch_size=int(cfg.evaluation_batch_size),
         num_workers=int(cfg.num_workers),
     )
-    endpoint_a = evaluate_endpoint_metrics(state_a_native, loaders, device=runtime_device, max_eval_batches=None)
+    max_eval_batches = cfg.get("max_eval_batches", None)
     variants = {
-        "no_alignment": state_b_native,
-        "original_sinkhorn_soft": soft_state_native,
-        "original_sinkhorn_hard": hard_state_native,
+        "no_alignment": {
+            "state_a": state_a_native,
+            "state_b": state_b_native,
+        },
+        "original_sinkhorn_soft": {
+            "state_a": soft_state_native,
+            "state_b": state_b_native,
+        },
+        "original_sinkhorn_hard": {
+            "state_a": hard_state_native,
+            "state_b": state_b_native,
+        },
     }
 
     evaluation_dir = ensure_dir(output_root / "evaluation")
     variant_rows = []
     variant_results = {}
-    for variant_key, variant_state in variants.items():
+    for variant_key, variant_pair in variants.items():
+        variant_state_a = variant_pair["state_a"]
+        variant_state_b = variant_pair["state_b"]
         interpolation = evaluate_linear_interpolation(
-            state_a_native,
-            variant_state,
+            variant_state_a,
+            variant_state_b,
             loaders,
             num_points=int(cfg.num_eval_points),
             device=runtime_device,
@@ -333,7 +344,18 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
         save_interpolation_results(str(Path(variant_dir) / "interpolation.npz"), interpolation)
         variant_results[variant_key] = interpolation
 
-        endpoint_b = evaluate_endpoint_metrics(variant_state, loaders, device=runtime_device, max_eval_batches=None)
+        endpoint_a = evaluate_endpoint_metrics(
+            variant_state_a,
+            loaders,
+            device=runtime_device,
+            max_eval_batches=max_eval_batches,
+        )
+        endpoint_b = evaluate_endpoint_metrics(
+            variant_state_b,
+            loaders,
+            device=runtime_device,
+            max_eval_batches=max_eval_batches,
+        )
         barriers = compute_barrier_metrics(interpolation)
         variant_rows.append(
             {
