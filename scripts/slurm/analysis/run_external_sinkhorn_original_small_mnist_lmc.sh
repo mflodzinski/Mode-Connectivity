@@ -6,9 +6,9 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=8GB
 #SBATCH --mail-type=END,FAIL
-#SBATCH --output=slurm_external_sinkhorn_orig_small_mnist_lmc_%j.out
-#SBATCH --error=slurm_external_sinkhorn_orig_small_mnist_lmc_%j.err
-#SBATCH --job-name=ext_sh_small
+#SBATCH --output=slurm_external_sinkhorn_orig_vgg16_mnist_lmc_%j.out
+#SBATCH --error=slurm_external_sinkhorn_orig_vgg16_mnist_lmc_%j.err
+#SBATCH --job-name=ext_sh_vgg16
 #SBATCH --gres=gpu:a40:1
 
 set -euo pipefail
@@ -35,7 +35,7 @@ if command -v module >/dev/null 2>&1; then
     module load graphviz >/dev/null 2>&1 || true
 fi
 
-OUTPUT_ROOT="${OUTPUT_ROOT:-results/vgg_small/mnist/original_sinkhorn_lmc}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-results/vgg16/mnist/original_sinkhorn_lmc}"
 TRAIN_EPOCHS="${TRAIN_EPOCHS:-50}"
 TRAIN_LR="${TRAIN_LR:-0.01}"
 ALIGNMENT_ITERATIONS="${ALIGNMENT_ITERATIONS:-20}"
@@ -44,7 +44,7 @@ BATCH_SIZE="${BATCH_SIZE:-1000}"
 NUM_EVAL_POINTS="${NUM_EVAL_POINTS:-50}"
 
 echo "========================================"
-echo "Original Sinkhorn Small MNIST LMC"
+echo "Original Sinkhorn VGG16 MNIST LMC"
 echo "========================================"
 echo "PROJECT_ROOT: ${PROJECT_ROOT}"
 echo "OUTPUT_ROOT: ${OUTPUT_ROOT}"
@@ -71,6 +71,6 @@ srun python scripts/analysis/run_external_sinkhorn_original_small_mnist_lmc.py \
 
 echo ""
 echo "========================================"
-echo "ORIGINAL SINKHORN SMALL MNIST LMC COMPLETE"
+echo "ORIGINAL SINKHORN VGG16 MNIST LMC COMPLETE"
 echo "========================================"
 echo "Artifacts written under: ${OUTPUT_ROOT}"

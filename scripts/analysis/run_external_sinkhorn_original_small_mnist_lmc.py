@@ -1,4 +1,4 @@
-"""Run the upstream sinkhorn-rebasin Small-MNIST LMC workflow with saved artifacts."""
+"""Run the upstream sinkhorn-rebasin VGG16-MNIST LMC workflow with saved artifacts."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ sys.path.insert(0, str(project_root / "scripts"))
 import hydra
 import matplotlib
 import torch
+import torchvision.transforms as transforms
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, OmegaConf
 from tqdm import tqdm
@@ -31,7 +32,7 @@ from scripts.lib.alignment.permutation_pipeline import resolve_device
 from scripts.lib.core.output import ensure_dir, save_json
 
 
-def import_original_small_mnist_components():
+def import_original_mnist_components():
     sinkhorn_root = project_root / "external" / "sinkhorn-rebasin"
     examples_root = sinkhorn_root / "examples"
     for path in (str(examples_root), str(sinkhorn_root)):
@@ -74,15 +75,26 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
         train,
         eval_loss_acc,
         lerp,
-    ) = import_original_small_mnist_components()
+    ) = import_original_mnist_components()
 
-    dataset = SmallMNistDataset(root=to_absolute_path(str(cfg.data_path)), download=True, train=True)
+    transform = transforms.Resize((int(cfg.image_size), int(cfg.image_size)))
+    dataset = SmallMNistDataset(
+        root=to_absolute_path(str(cfg.data_path)),
+        download=True,
+        train=True,
+        transform=transform,
+    )
     training, validation = torch.utils.data.random_split(
         dataset,
         [int(cfg.training_size), int(cfg.validation_size)],
         generator=torch.Generator().manual_seed(int(cfg.split_seed)),
     )
-    test = MNistDataset(root=to_absolute_path(str(cfg.data_path)), download=True, train=False)
+    test = MNistDataset(
+        root=to_absolute_path(str(cfg.data_path)),
+        download=True,
+        train=False,
+        transform=transform,
+    )
 
     dataset_train = torch.utils.data.DataLoader(
         training,
@@ -104,7 +116,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     )
 
     print("=" * 80)
-    print("ORIGINAL SINKHORN SMALL MNIST LMC")
+    print("ORIGINAL SINKHORN VGG16 MNIST LMC")
     print("=" * 80)
     print(f"output_root: {output_root}")
     print(f"device: {device}")
@@ -113,7 +125,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print(f"alignment_iterations: {int(cfg.alignment_iterations)}")
     print("")
 
-    modelA = VGG("Small", in_channels=1, out_features=10, h_in=28, w_in=28)
+    modelA = VGG("VGG16", in_channels=1, out_features=10, h_in=int(cfg.image_size), w_in=int(cfg.image_size))
     print("Training network A")
     modelA = train(
         modelA,
@@ -128,7 +140,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print("Model A: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_a, acc_a))
     modelA.eval()
 
-    modelB = VGG("Small", in_channels=1, out_features=10, h_in=28, w_in=28)
+    modelB = VGG("VGG16", in_channels=1, out_features=10, h_in=int(cfg.image_size), w_in=int(cfg.image_size))
     print("\nTraining network B")
     modelB = train(
         modelB,
@@ -143,10 +155,18 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print("Model B: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_b, acc_b))
     modelB.eval()
 
-    save_model_checkpoint(output_root / "model_a.pt", modelA, {"test_loss": float(loss_a), "test_acc": float(acc_a)})
-    save_model_checkpoint(output_root / "model_b.pt", modelB, {"test_loss": float(loss_b), "test_acc": float(acc_b)})
+    save_model_checkpoint(
+        output_root / "model_a.pt",
+        modelA,
+        {"test_loss": float(loss_a), "test_acc": float(acc_a), "architecture": "VGG16"},
+    )
+    save_model_checkpoint(
+        output_root / "model_b.pt",
+        modelB,
+        {"test_loss": float(loss_b), "test_acc": float(acc_b), "architecture": "VGG16"},
+    )
 
-    pi_modelA = RebasinNet(modelA, input_shape=(1, 1, 28, 28))
+    pi_modelA = RebasinNet(modelA, input_shape=(1, 1, int(cfg.image_size), int(cfg.image_size)))
     pi_modelA.to(device)
 
     criterion = RndLoss(modelB, criterion=torch.nn.CrossEntropyLoss())
@@ -208,7 +228,11 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     rebased_model = deepcopy(pi_modelA())
     rebased_model.eval()
 
-    save_model_checkpoint(output_root / "rebased_model.pt", rebased_model, {"method": "original_small_mnist_lmc"})
+    save_model_checkpoint(
+        output_root / "rebased_model.pt",
+        rebased_model,
+        {"method": "original_vgg16_mnist_lmc", "architecture": "VGG16"},
+    )
     raw_permutation_parameters = [parameter.detach().cpu().clone() for parameter in pi_modelA.p if parameter is not None]
     hard_permutation_matrices = [
         matching(parameter.detach().cpu().numpy()).to(torch.float32).cpu()
