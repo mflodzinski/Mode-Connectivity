@@ -31,6 +31,9 @@ from scripts.analysis.run_external_sinkhorn_baseline import import_external_sink
 from scripts.lib.alignment.permutation_pipeline import resolve_device
 from scripts.lib.core.output import ensure_dir, save_json
 
+MNIST_MEAN = 0.1307
+MNIST_STD = 0.3081
+
 
 def import_original_mnist_components():
     sinkhorn_root = project_root / "external" / "sinkhorn-rebasin"
@@ -45,6 +48,23 @@ def import_original_mnist_components():
     from utils import eval_loss_acc, lerp, train
 
     return VGG, RebasinNet, matching, MNistDataset, RndLoss, train, eval_loss_acc, lerp
+
+
+class NormalizedDataset(torch.utils.data.Dataset):
+    """Apply MNIST normalization after the vendored dataset converts to float arrays."""
+
+    def __init__(self, dataset: torch.utils.data.Dataset, *, mean: float, std: float) -> None:
+        self.dataset = dataset
+        self.mean = float(mean)
+        self.std = float(std)
+
+    def __len__(self) -> int:
+        return len(self.dataset)
+
+    def __getitem__(self, index: int):
+        x, y = self.dataset[index]
+        x = (x - self.mean) / self.std
+        return x.astype("float32"), y
 
 
 def save_model_checkpoint(path: Path, model: torch.nn.Module, metadata: dict[str, Any]) -> None:
@@ -77,33 +97,57 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     ) = import_original_mnist_components()
 
     transform = transforms.Resize((int(cfg.image_size), int(cfg.image_size)))
-    dataset = MNistDataset(
+    dataset_train_source = MNistDataset(
         root=to_absolute_path(str(cfg.data_path)),
         download=True,
         train=True,
         transform=transform,
     )
-    test = MNistDataset(
+    dataset_test_source = MNistDataset(
         root=to_absolute_path(str(cfg.data_path)),
         download=True,
         train=False,
         transform=transform,
     )
+    full_dataset = torch.utils.data.ConcatDataset(
+        [
+            NormalizedDataset(dataset_train_source, mean=MNIST_MEAN, std=MNIST_STD),
+            NormalizedDataset(dataset_test_source, mean=MNIST_MEAN, std=MNIST_STD),
+        ]
+    )
+    total_size = len(full_dataset)
+    train_fraction = float(cfg.train_fraction)
+    val_fraction = float(cfg.val_fraction)
+    test_fraction = float(cfg.test_fraction)
+    total_fraction = train_fraction + val_fraction + test_fraction
+    if abs(total_fraction - 1.0) > 1e-8:
+        raise ValueError(
+            f"Split fractions must sum to 1.0, received "
+            f"train={train_fraction}, val={val_fraction}, test={test_fraction}."
+        )
+    train_size = int(total_size * train_fraction)
+    val_size = int(total_size * val_fraction)
+    test_size = total_size - train_size - val_size
+    dataset_train, dataset_val, dataset_test = torch.utils.data.random_split(
+        full_dataset,
+        [train_size, val_size, test_size],
+        generator=torch.Generator().manual_seed(int(cfg.split_seed)),
+    )
 
     dataset_train = torch.utils.data.DataLoader(
-        dataset,
+        dataset_train,
         batch_size=int(cfg.batch_size),
         shuffle=True,
         num_workers=int(cfg.num_workers),
     )
     dataset_val = torch.utils.data.DataLoader(
-        dataset,
+        dataset_val,
         batch_size=int(cfg.batch_size),
         shuffle=False,
         num_workers=int(cfg.num_workers),
     )
     dataset_test = torch.utils.data.DataLoader(
-        test,
+        dataset_test,
         batch_size=int(cfg.batch_size),
         shuffle=False,
         num_workers=int(cfg.num_workers),
@@ -114,6 +158,10 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print("=" * 80)
     print(f"output_root: {output_root}")
     print(f"device: {device}")
+    print(f"image_size: {int(cfg.image_size)}")
+    print(f"transform: {transform}")
+    print(f"dataset_normalization: mean={MNIST_MEAN}, std={MNIST_STD}")
+    print(f"dataset_split_sizes: train={train_size}, val={val_size}, test={test_size}")
     print(f"batch_size: {int(cfg.batch_size)}")
     print(f"train_epochs: {int(cfg.train_epochs)}")
     print(f"alignment_iterations: {int(cfg.alignment_iterations)}")
