@@ -45,9 +45,9 @@ def import_original_mnist_components():
     VGG, RebasinNet, matching = import_external_sinkhorn()
     from datasets.classification import MNistDataset
     from rebasin.loss import RndLoss
-    from utils import eval_loss_acc, lerp, train
+    from utils import eval_loss_acc, lerp
 
-    return VGG, RebasinNet, matching, MNistDataset, RndLoss, train, eval_loss_acc, lerp
+    return VGG, RebasinNet, matching, MNistDataset, RndLoss, eval_loss_acc, lerp
 
 
 class NormalizedDataset(torch.utils.data.Dataset):
@@ -75,6 +75,56 @@ def save_model_checkpoint(path: Path, model: torch.nn.Module, metadata: dict[str
         },
         path,
     )
+
+
+def train_model(
+    model: torch.nn.Module,
+    dataset_train,
+    dataset_val,
+    optimizer: torch.optim.Optimizer,
+    criterion,
+    device: torch.device,
+    epochs: int,
+) -> torch.nn.Module:
+    """Local endpoint training loop mirroring the vendored helper's behavior."""
+
+    model.to(device)
+    for epoch in range(epochs):
+        cumulative_train_loss = 0.0
+        total_train = 0
+        model.train()
+        for x, y in dataset_train:
+            logits = model(x.to(device))
+            loss_training = criterion(logits, y.to(device))
+            optimizer.zero_grad()
+            loss_training.backward()
+            optimizer.step()
+
+            cumulative_train_loss += loss_training.item() * x.shape[0]
+            total_train += x.shape[0]
+
+        cumulative_train_loss /= total_train
+
+        cumulative_val_loss = 0.0
+        total_val = 0
+        model.eval()
+        with torch.no_grad():
+            for x, y in dataset_val:
+                logits = model(x.to(device))
+                loss_validation = criterion(logits, y.to(device))
+                cumulative_val_loss += loss_validation.item() * x.shape[0]
+                total_val += x.shape[0]
+
+        cumulative_val_loss /= total_val
+        print(
+            "Epoch {:02d}: train loss {:1.4f}, val loss {:1.4f}".format(
+                epoch + 1, cumulative_train_loss, cumulative_val_loss
+            )
+        )
+        if cumulative_val_loss == 0:
+            break
+
+    return model
 
 
 def run_one_batch_debug(
@@ -147,7 +197,6 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
         matching,
         MNistDataset,
         RndLoss,
-        train,
         eval_loss_acc,
         lerp,
     ) = import_original_mnist_components()
@@ -242,7 +291,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
 
     modelA = VGG("VGG16", in_channels=1, out_features=10, h_in=int(cfg.image_size), w_in=int(cfg.image_size))
     print("Training network A")
-    modelA = train(
+    modelA = train_model(
         modelA,
         dataset_train,
         dataset_val,
@@ -257,7 +306,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
 
     modelB = VGG("VGG16", in_channels=1, out_features=10, h_in=int(cfg.image_size), w_in=int(cfg.image_size))
     print("\nTraining network B")
-    modelB = train(
+    modelB = train_model(
         modelB,
         dataset_train,
         dataset_val,
