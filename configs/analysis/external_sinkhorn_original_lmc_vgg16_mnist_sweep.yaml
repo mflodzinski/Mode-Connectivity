@@ -13,11 +13,11 @@ num_workers: 4
 
 alignment_batch_size: 1000
 calibration_size: 1000
-evaluation_batch_size: 128
+evaluation_batch_size: 1000
 num_eval_points: 21
 max_eval_batches: null
 
-sinkhorn_iters: 20
+sinkhorn_iters: 10
 identity_init: false
 device: "auto"
 log_interval: 10
@@ -31,14 +31,12 @@ sweep:
     - 70
   loss_name:
     - "dist_l2"
+    - "dist_l1"
   tau:
-    - 1.0
     - 0.5
     - 0.25
   lr:
     - 0.01
   sinkhorn_l:
     - 1.0
-    - 2.0
-    - 3.0
 
