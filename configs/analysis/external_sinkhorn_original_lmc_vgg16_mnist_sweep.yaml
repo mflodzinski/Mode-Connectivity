@@ -11,15 +11,16 @@ data_path: "./data"
 seed: 0
 num_workers: 4
 
-alignment_batch_size: 128
+alignment_batch_size: 1000
 calibration_size: 1000
-evaluation_batch_size: 128
+evaluation_batch_size: 1000
 num_eval_points: 21
+max_eval_batches: null
 
-sinkhorn_iters: 50
+sinkhorn_iters: 10
 identity_init: false
 device: "auto"
-log_interval: 25
+log_interval: 10
 plot_filename: "comparison.png"
 start_index: 0
 end_index: null
@@ -27,15 +28,15 @@ continue_on_error: true
 
 sweep:
   alignment_epochs:
-    - 300
+    - 70
   loss_name:
-    - "random"
+    - "dist_l2"
+    - "dist_l1"
   tau:
     - 0.5
     - 0.25
   lr:
-    - 0.05
-    - 0.005
+    - 0.01
   sinkhorn_l:
     - 1.0
-    - 2.0
+

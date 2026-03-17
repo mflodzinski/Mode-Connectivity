@@ -70,13 +70,20 @@ VARIANT_STYLES = {
 }
 
 
+def format_loss_value(value: float) -> str:
+    """Render small losses with enough precision to avoid misleading zeros."""
+
+    return f"{value:.6f}" if abs(value) >= 1e-4 else f"{value:.6e}"
+
+
 def import_original_lmc_components():
     """Import the vendored RebasinNet API used in the original examples."""
 
     _, RebasinNet, matching = import_external_sinkhorn()
-    from rebasin.loss import MidLoss, RndLoss
+    from rebasin.loss import MidLoss, RndLoss, DistL1Loss, DistL2Loss
+    from rebasin.loss.loss import DistCosineLoss
 
-    return RebasinNet, matching, MidLoss, RndLoss
+    return RebasinNet, matching, MidLoss, RndLoss, DistL1Loss, DistL2Loss, DistCosineLoss
 
 
 def snapshot_rebasin_states(rebasin_net) -> tuple[OrderedDict[str, torch.Tensor], OrderedDict[str, torch.Tensor]]:
@@ -102,8 +109,14 @@ def evaluate_epoch_objective(
     loader,
     *,
     device: torch.device,
+    requires_data: bool,
 ) -> float:
     """Evaluate the original LMC loss over one loader pass."""
+
+    if not requires_data:
+        with torch.no_grad():
+            rebased_model = rebasin_net()
+            return float(criterion(rebased_model).item())
 
     total_loss = 0.0
     total_examples = 0
@@ -176,7 +189,7 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
     model_b_external = build_external_vgg(state_b_native, device=runtime_device)
     translation_checks = validate_state_translation(state_a_native, model_a_external, device=runtime_device)
 
-    RebasinNet, matching, MidLoss, RndLoss = import_original_lmc_components()
+    RebasinNet, matching, MidLoss, RndLoss, DistL1Loss, DistL2Loss, DistCosineLoss = import_original_lmc_components()
     rebasin_net = RebasinNet(
         model_a_external,
         input_shape=(1, 3, 32, 32),
@@ -191,10 +204,24 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
     loss_name = str(cfg.loss_name).lower()
     if loss_name == "midpoint":
         criterion = MidLoss(model_b_external, criterion=torch.nn.CrossEntropyLoss())
+        requires_data = True
     elif loss_name == "random":
         criterion = RndLoss(model_b_external, criterion=torch.nn.CrossEntropyLoss())
+        requires_data = True
+    elif loss_name == "dist_l2":
+        criterion = DistL2Loss(model_b_external)
+        requires_data = False
+    elif loss_name == "dist_l1":
+        criterion = DistL1Loss(model_b_external)
+        requires_data = False
+    elif loss_name == "dist_cosine":
+        criterion = DistCosineLoss(model_b_external)
+        requires_data = False
     else:
-        raise ValueError(f"Unsupported loss_name={cfg.loss_name!r}. Expected 'midpoint' or 'random'.")
+        raise ValueError(
+            f"Unsupported loss_name={cfg.loss_name!r}. "
+            "Expected one of 'midpoint', 'random', 'dist_l1', 'dist_l2', 'dist_cosine'."
+        )
 
     optimizer = torch.optim.AdamW(rebasin_net.p.parameters(), lr=float(cfg.lr))
     calibration_loader = build_calibration_loader(
@@ -221,24 +248,32 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
     history: list[Dict[str, float | int]] = []
     for epoch in range(1, int(cfg.alignment_epochs) + 1):
         rebasin_net.train()
-        cumulative_train_loss = 0.0
-        total_examples = 0
-        for inputs, targets in calibration_loader:
-            inputs = inputs.to(runtime_device)
-            targets = targets.to(runtime_device)
-            rebased_model = rebasin_net()
-            loss = criterion(rebased_model, inputs, targets)
+        if requires_data:
+            cumulative_train_loss = 0.0
+            total_examples = 0
+            for inputs, targets in calibration_loader:
+                inputs = inputs.to(runtime_device)
+                targets = targets.to(runtime_device)
+                rebased_model = rebasin_net()
+                loss = criterion(rebased_model, inputs, targets)
 
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                cumulative_train_loss += loss.item() * targets.size(0)
+                total_examples += targets.size(0)
+
+            if total_examples == 0:
+                raise ValueError("Calibration loader produced zero examples.")
+            train_loss = cumulative_train_loss / total_examples
+        else:
+            rebased_model = rebasin_net()
+            loss = criterion(rebased_model)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
-            cumulative_train_loss += loss.item() * targets.size(0)
-            total_examples += targets.size(0)
-
-        if total_examples == 0:
-            raise ValueError("Calibration loader produced zero examples.")
-        train_loss = cumulative_train_loss / total_examples
+            train_loss = float(loss.item())
 
         rebasin_net.eval()
         hard_loss = evaluate_epoch_objective(
@@ -246,6 +281,7 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
             criterion,
             calibration_loader,
             device=runtime_device,
+            requires_data=requires_data,
         )
 
         epoch_metrics = {
@@ -261,8 +297,8 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
         if should_log:
             print(
                 f"[original_sinkhorn_lmc] epoch={epoch:03d} "
-                f"train_loss={train_loss:.4f} "
-                f"hard_loss={hard_loss:.4f}"
+                f"train_loss={format_loss_value(train_loss)} "
+                f"hard_loss={format_loss_value(hard_loss)}"
             )
 
     soft_state_external, hard_state_external = snapshot_rebasin_states(rebasin_net)
@@ -292,13 +328,13 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
     )
 
     save_checkpoint_with_state_dict(
-        model_b_checkpoint,
+        model_a_checkpoint,
         soft_checkpoint_path,
         soft_state_native,
         metadata={"method": "original_external_sinkhorn_lmc", "artifact_path": artifact_path},
     )
     save_checkpoint_with_state_dict(
-        model_b_checkpoint,
+        model_a_checkpoint,
         hard_checkpoint_path,
         hard_state_native,
         metadata={"method": "original_external_sinkhorn_lmc", "artifact_path": artifact_path},
@@ -311,20 +347,31 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
         batch_size=int(cfg.evaluation_batch_size),
         num_workers=int(cfg.num_workers),
     )
-    endpoint_a = evaluate_endpoint_metrics(state_a_native, loaders, device=runtime_device, max_eval_batches=None)
+    max_eval_batches = cfg.get("max_eval_batches", None)
     variants = {
-        "no_alignment": state_b_native,
-        "original_sinkhorn_soft": soft_state_native,
-        "original_sinkhorn_hard": hard_state_native,
+        "no_alignment": {
+            "state_a": state_a_native,
+            "state_b": state_b_native,
+        },
+        "original_sinkhorn_soft": {
+            "state_a": soft_state_native,
+            "state_b": state_b_native,
+        },
+        "original_sinkhorn_hard": {
+            "state_a": hard_state_native,
+            "state_b": state_b_native,
+        },
     }
 
     evaluation_dir = ensure_dir(output_root / "evaluation")
     variant_rows = []
     variant_results = {}
-    for variant_key, variant_state in variants.items():
+    for variant_key, variant_pair in variants.items():
+        variant_state_a = variant_pair["state_a"]
+        variant_state_b = variant_pair["state_b"]
         interpolation = evaluate_linear_interpolation(
-            state_a_native,
-            variant_state,
+            variant_state_a,
+            variant_state_b,
             loaders,
             num_points=int(cfg.num_eval_points),
             device=runtime_device,
@@ -333,7 +380,18 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
         save_interpolation_results(str(Path(variant_dir) / "interpolation.npz"), interpolation)
         variant_results[variant_key] = interpolation
 
-        endpoint_b = evaluate_endpoint_metrics(variant_state, loaders, device=runtime_device, max_eval_batches=None)
+        endpoint_a = evaluate_endpoint_metrics(
+            variant_state_a,
+            loaders,
+            device=runtime_device,
+            max_eval_batches=max_eval_batches,
+        )
+        endpoint_b = evaluate_endpoint_metrics(
+            variant_state_b,
+            loaders,
+            device=runtime_device,
+            max_eval_batches=max_eval_batches,
+        )
         barriers = compute_barrier_metrics(interpolation)
         variant_rows.append(
             {
