@@ -74,7 +74,7 @@ def import_original_lmc_components():
     """Import the vendored RebasinNet API used in the original examples."""
 
     _, RebasinNet, matching = import_external_sinkhorn()
-    from rebasin.loss import DistCosineLoss, DistL1Loss, DistL2Loss, MidLoss, RndLoss
+    from rebasin.loss import MidLoss, RndLoss, DistL1Loss, DistL2Loss, DistCosineLoss
 
     return RebasinNet, matching, MidLoss, RndLoss, DistL1Loss, DistL2Loss, DistCosineLoss
 
