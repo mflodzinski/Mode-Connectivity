@@ -70,6 +70,12 @@ VARIANT_STYLES = {
 }
 
 
+def format_loss_value(value: float) -> str:
+    """Render small losses with enough precision to avoid misleading zeros."""
+
+    return f"{value:.6f}" if abs(value) >= 1e-4 else f"{value:.6e}"
+
+
 def import_original_lmc_components():
     """Import the vendored RebasinNet API used in the original examples."""
 
@@ -291,8 +297,8 @@ def run_original_sinkhorn_lmc_vgg16_mnist(cfg: DictConfig | Mapping[str, Any]) -
         if should_log:
             print(
                 f"[original_sinkhorn_lmc] epoch={epoch:03d} "
-                f"train_loss={train_loss:.4f} "
-                f"hard_loss={hard_loss:.4f}"
+                f"train_loss={format_loss_value(train_loss)} "
+                f"hard_loss={format_loss_value(hard_loss)}"
             )
 
     soft_state_external, hard_state_external = snapshot_rebasin_states(rebasin_net)
