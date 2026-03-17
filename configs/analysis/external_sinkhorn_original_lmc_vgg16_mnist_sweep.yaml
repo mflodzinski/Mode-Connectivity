@@ -30,7 +30,7 @@ sweep:
   alignment_epochs:
     - 70
   loss_name:
-    - "random"
+    - "dist_l2"
   tau:
     - 1.0
     - 0.5
