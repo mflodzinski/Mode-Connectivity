@@ -27,13 +27,15 @@ continue_on_error: true
 
 sweep:
   alignment_iterations:
-    - 70
+    - 50
   loss_name:
     - "dist_l2"
   tau:
     - 1.0
     - 0.5
+    - 0.25
   lr:
-    - 0.01
+    - 0.1
   sinkhorn_l:
     - 1.0
+    - 2.0
