@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import importlib.util
 from copy import deepcopy
 from pathlib import Path
 from time import time
@@ -40,7 +41,13 @@ def import_original_mnist_components():
             sys.path.insert(0, path)
 
     _, RebasinNet, matching = import_external_sinkhorn()
-    from models.vgg import VGG
+    sinkhorn_vgg_path = examples_root / "models" / "vgg.py"
+    spec = importlib.util.spec_from_file_location("_sinkhorn_rebasin_examples_vgg", sinkhorn_vgg_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load sinkhorn-rebasin VGG definition from {sinkhorn_vgg_path}.")
+    vgg_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vgg_module)
+    VGG = vgg_module.VGG
     import data as dnn_data
     from rebasin.loss import RndLoss
     from utils import eval_loss_acc, lerp
