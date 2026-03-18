@@ -35,6 +35,7 @@ if command -v module >/dev/null 2>&1; then
     module load graphviz >/dev/null 2>&1 || true
 fi
 
+VGG_NAME="${VGG_NAME:-VGG16}"
 MODEL_A_CHECKPOINT="${MODEL_A_CHECKPOINT:-results/vgg16/mnist/original_sinkhorn_lmc/model_a.pt}"
 MODEL_B_CHECKPOINT="${MODEL_B_CHECKPOINT:-results/vgg16/mnist/original_sinkhorn_lmc/model_b.pt}"
 BASE_OUTPUT_ROOT="${BASE_OUTPUT_ROOT:-results/vgg16/mnist/original_sinkhorn_lmc_align_sweep}"
@@ -43,9 +44,10 @@ END_INDEX="${END_INDEX:-null}"
 CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-true}"
 
 echo "========================================"
-echo "Original Sinkhorn VGG16 MNIST Align Sweep"
+echo "Original Sinkhorn ${VGG_NAME} MNIST Align Sweep"
 echo "========================================"
 echo "PROJECT_ROOT: ${PROJECT_ROOT}"
+echo "VGG_NAME: ${VGG_NAME}"
 echo "MODEL_A_CHECKPOINT: ${MODEL_A_CHECKPOINT}"
 echo "MODEL_B_CHECKPOINT: ${MODEL_B_CHECKPOINT}"
 echo "BASE_OUTPUT_ROOT: ${BASE_OUTPUT_ROOT}"
@@ -58,6 +60,7 @@ echo "EXTRA_PYTHONPATH: ${EXTRA_PYTHONPATH}"
 echo ""
 
 srun python scripts/analysis/run_external_sinkhorn_original_vgg16_mnist_align_sweep_all.py \
+    vgg_name="${VGG_NAME}" \
     model_a_checkpoint="${MODEL_A_CHECKPOINT}" \
     model_b_checkpoint="${MODEL_B_CHECKPOINT}" \
     base_output_root="${BASE_OUTPUT_ROOT}" \
@@ -69,6 +72,6 @@ srun python scripts/analysis/run_external_sinkhorn_original_vgg16_mnist_align_sw
 
 echo ""
 echo "========================================"
-echo "ORIGINAL SINKHORN VGG16 MNIST ALIGN SWEEP COMPLETE"
+echo "ORIGINAL SINKHORN ${VGG_NAME} MNIST ALIGN SWEEP COMPLETE"
 echo "========================================"
 echo "Results written under: ${BASE_OUTPUT_ROOT}"

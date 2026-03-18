@@ -1,4 +1,4 @@
-"""Sweep original sinkhorn re-basin alignment params for saved VGG16 MNIST endpoints."""
+"""Sweep original sinkhorn re-basin alignment params for saved sinkhorn-VGG MNIST endpoints."""
 
 from __future__ import annotations
 
@@ -162,17 +162,18 @@ def run_one_alignment(
     test_loader,
 ) -> dict[str, Any]:
     output_root = ensure_dir(Path(cfg.output_root))
+    vgg_name = str(cfg.vgg_name)
     model_a = load_model_from_checkpoint(
         Path(cfg.model_a_checkpoint),
         VGGClass,
-        vgg_name="VGG16",
+        vgg_name=vgg_name,
         image_size=int(cfg.image_size),
         device=device,
     )
     model_b = load_model_from_checkpoint(
         Path(cfg.model_b_checkpoint),
         VGGClass,
-        vgg_name="VGG16",
+        vgg_name=vgg_name,
         image_size=int(cfg.image_size),
         device=device,
     )
@@ -197,7 +198,7 @@ def run_one_alignment(
 
     print("")
     print("=" * 80)
-    print("ORIGINAL SINKHORN VGG16 MNIST ALIGNMENT")
+    print(f"ORIGINAL SINKHORN {vgg_name} MNIST ALIGNMENT")
     print("=" * 80)
     print(f"experiment_name: {cfg.experiment_name}")
     print(f"model_a_checkpoint: {cfg.model_a_checkpoint}")
@@ -472,7 +473,7 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
     }
 
     print("=" * 80)
-    print("ORIGINAL SINKHORN VGG16 MNIST ALIGNMENT SWEEP")
+    print(f"ORIGINAL SINKHORN {cfg.vgg_name} MNIST ALIGNMENT SWEEP")
     print("=" * 80)
     print(f"total configured runs: {total_runs}")
     print(f"selected range: {start_index}..{end_index}")
@@ -488,6 +489,7 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
         run_cfg = OmegaConf.create(
             {
                 "experiment_name": f"{cfg.experiment_name}_{output_tag}",
+                "vgg_name": str(cfg.vgg_name),
                 "model_a_checkpoint": to_absolute_path(str(cfg.model_a_checkpoint)),
                 "model_b_checkpoint": to_absolute_path(str(cfg.model_b_checkpoint)),
                 "output_root": output_root,

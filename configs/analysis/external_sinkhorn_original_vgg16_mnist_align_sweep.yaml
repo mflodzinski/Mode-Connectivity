@@ -1,10 +1,11 @@
 defaults: []
 
 experiment_name: "external_sinkhorn_original_vgg16_mnist_align_sweep"
+vgg_name: "VGG11"
 
-model_a_checkpoint: "results/vgg16/mnist/original_sinkhorn_lmc/model_a.pt"
-model_b_checkpoint: "results/vgg16/mnist/original_sinkhorn_lmc/model_b.pt"
-base_output_root: "results/vgg16/mnist/original_sinkhorn_lmc_align_sweep"
+model_a_checkpoint: "results/vgg11/mnist/original_sinkhorn_lmc/model_a.pt"
+model_b_checkpoint: "results/vgg11/mnist/original_sinkhorn_lmc/model_b.pt"
+base_output_root: "results/vgg11/mnist/original_sinkhorn_lmc_align_sweep"
 
 data_path: "./data"
 seed: 0
@@ -26,18 +27,15 @@ continue_on_error: true
 
 sweep:
   alignment_iterations:
-    - 20
+    - 70
   loss_name:
-    - "dist_l2"
     - "random"
   tau:
     - 1.0
     - 0.5
     - 0.25
   lr:
-    - 0.01
     - 0.1
-    - 0.001
   sinkhorn_l:
     - 1.0
     - 2.0
