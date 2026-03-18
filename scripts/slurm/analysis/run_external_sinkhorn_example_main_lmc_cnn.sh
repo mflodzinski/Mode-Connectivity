@@ -16,13 +16,14 @@ set -euo pipefail
 source "$HOME/venvs/mode-connectivity/bin/activate" || . "$HOME/venvs/mode-connectivity/bin/activate"
 
 PROJECT_ROOT="/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity"
+SINKHORN_ROOT="${PROJECT_ROOT}/external/sinkhorn-rebasin"
 EXAMPLE_ROOT="${PROJECT_ROOT}/external/sinkhorn-rebasin/examples"
 cd "${EXAMPLE_ROOT}"
 
 export MPLCONFIGDIR="${PROJECT_ROOT}/.mplcache"
 export XDG_CACHE_HOME="${PROJECT_ROOT}/.mplcache"
 export EXTRA_PYTHONPATH="${PROJECT_ROOT}/.cluster-pydeps"
-export PYTHONPATH="${EXTRA_PYTHONPATH}:${PYTHONPATH:-}"
+export PYTHONPATH="${EXTRA_PYTHONPATH}:${SINKHORN_ROOT}:${EXAMPLE_ROOT}:${PYTHONPATH:-}"
 
 if [ ! -f "${EXAMPLE_ROOT}/main_lmc_cnn.py" ]; then
     echo "Missing external/sinkhorn-rebasin/examples/main_lmc_cnn.py in this checkout."
@@ -37,6 +38,7 @@ echo "========================================"
 echo "Original Sinkhorn Example main_lmc_cnn.py"
 echo "========================================"
 echo "PROJECT_ROOT: ${PROJECT_ROOT}"
+echo "SINKHORN_ROOT: ${SINKHORN_ROOT}"
 echo "EXAMPLE_ROOT: ${EXAMPLE_ROOT}"
 echo "PWD: $(pwd)"
 echo "GPU: ${CUDA_VISIBLE_DEVICES:-auto}"
