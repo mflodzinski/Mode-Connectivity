@@ -104,9 +104,16 @@ def build_mnist_loaders(cfg: DictConfig, dnn_data) -> tuple[torch.utils.data.Dat
     return train_loader, val_loader, test_loader
 
 
-def load_model_from_checkpoint(model_path: Path, VGGClass, image_size: int, device: torch.device) -> torch.nn.Module:
+def load_model_from_checkpoint(
+    model_path: Path,
+    VGGClass,
+    *,
+    vgg_name: str,
+    image_size: int,
+    device: torch.device,
+) -> torch.nn.Module:
     checkpoint = torch.load(model_path, map_location="cpu")
-    model = build_model(VGGClass, num_classes=10, image_size=image_size)
+    model = build_model(VGGClass, vgg_name, num_classes=10, image_size=image_size)
     model.load_state_dict(checkpoint["model_state"])
     model.to(device)
     model.eval()
@@ -155,8 +162,20 @@ def run_one_alignment(
     test_loader,
 ) -> dict[str, Any]:
     output_root = ensure_dir(Path(cfg.output_root))
-    model_a = load_model_from_checkpoint(Path(cfg.model_a_checkpoint), VGGClass, int(cfg.image_size), device)
-    model_b = load_model_from_checkpoint(Path(cfg.model_b_checkpoint), VGGClass, int(cfg.image_size), device)
+    model_a = load_model_from_checkpoint(
+        Path(cfg.model_a_checkpoint),
+        VGGClass,
+        vgg_name="VGG16",
+        image_size=int(cfg.image_size),
+        device=device,
+    )
+    model_b = load_model_from_checkpoint(
+        Path(cfg.model_b_checkpoint),
+        VGGClass,
+        vgg_name="VGG16",
+        image_size=int(cfg.image_size),
+        device=device,
+    )
 
     loss_a, acc_a = eval_loss_acc(model_a, test_loader, torch.nn.CrossEntropyLoss(), device)
     loss_b, acc_b = eval_loss_acc(model_b, test_loader, torch.nn.CrossEntropyLoss(), device)
