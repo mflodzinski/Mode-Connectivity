@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import sys
-import importlib.util
 from copy import deepcopy
 from pathlib import Path
 from time import time
@@ -41,24 +40,18 @@ def import_original_mnist_components():
             sys.path.insert(0, path)
 
     _, RebasinNet, matching = import_external_sinkhorn()
-    vgg_module_path = dnn_root / "models" / "vgg.py"
-    spec = importlib.util.spec_from_file_location("_dnn_mode_connectivity_vgg", vgg_module_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load dnn-mode-connectivity VGG definition from {vgg_module_path}.")
-    vgg_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(vgg_module)
-    VGG16 = vgg_module.VGG16
+    from models.vgg import VGG
     import data as dnn_data
     from rebasin.loss import RndLoss
     from utils import eval_loss_acc, lerp
 
-    return VGG16, RebasinNet, matching, dnn_data, RndLoss, eval_loss_acc, lerp
+    return VGG, RebasinNet, matching, dnn_data, RndLoss, eval_loss_acc, lerp
 
 
-def build_model(VGG16Spec, num_classes: int) -> torch.nn.Module:
-    """Instantiate the dnn-mode-connectivity VGG16 base model."""
+def build_model(VGGClass, num_classes: int, image_size: int) -> torch.nn.Module:
+    """Instantiate the sinkhorn-rebasin VGG16 model."""
 
-    return VGG16Spec.base(num_classes=num_classes, **VGG16Spec.kwargs)
+    return VGGClass("VGG16", in_channels=3, out_features=num_classes, h_in=image_size, w_in=image_size)
 
 
 def save_model_checkpoint(path: Path, model: torch.nn.Module, metadata: dict[str, Any]) -> None:
@@ -170,14 +163,14 @@ def train_model(
 
 def run_one_batch_debug(
     *,
-    VGG16Spec,
+    VGGClass,
     dataset_train,
     device: torch.device,
     cfg: DictConfig,
 ) -> dict[str, Any]:
     """Run one manual optimization step to verify data/model wiring."""
 
-    model = build_model(VGG16Spec, num_classes=10).to(device)
+    model = build_model(VGGClass, num_classes=10, image_size=int(cfg.image_size)).to(device)
     optimizer = torch.optim.SGD(
         filter(lambda param: param.requires_grad, model.parameters()),
         lr=float(cfg.train_lr),
@@ -238,7 +231,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     output_root = ensure_dir(Path(to_absolute_path(str(cfg.output_root))))
 
     (
-        VGG16Spec,
+        VGGClass,
         RebasinNet,
         matching,
         dnn_data,
@@ -326,7 +319,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
 
     if bool(cfg.debug_one_batch):
         debug_metrics = run_one_batch_debug(
-            VGG16Spec=VGG16Spec,
+            VGGClass=VGGClass,
             dataset_train=dataset_train,
             device=device,
             cfg=cfg,
@@ -340,7 +333,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
             "config": OmegaConf.to_container(cfg, resolve=True),
         }
 
-    modelA = build_model(VGG16Spec, num_classes=10)
+    modelA = build_model(VGGClass, num_classes=10, image_size=int(cfg.image_size))
     print("Training network A")
     modelA = train_model(
         modelA,
@@ -356,7 +349,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print("Model A: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_a, acc_a))
     modelA.eval()
 
-    modelB = build_model(VGG16Spec, num_classes=10)
+    modelB = build_model(VGGClass, num_classes=10, image_size=int(cfg.image_size))
     print("\nTraining network B")
     modelB = train_model(
         modelB,
