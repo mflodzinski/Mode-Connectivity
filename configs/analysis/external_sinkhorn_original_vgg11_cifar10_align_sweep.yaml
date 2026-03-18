@@ -14,7 +14,7 @@ num_workers: 4
 
 image_size: 32
 val_fraction: 0.1
-batch_size: 128
+batch_size: 500
 num_eval_points: 50
 
 sinkhorn_iters: 20
@@ -27,17 +27,14 @@ continue_on_error: true
 
 sweep:
   alignment_iterations:
-    - 20
+    - 50
   loss_name:
     - "random"
-    - "midpoint"
   tau:
     - 1.0
     - 0.5
     - 0.25
   lr:
     - 0.1
-    - 0.03
   sinkhorn_l:
     - 1.0
-    - 2.0
