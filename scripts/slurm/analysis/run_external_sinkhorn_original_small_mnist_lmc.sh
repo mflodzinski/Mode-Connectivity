@@ -37,10 +37,12 @@ fi
 
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/vgg16/mnist/original_sinkhorn_lmc}"
 TRAIN_EPOCHS="${TRAIN_EPOCHS:-50}"
-TRAIN_LR="${TRAIN_LR:-0.01}"
+TRAIN_LR="${TRAIN_LR:-0.05}"
+MOMENTUM="${MOMENTUM:-0.9}"
+WEIGHT_DECAY="${WEIGHT_DECAY:-5e-4}"
 ALIGNMENT_ITERATIONS="${ALIGNMENT_ITERATIONS:-20}"
 ALIGNMENT_LR="${ALIGNMENT_LR:-0.1}"
-BATCH_SIZE="${BATCH_SIZE:-1000}"
+BATCH_SIZE="${BATCH_SIZE:-128}"
 NUM_EVAL_POINTS="${NUM_EVAL_POINTS:-50}"
 DEBUG_ONE_BATCH="${DEBUG_ONE_BATCH:-false}"
 
@@ -51,6 +53,8 @@ echo "PROJECT_ROOT: ${PROJECT_ROOT}"
 echo "OUTPUT_ROOT: ${OUTPUT_ROOT}"
 echo "TRAIN_EPOCHS: ${TRAIN_EPOCHS}"
 echo "TRAIN_LR: ${TRAIN_LR}"
+echo "MOMENTUM: ${MOMENTUM}"
+echo "WEIGHT_DECAY: ${WEIGHT_DECAY}"
 echo "ALIGNMENT_ITERATIONS: ${ALIGNMENT_ITERATIONS}"
 echo "ALIGNMENT_LR: ${ALIGNMENT_LR}"
 echo "BATCH_SIZE: ${BATCH_SIZE}"
@@ -64,6 +68,8 @@ srun python scripts/analysis/run_external_sinkhorn_original_small_mnist_lmc.py \
     output_root="${OUTPUT_ROOT}" \
     train_epochs="${TRAIN_EPOCHS}" \
     train_lr="${TRAIN_LR}" \
+    momentum="${MOMENTUM}" \
+    weight_decay="${WEIGHT_DECAY}" \
     alignment_iterations="${ALIGNMENT_ITERATIONS}" \
     alignment_lr="${ALIGNMENT_LR}" \
     batch_size="${BATCH_SIZE}" \

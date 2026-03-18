@@ -8,12 +8,12 @@ seed: 0
 split_seed: 1
 num_workers: 0
 
-train_fraction: 0.8
 val_fraction: 0.1
-test_fraction: 0.1
 batch_size: 128
 train_epochs: 50
-train_lr: 0.001
+train_lr: 0.05
+momentum: 0.9
+weight_decay: 5e-4
 image_size: 32
 
 alignment_iterations: 20

@@ -18,9 +18,8 @@ sys.path.insert(0, str(project_root / "scripts"))
 
 import hydra
 import matplotlib
-import numpy as np
 import torch
-import torchvision.transforms as transforms
+import torchvision
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, OmegaConf
 from tqdm import tqdm
@@ -32,10 +31,6 @@ from src.utils import set_global_seed
 from scripts.analysis.run_external_sinkhorn_baseline import import_external_sinkhorn
 from scripts.lib.alignment.permutation_pipeline import resolve_device
 from scripts.lib.core.output import ensure_dir, save_json
-
-MNIST_MEAN = 0.1307
-MNIST_STD = 0.3081
-
 
 def import_original_mnist_components():
     sinkhorn_root = project_root / "external" / "sinkhorn-rebasin"
@@ -53,29 +48,11 @@ def import_original_mnist_components():
     vgg_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(vgg_module)
     VGG16 = vgg_module.VGG16
-    from datasets.classification import MNistDataset
+    import data as dnn_data
     from rebasin.loss import RndLoss
     from utils import eval_loss_acc, lerp
 
-    return VGG16, RebasinNet, matching, MNistDataset, RndLoss, eval_loss_acc, lerp
-
-
-class NormalizedDataset(torch.utils.data.Dataset):
-    """Apply MNIST normalization and expand grayscale to 3 channels."""
-
-    def __init__(self, dataset: torch.utils.data.Dataset, *, mean: float, std: float) -> None:
-        self.dataset = dataset
-        self.mean = float(mean)
-        self.std = float(std)
-
-    def __len__(self) -> int:
-        return len(self.dataset)
-
-    def __getitem__(self, index: int):
-        x, y = self.dataset[index]
-        x = ((x - self.mean) / self.std).astype("float32")
-        x = np.repeat(x[None, :, :], 3, axis=0)
-        return x, y
+    return VGG16, RebasinNet, matching, dnn_data, RndLoss, eval_loss_acc, lerp
 
 
 def build_model(VGG16Spec, num_classes: int) -> torch.nn.Module:
@@ -94,48 +71,95 @@ def save_model_checkpoint(path: Path, model: torch.nn.Module, metadata: dict[str
     )
 
 
+def learning_rate_schedule(base_lr: float, epoch: int, total_epochs: int) -> float:
+    alpha = epoch / total_epochs
+    if alpha <= 0.5:
+        factor = 1.0
+    elif alpha <= 0.9:
+        factor = 1.0 - (alpha - 0.5) / 0.4 * 0.99
+    else:
+        factor = 0.01
+    return factor * base_lr
+
+
+def evaluate_model(
+    model: torch.nn.Module,
+    dataset,
+    criterion,
+    device: torch.device,
+) -> tuple[float, float]:
+    model.eval()
+    cumulative_loss = 0.0
+    cumulative_correct = 0
+    total = 0
+    with torch.no_grad():
+        for x, y in dataset:
+            x = x.to(device, non_blocking=True)
+            y = y.to(device, non_blocking=True)
+            logits = model(x)
+            loss = criterion(logits, y)
+            cumulative_loss += loss.item() * x.shape[0]
+            cumulative_correct += logits.argmax(dim=1).eq(y).sum().item()
+            total += x.shape[0]
+    return cumulative_loss / total, cumulative_correct / total
+
+
 def train_model(
     model: torch.nn.Module,
     dataset_train,
     dataset_val,
-    optimizer: torch.optim.Optimizer,
-    criterion,
     device: torch.device,
     epochs: int,
+    *,
+    base_lr: float,
+    momentum: float,
+    weight_decay: float,
 ) -> torch.nn.Module:
-    """Local endpoint training loop mirroring the vendored helper's behavior."""
+    """Local endpoint training loop aligned with dnn-mode-connectivity training."""
+
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(
+        filter(lambda param: param.requires_grad, model.parameters()),
+        lr=base_lr,
+        momentum=momentum,
+        weight_decay=weight_decay,
+    )
 
     model.to(device)
     for epoch in range(epochs):
+        lr = learning_rate_schedule(base_lr, epoch, epochs)
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = lr
+
         cumulative_train_loss = 0.0
+        cumulative_train_correct = 0
         total_train = 0
         model.train()
         for x, y in dataset_train:
-            logits = model(x.to(device))
-            loss_training = criterion(logits, y.to(device))
+            x = x.to(device, non_blocking=True)
+            y = y.to(device, non_blocking=True)
+            logits = model(x)
+            loss_training = criterion(logits, y)
             optimizer.zero_grad()
             loss_training.backward()
             optimizer.step()
 
             cumulative_train_loss += loss_training.item() * x.shape[0]
+            cumulative_train_correct += logits.argmax(dim=1).eq(y).sum().item()
             total_train += x.shape[0]
 
         cumulative_train_loss /= total_train
+        cumulative_train_acc = cumulative_train_correct / total_train
+        cumulative_val_loss, cumulative_val_acc = evaluate_model(model, dataset_val, criterion, device)
 
-        cumulative_val_loss = 0.0
-        total_val = 0
-        model.eval()
-        with torch.no_grad():
-            for x, y in dataset_val:
-                logits = model(x.to(device))
-                loss_validation = criterion(logits, y.to(device))
-                cumulative_val_loss += loss_validation.item() * x.shape[0]
-                total_val += x.shape[0]
-
-        cumulative_val_loss /= total_val
         print(
-            "Epoch {:02d}: train loss {:1.4f}, val loss {:1.4f}".format(
-                epoch + 1, cumulative_train_loss, cumulative_val_loss
+            "Epoch {:02d}: lr {:.4f}, train loss {:1.4f}, train acc {:1.2f}, val loss {:1.4f}, val acc {:1.2f}".format(
+                epoch + 1,
+                lr,
+                cumulative_train_loss,
+                100.0 * cumulative_train_acc,
+                cumulative_val_loss,
+                100.0 * cumulative_val_acc,
             )
         )
         if cumulative_val_loss == 0:
@@ -154,7 +178,12 @@ def run_one_batch_debug(
     """Run one manual optimization step to verify data/model wiring."""
 
     model = build_model(VGG16Spec, num_classes=10).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=float(cfg.train_lr))
+    optimizer = torch.optim.SGD(
+        filter(lambda param: param.requires_grad, model.parameters()),
+        lr=float(cfg.train_lr),
+        momentum=float(cfg.momentum),
+        weight_decay=float(cfg.weight_decay),
+    )
     criterion = torch.nn.CrossEntropyLoss()
 
     x, y = next(iter(dataset_train))
@@ -212,49 +241,51 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
         VGG16Spec,
         RebasinNet,
         matching,
-        MNistDataset,
+        dnn_data,
         RndLoss,
         eval_loss_acc,
         lerp,
     ) = import_original_mnist_components()
 
-    transform = transforms.Resize((int(cfg.image_size), int(cfg.image_size)))
-    dataset_train_source = MNistDataset(
-        root=to_absolute_path(str(cfg.data_path)),
-        download=True,
+    if int(cfg.image_size) != 32:
+        raise ValueError("This VGG16 pipeline uses the dnn-mode-connectivity MNIST VGG transform and requires image_size=32.")
+
+    transform_train = dnn_data.Transforms.MNIST.VGG.train
+    transform_test = dnn_data.Transforms.MNIST.VGG.test
+    mnist_root = os.path.join(to_absolute_path(str(cfg.data_path)), "mnist")
+
+    dataset_train_source = torchvision.datasets.MNIST(
+        root=mnist_root,
         train=True,
-        transform=transform,
-    )
-    dataset_test_source = MNistDataset(
-        root=to_absolute_path(str(cfg.data_path)),
         download=True,
+        transform=transform_train,
+    )
+    dataset_val_source = torchvision.datasets.MNIST(
+        root=mnist_root,
+        train=True,
+        download=True,
+        transform=transform_test,
+    )
+    dataset_test_source = torchvision.datasets.MNIST(
+        root=mnist_root,
         train=False,
-        transform=transform,
+        download=True,
+        transform=transform_test,
     )
-    full_dataset = torch.utils.data.ConcatDataset(
-        [
-            NormalizedDataset(dataset_train_source, mean=MNIST_MEAN, std=MNIST_STD),
-            NormalizedDataset(dataset_test_source, mean=MNIST_MEAN, std=MNIST_STD),
-        ]
-    )
-    total_size = len(full_dataset)
-    train_fraction = float(cfg.train_fraction)
+
+    train_total_size = len(dataset_train_source)
     val_fraction = float(cfg.val_fraction)
-    test_fraction = float(cfg.test_fraction)
-    total_fraction = train_fraction + val_fraction + test_fraction
-    if abs(total_fraction - 1.0) > 1e-8:
-        raise ValueError(
-            f"Split fractions must sum to 1.0, received "
-            f"train={train_fraction}, val={val_fraction}, test={test_fraction}."
-        )
-    train_size = int(total_size * train_fraction)
-    val_size = int(total_size * val_fraction)
-    test_size = total_size - train_size - val_size
-    dataset_train, dataset_val, dataset_test = torch.utils.data.random_split(
-        full_dataset,
-        [train_size, val_size, test_size],
-        generator=torch.Generator().manual_seed(int(cfg.split_seed)),
-    )
+    if not (0.0 < val_fraction < 1.0):
+        raise ValueError(f"val_fraction must be in (0, 1); got {val_fraction}.")
+    val_size = int(train_total_size * val_fraction)
+    train_size = train_total_size - val_size
+    indices = torch.randperm(train_total_size, generator=torch.Generator().manual_seed(int(cfg.split_seed)))
+    train_indices = indices[:train_size].tolist()
+    val_indices = indices[train_size:].tolist()
+    dataset_train = torch.utils.data.Subset(dataset_train_source, train_indices)
+    dataset_val = torch.utils.data.Subset(dataset_val_source, val_indices)
+    dataset_test = dataset_test_source
+    test_size = len(dataset_test)
 
     dataset_train = torch.utils.data.DataLoader(
         dataset_train,
@@ -281,11 +312,14 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print(f"output_root: {output_root}")
     print(f"device: {device}")
     print(f"image_size: {int(cfg.image_size)}")
-    print(f"transform: {transform}")
-    print(f"dataset_normalization: mean={MNIST_MEAN}, std={MNIST_STD}")
+    print(f"train_transform: {transform_train}")
+    print(f"test_transform: {transform_test}")
     print(f"dataset_split_sizes: train={train_size}, val={val_size}, test={test_size}")
     print(f"batch_size: {int(cfg.batch_size)}")
     print(f"train_epochs: {int(cfg.train_epochs)}")
+    print(f"train_lr: {float(cfg.train_lr)}")
+    print(f"momentum: {float(cfg.momentum)}")
+    print(f"weight_decay: {float(cfg.weight_decay)}")
     print(f"alignment_iterations: {int(cfg.alignment_iterations)}")
     print(f"debug_one_batch: {bool(cfg.debug_one_batch)}")
     print("")
@@ -312,10 +346,11 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
         modelA,
         dataset_train,
         dataset_val,
-        torch.optim.AdamW(modelA.parameters(), lr=float(cfg.train_lr)),
-        torch.nn.CrossEntropyLoss(),
         device,
         int(cfg.train_epochs),
+        base_lr=float(cfg.train_lr),
+        momentum=float(cfg.momentum),
+        weight_decay=float(cfg.weight_decay),
     )
     loss_a, acc_a = eval_loss_acc(modelA, dataset_test, torch.nn.CrossEntropyLoss(), device)
     print("Model A: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_a, acc_a))
@@ -327,10 +362,11 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
         modelB,
         dataset_train,
         dataset_val,
-        torch.optim.AdamW(modelB.parameters(), lr=float(cfg.train_lr)),
-        torch.nn.CrossEntropyLoss(),
         device,
         int(cfg.train_epochs),
+        base_lr=float(cfg.train_lr),
+        momentum=float(cfg.momentum),
+        weight_decay=float(cfg.weight_decay),
     )
     loss_b, acc_b = eval_loss_acc(modelB, dataset_test, torch.nn.CrossEntropyLoss(), device)
     print("Model B: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_b, acc_b))
