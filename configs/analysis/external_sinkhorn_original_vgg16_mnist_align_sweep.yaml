@@ -20,7 +20,7 @@ num_eval_points: 50
 sinkhorn_iters: 20
 identity_init: false
 device: "auto"
-log_interval: 1
+log_interval: 7
 start_index: 0
 end_index: null
 continue_on_error: true
@@ -36,6 +36,6 @@ sweep:
     - 0.25
   lr:
     - 0.1
+    - 0.05
   sinkhorn_l:
     - 1.0
-    - 2.0
