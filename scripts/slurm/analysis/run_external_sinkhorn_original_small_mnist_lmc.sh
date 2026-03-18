@@ -36,6 +36,7 @@ if command -v module >/dev/null 2>&1; then
 fi
 
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/vgg16/mnist/original_sinkhorn_lmc}"
+VGG_NAME="${VGG_NAME:-VGG16}"
 TRAIN_EPOCHS="${TRAIN_EPOCHS:-50}"
 TRAIN_LR="${TRAIN_LR:-0.05}"
 MOMENTUM="${MOMENTUM:-0.9}"
@@ -51,6 +52,7 @@ echo "Original Sinkhorn VGG16 MNIST LMC"
 echo "========================================"
 echo "PROJECT_ROOT: ${PROJECT_ROOT}"
 echo "OUTPUT_ROOT: ${OUTPUT_ROOT}"
+echo "VGG_NAME: ${VGG_NAME}"
 echo "TRAIN_EPOCHS: ${TRAIN_EPOCHS}"
 echo "TRAIN_LR: ${TRAIN_LR}"
 echo "MOMENTUM: ${MOMENTUM}"
@@ -66,6 +68,7 @@ echo ""
 
 srun python scripts/analysis/run_external_sinkhorn_original_small_mnist_lmc.py \
     output_root="${OUTPUT_ROOT}" \
+    vgg_name="${VGG_NAME}" \
     train_epochs="${TRAIN_EPOCHS}" \
     train_lr="${TRAIN_LR}" \
     momentum="${MOMENTUM}" \
@@ -80,6 +83,6 @@ srun python scripts/analysis/run_external_sinkhorn_original_small_mnist_lmc.py \
 
 echo ""
 echo "========================================"
-echo "ORIGINAL SINKHORN VGG16 MNIST LMC COMPLETE"
+echo "ORIGINAL SINKHORN ${VGG_NAME} MNIST LMC COMPLETE"
 echo "========================================"
 echo "Artifacts written under: ${OUTPUT_ROOT}"

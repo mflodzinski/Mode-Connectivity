@@ -55,10 +55,10 @@ def import_original_mnist_components():
     return VGG, RebasinNet, matching, dnn_data, RndLoss, eval_loss_acc, lerp
 
 
-def build_model(VGGClass, num_classes: int, image_size: int) -> torch.nn.Module:
-    """Instantiate the sinkhorn-rebasin VGG16 model."""
+def build_model(VGGClass, vgg_name: str, num_classes: int, image_size: int) -> torch.nn.Module:
+    """Instantiate a sinkhorn-rebasin VGG model."""
 
-    return VGGClass("VGG16", in_channels=3, out_features=num_classes, h_in=image_size, w_in=image_size)
+    return VGGClass(vgg_name, in_channels=3, out_features=num_classes, h_in=image_size, w_in=image_size)
 
 
 def save_model_checkpoint(path: Path, model: torch.nn.Module, metadata: dict[str, Any]) -> None:
@@ -177,7 +177,7 @@ def run_one_batch_debug(
 ) -> dict[str, Any]:
     """Run one manual optimization step to verify data/model wiring."""
 
-    model = build_model(VGGClass, num_classes=10, image_size=int(cfg.image_size)).to(device)
+    model = build_model(VGGClass, str(cfg.vgg_name), num_classes=10, image_size=int(cfg.image_size)).to(device)
     optimizer = torch.optim.SGD(
         filter(lambda param: param.requires_grad, model.parameters()),
         lr=float(cfg.train_lr),
@@ -246,9 +246,10 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
         eval_loss_acc,
         lerp,
     ) = import_original_mnist_components()
+    vgg_name = str(cfg.vgg_name)
 
     if int(cfg.image_size) != 32:
-        raise ValueError("This VGG16 pipeline uses the dnn-mode-connectivity MNIST VGG transform and requires image_size=32.")
+        raise ValueError(f"This {vgg_name} pipeline uses the dnn-mode-connectivity MNIST VGG transform and requires image_size=32.")
 
     transform_train = dnn_data.Transforms.MNIST.VGG.train
     transform_test = dnn_data.Transforms.MNIST.VGG.test
@@ -307,7 +308,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     )
 
     print("=" * 80)
-    print("ORIGINAL SINKHORN VGG16 MNIST LMC")
+    print(f"ORIGINAL SINKHORN {vgg_name} MNIST LMC")
     print("=" * 80)
     print(f"output_root: {output_root}")
     print(f"device: {device}")
@@ -340,7 +341,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
             "config": OmegaConf.to_container(cfg, resolve=True),
         }
 
-    modelA = build_model(VGGClass, num_classes=10, image_size=int(cfg.image_size))
+    modelA = build_model(VGGClass, vgg_name, num_classes=10, image_size=int(cfg.image_size))
     print("Training network A")
     modelA = train_model(
         modelA,
@@ -356,7 +357,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print("Model A: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_a, acc_a))
     modelA.eval()
 
-    modelB = build_model(VGGClass, num_classes=10, image_size=int(cfg.image_size))
+    modelB = build_model(VGGClass, vgg_name, num_classes=10, image_size=int(cfg.image_size))
     print("\nTraining network B")
     modelB = train_model(
         modelB,
@@ -375,12 +376,12 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     save_model_checkpoint(
         output_root / "model_a.pt",
         modelA,
-        {"test_loss": float(loss_a), "test_acc": float(acc_a), "architecture": "VGG16"},
+        {"test_loss": float(loss_a), "test_acc": float(acc_a), "architecture": vgg_name},
     )
     save_model_checkpoint(
         output_root / "model_b.pt",
         modelB,
-        {"test_loss": float(loss_b), "test_acc": float(acc_b), "architecture": "VGG16"},
+        {"test_loss": float(loss_b), "test_acc": float(acc_b), "architecture": vgg_name},
     )
 
     pi_modelA = RebasinNet(modelA, input_shape=(1, 3, int(cfg.image_size), int(cfg.image_size)))
@@ -448,7 +449,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     save_model_checkpoint(
         output_root / "rebased_model.pt",
         rebased_model,
-        {"method": "original_vgg16_mnist_lmc", "architecture": "VGG16"},
+        {"method": "original_vgg_mnist_lmc", "architecture": vgg_name},
     )
     raw_permutation_parameters = [parameter.detach().cpu().clone() for parameter in pi_modelA.p if parameter is not None]
     hard_permutation_matrices = [
