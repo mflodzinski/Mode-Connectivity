@@ -113,12 +113,16 @@ def load_model_from_checkpoint(model_path: Path, VGGClass, image_size: int, devi
     return model
 
 
-def build_criterion(loss_name: str, model_b: torch.nn.Module, MidLoss, RndLoss):
+def build_criterion(loss_name: str, model_b: torch.nn.Module, MidLoss, RndLoss, DistL1Loss, DistL2Loss):
     if loss_name == "random":
         return RndLoss(model_b, criterion=torch.nn.CrossEntropyLoss())
     if loss_name == "midpoint":
         return MidLoss(model_b, criterion=torch.nn.CrossEntropyLoss())
-    raise ValueError(f"Unsupported loss_name={loss_name!r}. Expected 'random' or 'midpoint'.")
+    if loss_name == "dist_l1":
+        return DistL1Loss(model_b)
+    if loss_name == "dist_l2":
+        return DistL2Loss(model_b)
+    raise ValueError(f"Unsupported loss_name={loss_name!r}. Expected 'random', 'midpoint', 'dist_l1', or 'dist_l2'.")
 
 
 def compute_curve_metrics(costs: list[float], accs: list[float], endpoint_a_loss: float, endpoint_b_loss: float) -> dict[str, float]:
@@ -141,6 +145,8 @@ def run_one_alignment(
     matching,
     MidLoss,
     RndLoss,
+    DistL1Loss,
+    DistL2Loss,
     eval_loss_acc,
     lerp,
     device: torch.device,
@@ -166,7 +172,8 @@ def run_one_alignment(
     if bool(cfg.identity_init):
         pi_model_a.identity_init()
 
-    criterion = build_criterion(str(cfg.loss_name), model_b, MidLoss, RndLoss)
+    loss_name = str(cfg.loss_name)
+    criterion = build_criterion(loss_name, model_b, MidLoss, RndLoss, DistL1Loss, DistL2Loss)
     optimizer = torch.optim.AdamW(pi_model_a.p.parameters(), lr=float(cfg.alignment_lr))
 
     print("")
@@ -191,27 +198,37 @@ def run_one_alignment(
         pi_model_a.train()
         cumulative_train_loss = 0.0
         total_train = 0
-        for x, y in train_loader:
+        if loss_name in {"random", "midpoint"}:
+            for x, y in train_loader:
+                rebased_model = pi_model_a()
+                loss_training = criterion(rebased_model, x.to(device), y.to(device))
+                optimizer.zero_grad()
+                loss_training.backward()
+                optimizer.step()
+                cumulative_train_loss += loss_training.item() * x.shape[0]
+                total_train += x.shape[0]
+            cumulative_train_loss /= total_train
+        else:
             rebased_model = pi_model_a()
-            loss_training = criterion(rebased_model, x.to(device), y.to(device))
+            loss_training = criterion(rebased_model)
             optimizer.zero_grad()
             loss_training.backward()
             optimizer.step()
-            cumulative_train_loss += loss_training.item() * x.shape[0]
-            total_train += x.shape[0]
-
-        cumulative_train_loss /= total_train
+            cumulative_train_loss = float(loss_training.item())
 
         cumulative_val_loss = 0.0
         total_val = 0
         pi_model_a.eval()
-        for x, y in val_loader:
+        if loss_name in {"random", "midpoint"}:
+            for x, y in val_loader:
+                rebased_model = pi_model_a()
+                loss_validation = criterion(rebased_model, x.to(device), y.to(device))
+                cumulative_val_loss += loss_validation.item() * x.shape[0]
+                total_val += x.shape[0]
+            cumulative_val_loss /= total_val
+        else:
             rebased_model = pi_model_a()
-            loss_validation = criterion(rebased_model, x.to(device), y.to(device))
-            cumulative_val_loss += loss_validation.item() * x.shape[0]
-            total_val += x.shape[0]
-
-        cumulative_val_loss /= total_val
+            cumulative_val_loss = float(criterion(rebased_model).item())
         alignment_history.append(
             {
                 "iteration": iteration,
@@ -419,7 +436,7 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
     base_output_root = ensure_dir(Path(to_absolute_path(str(cfg.base_output_root))))
 
     VGGClass, RebasinNet, matching, dnn_data, RndLoss, eval_loss_acc, lerp = import_original_mnist_components()
-    from rebasin.loss import MidLoss
+    from rebasin.loss import DistL1Loss, DistL2Loss, MidLoss
 
     train_loader, val_loader, test_loader = build_mnist_loaders(cfg, dnn_data)
 
@@ -490,6 +507,8 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
                 matching=matching,
                 MidLoss=MidLoss,
                 RndLoss=RndLoss,
+                DistL1Loss=DistL1Loss,
+                DistL2Loss=DistL2Loss,
                 eval_loss_acc=eval_loss_acc,
                 lerp=lerp,
                 device=device,
