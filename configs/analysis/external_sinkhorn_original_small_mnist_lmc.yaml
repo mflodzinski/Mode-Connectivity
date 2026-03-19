@@ -19,6 +19,7 @@ image_size: 32
 
 alignment_iterations: 20
 alignment_lr: 0.1
+best_eval_interval: 5
 num_eval_points: 50
 
 debug_one_batch: false
