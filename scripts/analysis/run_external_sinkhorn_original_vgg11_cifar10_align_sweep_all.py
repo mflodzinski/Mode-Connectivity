@@ -24,7 +24,7 @@ sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "scripts"))
 
 from scripts.analysis.run_external_sinkhorn_baseline_sweep import enumerate_sweep_combinations, sanitize_value
-from scripts.analysis.run_external_sinkhorn_original_small_mnist_lmc import build_model, import_original_mnist_components
+from scripts.analysis.run_external_sinkhorn_original_small_mnist_lmc import build_model, clone_module_state_dict, import_original_mnist_components
 from scripts.lib.alignment.permutation_pipeline import resolve_device, write_summary_files
 from scripts.lib.core.output import ensure_dir, load_json, save_json
 from src.utils import set_global_seed
@@ -172,11 +172,16 @@ def run_one_alignment(
     print(f"alignment_lr: {cfg.alignment_lr}")
     print(f"sinkhorn_l: {cfg.sinkhorn_l}")
     print(f"sinkhorn_iters: {cfg.sinkhorn_iters}")
+    print(f"best_eval_interval: {int(cfg.get('best_eval_interval', 5))}")
     print(f"device: {device}")
     print("")
 
     alignment_history: list[dict[str, float | int]] = []
     t1 = time()
+    best_eval_interval = int(cfg.get("best_eval_interval", 5))
+    best_alignment_iteration: int | None = None
+    best_alignment_score: float | None = None
+    best_alignment_state: dict[str, torch.Tensor] | None = None
     for iteration in range(int(cfg.alignment_iterations)):
         pi_model_a.train()
         cumulative_train_loss = 0.0
@@ -215,11 +220,31 @@ def run_one_alignment(
 
         alignment_history.append({"iteration": iteration, "train_loss": float(cumulative_train_loss), "val_loss": float(cumulative_val_loss)})
 
+        should_track_best = (iteration + 1) % best_eval_interval == 0 or iteration + 1 == int(cfg.alignment_iterations)
+        if should_track_best and (best_alignment_score is None or cumulative_val_loss < best_alignment_score):
+            best_alignment_score = float(cumulative_val_loss)
+            best_alignment_iteration = iteration
+            best_alignment_state = clone_module_state_dict(pi_model_a)
+            print(
+                "[original_sinkhorn_align] new_best iter={:03d} val_loss={:.4f}".format(
+                    iteration + 1, cumulative_val_loss
+                )
+            )
+
         if iteration == 0 or (iteration + 1) % int(cfg.log_interval) == 0 or iteration + 1 == int(cfg.alignment_iterations):
             print("[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss={:.4f}".format(iteration + 1, cumulative_train_loss, cumulative_val_loss))
 
     print("Elapsed time {:1.3f} secs".format(time() - t1))
     save_json(alignment_history, output_root / "alignment_history.json", indent=2)
+
+    if best_alignment_state is not None:
+        pi_model_a.load_state_dict(best_alignment_state)
+        print(
+            "[original_sinkhorn_align] restored_best iter={:03d} val_loss={:.4f}".format(
+                int(best_alignment_iteration) + 1,
+                float(best_alignment_score),
+            )
+        )
 
     if hasattr(pi_model_a, "update_batchnorm"):
         pi_model_a.update_batchnorm(model_a)
@@ -237,7 +262,14 @@ def run_one_alignment(
     raw_permutation_parameters = [parameter.detach().cpu().clone() for parameter in pi_model_a.p if parameter is not None]
     hard_permutation_matrices = [matching(parameter.detach().cpu().numpy()).to(torch.float32).cpu() for parameter in pi_model_a.p if parameter is not None]
     torch.save(
-        {"raw_parameters": raw_permutation_parameters, "hard_permutations": hard_permutation_matrices, "config": OmegaConf.to_container(cfg, resolve=True)},
+        {
+            "raw_parameters": raw_permutation_parameters,
+            "hard_permutations": hard_permutation_matrices,
+            "best_alignment_iteration": best_alignment_iteration,
+            "best_alignment_score": best_alignment_score,
+            "best_eval_interval": best_eval_interval,
+            "config": OmegaConf.to_container(cfg, resolve=True),
+        },
         output_root / "alignment_artifacts.pt",
     )
 
@@ -305,6 +337,9 @@ def run_one_alignment(
         "model_a_test_acc": float(acc_a) * 100.0,
         "model_b_test_loss": float(loss_b),
         "model_b_test_acc": float(acc_b) * 100.0,
+        "best_alignment_iteration": best_alignment_iteration,
+        "best_alignment_score": best_alignment_score,
+        "best_eval_interval": best_eval_interval,
         "config": OmegaConf.to_container(cfg, resolve=True),
     }
     save_json(metadata, output_root / "metadata.json", indent=2)

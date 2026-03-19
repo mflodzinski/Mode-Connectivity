@@ -71,6 +71,12 @@ def save_model_checkpoint(path: Path, model: torch.nn.Module, metadata: dict[str
     )
 
 
+def clone_module_state_dict(module: torch.nn.Module) -> dict[str, torch.Tensor]:
+    """Clone a module state dict to CPU tensors for later restoration."""
+
+    return {key: value.detach().cpu().clone() for key, value in module.state_dict().items()}
+
+
 def learning_rate_schedule(base_lr: float, epoch: int, total_epochs: int) -> float:
     alpha = epoch / total_epochs
     if alpha <= 0.5:
@@ -322,6 +328,7 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print(f"momentum: {float(cfg.momentum)}")
     print(f"weight_decay: {float(cfg.weight_decay)}")
     print(f"alignment_iterations: {int(cfg.alignment_iterations)}")
+    print(f"best_eval_interval: {int(cfg.get('best_eval_interval', 5))}")
     print(f"debug_one_batch: {bool(cfg.debug_one_batch)}")
     print("")
 
@@ -393,6 +400,10 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print("\nTraining Re-Basing network")
     t1 = time()
     alignment_history: list[dict[str, float | int]] = []
+    best_eval_interval = int(cfg.get("best_eval_interval", 5))
+    best_alignment_iteration: int | None = None
+    best_alignment_score: float | None = None
+    best_alignment_state: dict[str, torch.Tensor] | None = None
     for iteration in range(int(cfg.alignment_iterations)):
         pi_modelA.train()
         cumulative_train_loss = 0.0
@@ -429,6 +440,17 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
             }
         )
 
+        should_track_best = (iteration + 1) % best_eval_interval == 0 or iteration + 1 == int(cfg.alignment_iterations)
+        if should_track_best and (best_alignment_score is None or cumulative_val_loss < best_alignment_score):
+            best_alignment_score = float(cumulative_val_loss)
+            best_alignment_iteration = iteration
+            best_alignment_state = clone_module_state_dict(pi_modelA)
+            print(
+                "[original_sinkhorn_lmc] new_best iter={:03d} val_loss={:.4f}".format(
+                    iteration + 1, cumulative_val_loss
+                )
+            )
+
         print(
             "Iteration {:02d}: loss training {:1.3f}, loss validation {:1.3f}".format(
                 iteration, cumulative_train_loss, cumulative_val_loss
@@ -439,6 +461,15 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
 
     print("Elapsed time {:1.3f} secs".format(time() - t1))
     save_json(alignment_history, output_root / "alignment_history.json", indent=2)
+
+    if best_alignment_state is not None:
+        pi_modelA.load_state_dict(best_alignment_state)
+        print(
+            "[original_sinkhorn_lmc] restored_best iter={:03d} val_loss={:.4f}".format(
+                int(best_alignment_iteration) + 1,
+                float(best_alignment_score),
+            )
+        )
 
     if hasattr(pi_modelA, "update_batchnorm"):
         pi_modelA.update_batchnorm(modelA)
@@ -461,6 +492,9 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
         {
             "raw_parameters": raw_permutation_parameters,
             "hard_permutations": hard_permutation_matrices,
+            "best_alignment_iteration": best_alignment_iteration,
+            "best_alignment_score": best_alignment_score,
+            "best_eval_interval": best_eval_interval,
             "config": OmegaConf.to_container(cfg, resolve=True),
         },
         output_root / "alignment_artifacts.pt",
@@ -520,6 +554,9 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     metadata = {
         "experiment_name": str(cfg.experiment_name),
         "output_root": str(output_root),
+        "best_alignment_iteration": best_alignment_iteration,
+        "best_alignment_score": best_alignment_score,
+        "best_eval_interval": best_eval_interval,
         "config": OmegaConf.to_container(cfg, resolve=True),
     }
     save_json(metadata, output_root / "metadata.json", indent=2)

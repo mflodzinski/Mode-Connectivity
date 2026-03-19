@@ -19,6 +19,7 @@ num_eval_points: 50
 
 sinkhorn_iters: 20
 identity_init: false
+best_eval_interval: 5
 device: "auto"
 log_interval: 1
 start_index: 0
@@ -33,10 +34,8 @@ sweep:
     - "midpoint"
   tau:
     - 1.0
-    - 0.5
+    - 0.75
   lr:
     - 0.1
-    - 0.05
   sinkhorn_l:
     - 1.0
-    - 2.0
