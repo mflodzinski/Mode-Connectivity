@@ -40,6 +40,9 @@ TRAIN_EPOCHS="${TRAIN_EPOCHS:-}"
 TRAIN_LR="${TRAIN_LR:-}"
 MOMENTUM="${MOMENTUM:-}"
 WEIGHT_DECAY="${WEIGHT_DECAY:-}"
+SCHEDULER_NAME="${SCHEDULER_NAME:-}"
+SCHEDULER_MILESTONES="${SCHEDULER_MILESTONES:-}"
+SCHEDULER_GAMMA="${SCHEDULER_GAMMA:-}"
 EARLY_STOPPING_PATIENCE="${EARLY_STOPPING_PATIENCE:-}"
 MIN_DELTA="${MIN_DELTA:-}"
 
@@ -52,6 +55,9 @@ echo "TRAIN_EPOCHS: ${TRAIN_EPOCHS:-<from config>}"
 echo "TRAIN_LR: ${TRAIN_LR:-<from config>}"
 echo "MOMENTUM: ${MOMENTUM:-<from config>}"
 echo "WEIGHT_DECAY: ${WEIGHT_DECAY:-<from config>}"
+echo "SCHEDULER_NAME: ${SCHEDULER_NAME:-<from config>}"
+echo "SCHEDULER_MILESTONES: ${SCHEDULER_MILESTONES:-<from config>}"
+echo "SCHEDULER_GAMMA: ${SCHEDULER_GAMMA:-<from config>}"
 echo "EARLY_STOPPING_PATIENCE: ${EARLY_STOPPING_PATIENCE:-<from config>}"
 echo "MIN_DELTA: ${MIN_DELTA:-<from config>}"
 echo "GPU: ${CUDA_VISIBLE_DEVICES:-auto}"
@@ -77,6 +83,15 @@ if [ -n "${MOMENTUM}" ]; then
 fi
 if [ -n "${WEIGHT_DECAY}" ]; then
     args+=("weight_decay=${WEIGHT_DECAY}")
+fi
+if [ -n "${SCHEDULER_NAME}" ]; then
+    args+=("scheduler_name=${SCHEDULER_NAME}")
+fi
+if [ -n "${SCHEDULER_MILESTONES}" ]; then
+    args+=("scheduler_milestones=${SCHEDULER_MILESTONES}")
+fi
+if [ -n "${SCHEDULER_GAMMA}" ]; then
+    args+=("scheduler_gamma=${SCHEDULER_GAMMA}")
 fi
 if [ -n "${EARLY_STOPPING_PATIENCE}" ]; then
     args+=("early_stopping_patience=${EARLY_STOPPING_PATIENCE}")
