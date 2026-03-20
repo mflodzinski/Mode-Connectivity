@@ -41,6 +41,8 @@ TRAIN_EPOCHS="${TRAIN_EPOCHS:-50}"
 TRAIN_LR="${TRAIN_LR:-0.05}"
 MOMENTUM="${MOMENTUM:-0.9}"
 WEIGHT_DECAY="${WEIGHT_DECAY:-5e-4}"
+EARLY_STOPPING_PATIENCE="${EARLY_STOPPING_PATIENCE:-10}"
+MIN_DELTA="${MIN_DELTA:-0.0005}"
 ALIGNMENT_ITERATIONS="${ALIGNMENT_ITERATIONS:-20}"
 ALIGNMENT_LR="${ALIGNMENT_LR:-0.1}"
 BATCH_SIZE="${BATCH_SIZE:-128}"
@@ -57,6 +59,8 @@ echo "TRAIN_EPOCHS: ${TRAIN_EPOCHS}"
 echo "TRAIN_LR: ${TRAIN_LR}"
 echo "MOMENTUM: ${MOMENTUM}"
 echo "WEIGHT_DECAY: ${WEIGHT_DECAY}"
+echo "EARLY_STOPPING_PATIENCE: ${EARLY_STOPPING_PATIENCE}"
+echo "MIN_DELTA: ${MIN_DELTA}"
 echo "ALIGNMENT_ITERATIONS: ${ALIGNMENT_ITERATIONS}"
 echo "ALIGNMENT_LR: ${ALIGNMENT_LR}"
 echo "BATCH_SIZE: ${BATCH_SIZE}"
@@ -73,6 +77,8 @@ srun python scripts/analysis/run_external_sinkhorn_original_small_mnist_lmc.py \
     train_lr="${TRAIN_LR}" \
     momentum="${MOMENTUM}" \
     weight_decay="${WEIGHT_DECAY}" \
+    early_stopping_patience="${EARLY_STOPPING_PATIENCE}" \
+    min_delta="${MIN_DELTA}" \
     alignment_iterations="${ALIGNMENT_ITERATIONS}" \
     alignment_lr="${ALIGNMENT_LR}" \
     batch_size="${BATCH_SIZE}" \

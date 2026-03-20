@@ -40,6 +40,8 @@ TRAIN_EPOCHS="${TRAIN_EPOCHS:-}"
 TRAIN_LR="${TRAIN_LR:-}"
 MOMENTUM="${MOMENTUM:-}"
 WEIGHT_DECAY="${WEIGHT_DECAY:-}"
+EARLY_STOPPING_PATIENCE="${EARLY_STOPPING_PATIENCE:-}"
+MIN_DELTA="${MIN_DELTA:-}"
 
 echo "========================================"
 echo "Original Sinkhorn VGG11 CIFAR10 Train"
@@ -50,6 +52,8 @@ echo "TRAIN_EPOCHS: ${TRAIN_EPOCHS:-<from config>}"
 echo "TRAIN_LR: ${TRAIN_LR:-<from config>}"
 echo "MOMENTUM: ${MOMENTUM:-<from config>}"
 echo "WEIGHT_DECAY: ${WEIGHT_DECAY:-<from config>}"
+echo "EARLY_STOPPING_PATIENCE: ${EARLY_STOPPING_PATIENCE:-<from config>}"
+echo "MIN_DELTA: ${MIN_DELTA:-<from config>}"
 echo "GPU: ${CUDA_VISIBLE_DEVICES:-auto}"
 echo "dot: $(command -v dot || echo missing)"
 echo "EXTRA_PYTHONPATH: ${EXTRA_PYTHONPATH}"
@@ -73,6 +77,12 @@ if [ -n "${MOMENTUM}" ]; then
 fi
 if [ -n "${WEIGHT_DECAY}" ]; then
     args+=("weight_decay=${WEIGHT_DECAY}")
+fi
+if [ -n "${EARLY_STOPPING_PATIENCE}" ]; then
+    args+=("early_stopping_patience=${EARLY_STOPPING_PATIENCE}")
+fi
+if [ -n "${MIN_DELTA}" ]; then
+    args+=("min_delta=${MIN_DELTA}")
 fi
 
 srun python scripts/analysis/run_external_sinkhorn_original_vgg11_cifar10_train.py "${args[@]}"

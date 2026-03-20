@@ -120,6 +120,8 @@ def train_model(
     base_lr: float,
     momentum: float,
     weight_decay: float,
+    early_stopping_patience: int,
+    min_delta: float,
 ) -> torch.nn.Module:
     """Local endpoint training loop aligned with dnn-mode-connectivity training."""
 
@@ -132,6 +134,10 @@ def train_model(
     )
 
     model.to(device)
+    best_val_loss = float("inf")
+    best_epoch: int | None = None
+    best_state: dict[str, torch.Tensor] | None = None
+    patience_counter = 0
     for epoch in range(epochs):
         lr = learning_rate_schedule(base_lr, epoch, epochs)
         for param_group in optimizer.param_groups:
@@ -158,18 +164,47 @@ def train_model(
         cumulative_train_acc = cumulative_train_correct / total_train
         cumulative_val_loss, cumulative_val_acc = evaluate_model(model, dataset_val, criterion, device)
 
+        improved = cumulative_val_loss < (best_val_loss - min_delta)
+        if improved:
+            best_val_loss = float(cumulative_val_loss)
+            best_epoch = epoch + 1
+            best_state = clone_module_state_dict(model)
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
         print(
-            "Epoch {:02d}: lr {:.4f}, train loss {:1.4f}, train acc {:1.2f}, val loss {:1.4f}, val acc {:1.2f}".format(
+            "Epoch {:02d}: lr {:.4f}, train loss {:1.4f}, train acc {:1.2f}, val loss {:1.4f}, val acc {:1.2f}, best_val_loss {:1.4f}, patience {}/{}".format(
                 epoch + 1,
                 lr,
                 cumulative_train_loss,
                 100.0 * cumulative_train_acc,
                 cumulative_val_loss,
                 100.0 * cumulative_val_acc,
+                best_val_loss,
+                patience_counter,
+                early_stopping_patience,
             )
         )
         if cumulative_val_loss == 0:
             break
+        if patience_counter >= early_stopping_patience:
+            print(
+                "Early stopping at epoch {:02d}; best epoch was {:02d}".format(
+                    epoch + 1,
+                    best_epoch if best_epoch is not None else epoch + 1,
+                )
+            )
+            break
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+        print(
+            "Restored best model from epoch {:02d} with val loss {:1.4f}".format(
+                best_epoch if best_epoch is not None else epochs,
+                best_val_loss,
+            )
+        )
 
     return model
 
@@ -327,6 +362,8 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
     print(f"train_lr: {float(cfg.train_lr)}")
     print(f"momentum: {float(cfg.momentum)}")
     print(f"weight_decay: {float(cfg.weight_decay)}")
+    print(f"early_stopping_patience: {int(cfg.early_stopping_patience)}")
+    print(f"min_delta: {float(cfg.min_delta)}")
     print(f"alignment_iterations: {int(cfg.alignment_iterations)}")
     print(f"best_eval_interval: {int(cfg.get('best_eval_interval', 5))}")
     print(f"debug_one_batch: {bool(cfg.debug_one_batch)}")
@@ -359,6 +396,8 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
         base_lr=float(cfg.train_lr),
         momentum=float(cfg.momentum),
         weight_decay=float(cfg.weight_decay),
+        early_stopping_patience=int(cfg.early_stopping_patience),
+        min_delta=float(cfg.min_delta),
     )
     loss_a, acc_a = eval_loss_acc(modelA, dataset_test, torch.nn.CrossEntropyLoss(), device)
     print("Model A: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_a, acc_a))
@@ -375,6 +414,8 @@ def run_original_small_mnist_lmc(cfg: DictConfig | dict[str, Any]) -> dict[str, 
         base_lr=float(cfg.train_lr),
         momentum=float(cfg.momentum),
         weight_decay=float(cfg.weight_decay),
+        early_stopping_patience=int(cfg.early_stopping_patience),
+        min_delta=float(cfg.min_delta),
     )
     loss_b, acc_b = eval_loss_acc(modelB, dataset_test, torch.nn.CrossEntropyLoss(), device)
     print("Model B: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_b, acc_b))
