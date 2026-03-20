@@ -104,9 +104,10 @@ def train_model_cifar10(
     scheduler_gamma: float,
 ) -> torch.nn.Module:
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(
+    optimizer = torch.optim.SGD(
         filter(lambda param: param.requires_grad, model.parameters()),
         lr=base_lr,
+        momentum=momentum,
         weight_decay=weight_decay,
     )
 
