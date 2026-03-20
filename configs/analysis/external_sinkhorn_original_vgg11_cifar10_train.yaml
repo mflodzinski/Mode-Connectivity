@@ -11,9 +11,9 @@ num_workers: 4
 val_fraction: 0.1
 batch_size: 128
 train_epochs: 150
-train_lr: 0.01
+train_lr: 0.05
 momentum: 0.9
-weight_decay: 7e-4
+weight_decay: 5e-4
 scheduler_name: "multistep"
 scheduler_milestones: [75, 120]
 scheduler_gamma: 0.2
