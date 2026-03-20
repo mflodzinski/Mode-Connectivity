@@ -86,6 +86,57 @@ def build_cifar10_loaders(cfg: DictConfig, dnn_data):
     return train_loader, val_loader, test_loader
 
 
+def evaluate_interp_grid_loss(
+    model_left: torch.nn.Module,
+    model_right: torch.nn.Module,
+    loader,
+    *,
+    alpha_grid: list[float],
+    eval_loss_acc,
+    device: torch.device,
+) -> float:
+    """Average CE loss across multiple interpolation points on one loader."""
+
+    losses: list[float] = []
+    for alpha in alpha_grid:
+        temporal_model = lerp(model_left, model_right, float(alpha))
+        loss_value, _ = eval_loss_acc(temporal_model, loader, torch.nn.CrossEntropyLoss(), device)
+        losses.append(float(loss_value))
+    return float(sum(losses) / len(losses))
+
+
+def maybe_load_starting_alignment(pi_model_a: torch.nn.Module, cfg: DictConfig) -> None:
+    """Warm-start permutation parameters from a previous alignment artifact."""
+
+    artifact_path = cfg.get("starting_alignment_artifact", None)
+    if artifact_path in (None, "", "null"):
+        return
+
+    resolved_path = Path(to_absolute_path(str(artifact_path)))
+    payload = torch.load(resolved_path, map_location="cpu")
+    permutation_kind = str(cfg.get("starting_permutation_kind", "hard"))
+    if permutation_kind == "hard":
+        source = payload.get("hard_permutations")
+    elif permutation_kind == "raw":
+        source = payload.get("raw_parameters")
+    else:
+        raise ValueError(f"Unsupported starting_permutation_kind={permutation_kind!r}. Expected 'hard' or 'raw'.")
+
+    if source is None:
+        raise ValueError(f"Starting alignment artifact {resolved_path} does not contain {permutation_kind!r} permutation data.")
+
+    target_params = [parameter for parameter in pi_model_a.p if parameter is not None]
+    if len(source) != len(target_params):
+        raise ValueError(
+            f"Starting alignment artifact {resolved_path} has {len(source)} permutations but the current model expects {len(target_params)}."
+        )
+
+    with torch.no_grad():
+        for target, source_value in zip(target_params, source):
+            source_tensor = source_value if isinstance(source_value, torch.Tensor) else torch.as_tensor(source_value)
+            target.data.copy_(source_tensor.to(device=target.device, dtype=target.dtype))
+
+
 def load_model_from_checkpoint(model_path: Path, VGGClass, *, vgg_name: str, image_size: int, device: torch.device) -> torch.nn.Module:
     checkpoint = torch.load(model_path, map_location="cpu")
     model = build_model(VGGClass, vgg_name, num_classes=10, image_size=image_size)
@@ -154,10 +205,12 @@ def run_one_alignment(
     pi_model_a.to(device)
     if bool(cfg.identity_init):
         pi_model_a.identity_init()
+    maybe_load_starting_alignment(pi_model_a, cfg)
 
     loss_name = str(cfg.loss_name)
     criterion = build_criterion(loss_name, model_b, MidLoss, RndLoss, DistL1Loss, DistL2Loss)
     optimizer = torch.optim.AdamW(pi_model_a.p.parameters(), lr=float(cfg.alignment_lr))
+    validation_alpha_grid = [float(alpha) for alpha in cfg.get("validation_alpha_grid", [0.0, 0.25, 0.5, 0.75, 1.0])]
 
     print("")
     print("=" * 80)
@@ -173,6 +226,9 @@ def run_one_alignment(
     print(f"sinkhorn_l: {cfg.sinkhorn_l}")
     print(f"sinkhorn_iters: {cfg.sinkhorn_iters}")
     print(f"best_eval_interval: {int(cfg.get('best_eval_interval', 5))}")
+    print(f"validation_alpha_grid: {validation_alpha_grid}")
+    print(f"starting_alignment_artifact: {cfg.get('starting_alignment_artifact', None)}")
+    print(f"starting_permutation_kind: {cfg.get('starting_permutation_kind', 'hard')}")
     print(f"device: {device}")
     print("")
 
@@ -206,14 +262,19 @@ def run_one_alignment(
 
         pi_model_a.eval()
         if loss_name in {"random", "midpoint"}:
-            cumulative_val_loss = 0.0
-            total_val = 0
-            for x, y in val_loader:
-                rebased_model = pi_model_a()
-                loss_validation = criterion(rebased_model, x.to(device), y.to(device))
-                cumulative_val_loss += loss_validation.item() * x.shape[0]
-                total_val += x.shape[0]
-            cumulative_val_loss /= total_val
+            if (iteration + 1) % best_eval_interval == 0 or iteration + 1 == int(cfg.alignment_iterations):
+                rebased_model = deepcopy(pi_model_a())
+                rebased_model.eval()
+                cumulative_val_loss = evaluate_interp_grid_loss(
+                    rebased_model,
+                    model_b,
+                    val_loader,
+                    alpha_grid=validation_alpha_grid,
+                    eval_loss_acc=eval_loss_acc,
+                    device=device,
+                )
+            else:
+                cumulative_val_loss = float("nan")
         else:
             rebased_model = pi_model_a()
             cumulative_val_loss = float(criterion(rebased_model).item())
@@ -221,7 +282,9 @@ def run_one_alignment(
         alignment_history.append({"iteration": iteration, "train_loss": float(cumulative_train_loss), "val_loss": float(cumulative_val_loss)})
 
         should_track_best = (iteration + 1) % best_eval_interval == 0 or iteration + 1 == int(cfg.alignment_iterations)
-        if should_track_best and (best_alignment_score is None or cumulative_val_loss < best_alignment_score):
+        if should_track_best and not torch.isnan(torch.tensor(cumulative_val_loss)) and (
+            best_alignment_score is None or cumulative_val_loss < best_alignment_score
+        ):
             best_alignment_score = float(cumulative_val_loss)
             best_alignment_iteration = iteration
             best_alignment_state = clone_module_state_dict(pi_model_a)
@@ -232,7 +295,10 @@ def run_one_alignment(
             )
 
         if iteration == 0 or (iteration + 1) % int(cfg.log_interval) == 0 or iteration + 1 == int(cfg.alignment_iterations):
-            print("[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss={:.4f}".format(iteration + 1, cumulative_train_loss, cumulative_val_loss))
+            if cumulative_val_loss == cumulative_val_loss:
+                print("[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss={:.4f}".format(iteration + 1, cumulative_train_loss, cumulative_val_loss))
+            else:
+                print("[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss=<skipped>".format(iteration + 1, cumulative_train_loss))
 
     print("Elapsed time {:1.3f} secs".format(time() - t1))
     save_json(alignment_history, output_root / "alignment_history.json", indent=2)
@@ -268,6 +334,9 @@ def run_one_alignment(
             "best_alignment_iteration": best_alignment_iteration,
             "best_alignment_score": best_alignment_score,
             "best_eval_interval": best_eval_interval,
+            "validation_alpha_grid": validation_alpha_grid,
+            "starting_alignment_artifact": None if cfg.get("starting_alignment_artifact", None) in (None, "", "null") else str(to_absolute_path(str(cfg.starting_alignment_artifact))),
+            "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
             "config": OmegaConf.to_container(cfg, resolve=True),
         },
         output_root / "alignment_artifacts.pt",
@@ -340,6 +409,9 @@ def run_one_alignment(
         "best_alignment_iteration": best_alignment_iteration,
         "best_alignment_score": best_alignment_score,
         "best_eval_interval": best_eval_interval,
+        "validation_alpha_grid": validation_alpha_grid,
+        "starting_alignment_artifact": None if cfg.get("starting_alignment_artifact", None) in (None, "", "null") else str(to_absolute_path(str(cfg.starting_alignment_artifact))),
+        "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
         "config": OmegaConf.to_container(cfg, resolve=True),
     }
     save_json(metadata, output_root / "metadata.json", indent=2)
@@ -475,6 +547,10 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
                 "sinkhorn_iters": int(cfg.sinkhorn_iters),
                 "sinkhorn_l": float(combo["sinkhorn_l"]),
                 "identity_init": bool(cfg.identity_init),
+                "best_eval_interval": int(cfg.best_eval_interval),
+                "validation_alpha_grid": [float(alpha) for alpha in cfg.validation_alpha_grid],
+                "starting_alignment_artifact": cfg.get("starting_alignment_artifact", None),
+                "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
                 "num_eval_points": int(cfg.num_eval_points),
                 "log_interval": int(cfg.log_interval),
             }

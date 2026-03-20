@@ -19,23 +19,25 @@ num_eval_points: 50
 
 sinkhorn_iters: 20
 identity_init: false
-best_eval_interval: 5
+best_eval_interval: 2
+validation_alpha_grid: [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+starting_alignment_artifact: "results/vgg11/cifar10/original_sinkhorn_lmc_align_sweep/steps100_tau1p0_lr0p1_l1p0_lossmidpoint/alignment_artifacts.pt"
+starting_permutation_kind: "hard"
 device: "auto"
-log_interval: 1
+log_interval: 5
 start_index: 0
 end_index: null
 continue_on_error: true
 
 sweep:
   alignment_iterations:
-    - 200
+    - 50
   loss_name:
     - "random"
-    - "midpoint"
   tau:
     - 1.0
-    - 0.75
   lr:
     - 0.1
+    - 0.05
   sinkhorn_l:
     - 1.0
