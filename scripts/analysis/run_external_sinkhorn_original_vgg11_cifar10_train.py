@@ -18,10 +18,10 @@ sys.path.insert(0, str(project_root / "scripts"))
 
 from scripts.analysis.run_external_sinkhorn_original_small_mnist_lmc import (
     build_model,
+    clone_module_state_dict,
     evaluate_model,
     import_original_mnist_components,
     save_model_checkpoint,
-    train_model,
 )
 from scripts.lib.alignment.permutation_pipeline import resolve_device
 from scripts.lib.core.output import ensure_dir, save_json
@@ -87,6 +87,118 @@ def build_cifar10_loaders(cfg: DictConfig, dnn_data):
     return train_loader, val_loader, test_loader, train_size, val_size, len(dataset_test), transform_train, transform_test
 
 
+def train_model_cifar10(
+    model: torch.nn.Module,
+    dataset_train,
+    dataset_val,
+    device: torch.device,
+    epochs: int,
+    *,
+    base_lr: float,
+    momentum: float,
+    weight_decay: float,
+    early_stopping_patience: int,
+    min_delta: float,
+    scheduler_name: str,
+    scheduler_milestones: list[int],
+    scheduler_gamma: float,
+) -> torch.nn.Module:
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(
+        filter(lambda param: param.requires_grad, model.parameters()),
+        lr=base_lr,
+        weight_decay=weight_decay,
+    )
+
+    if scheduler_name == "multistep":
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer,
+            milestones=scheduler_milestones,
+            gamma=scheduler_gamma,
+        )
+    elif scheduler_name == "none":
+        scheduler = None
+    else:
+        raise ValueError(f"Unsupported scheduler_name={scheduler_name!r}. Expected 'multistep' or 'none'.")
+
+    model.to(device)
+    best_val_loss = float("inf")
+    best_epoch: int | None = None
+    best_state: dict[str, torch.Tensor] | None = None
+    patience_counter = 0
+
+    for epoch in range(epochs):
+        current_lr = float(optimizer.param_groups[0]["lr"])
+        cumulative_train_loss = 0.0
+        cumulative_train_correct = 0
+        total_train = 0
+        model.train()
+        for x, y in dataset_train:
+            x = x.to(device, non_blocking=True)
+            y = y.to(device, non_blocking=True)
+            logits = model(x)
+            loss_training = criterion(logits, y)
+            optimizer.zero_grad()
+            loss_training.backward()
+            optimizer.step()
+
+            cumulative_train_loss += loss_training.item() * x.shape[0]
+            cumulative_train_correct += logits.argmax(dim=1).eq(y).sum().item()
+            total_train += x.shape[0]
+
+        cumulative_train_loss /= total_train
+        cumulative_train_acc = cumulative_train_correct / total_train
+        cumulative_val_loss, cumulative_val_acc = evaluate_model(model, dataset_val, criterion, device)
+
+        improved = cumulative_val_loss < (best_val_loss - min_delta)
+        if improved:
+            best_val_loss = float(cumulative_val_loss)
+            best_epoch = epoch + 1
+            best_state = clone_module_state_dict(model)
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
+        print(
+            "Epoch {:03d}: lr {:.5f}, train loss {:1.4f}, train acc {:1.2f}, val loss {:1.4f}, val acc {:1.2f}, best_val_loss {:1.4f}, patience {}/{}".format(
+                epoch + 1,
+                current_lr,
+                cumulative_train_loss,
+                100.0 * cumulative_train_acc,
+                cumulative_val_loss,
+                100.0 * cumulative_val_acc,
+                best_val_loss,
+                patience_counter,
+                early_stopping_patience,
+            )
+        )
+
+        if scheduler is not None:
+            scheduler.step()
+
+        if cumulative_val_loss == 0:
+            break
+        if patience_counter >= early_stopping_patience:
+            print(
+                "Early stopping at epoch {:03d}; best epoch was {:03d}".format(
+                    epoch + 1,
+                    best_epoch if best_epoch is not None else epoch + 1,
+                )
+            )
+            break
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+        print(
+            "Restored best model from epoch {:03d} with val loss {:1.4f}".format(
+                best_epoch if best_epoch is not None else epochs,
+                best_val_loss,
+            )
+        )
+
+    return model
+
+
 def run_original_vgg11_cifar10_train(cfg: DictConfig | dict[str, Any]) -> dict[str, Any]:
     if not isinstance(cfg, DictConfig):
         cfg = OmegaConf.create(dict(cfg))
@@ -111,11 +223,16 @@ def run_original_vgg11_cifar10_train(cfg: DictConfig | dict[str, Any]) -> dict[s
     print(f"train_lr: {float(cfg.train_lr)}")
     print(f"momentum: {float(cfg.momentum)}")
     print(f"weight_decay: {float(cfg.weight_decay)}")
+    print(f"scheduler_name: {str(cfg.scheduler_name)}")
+    print(f"scheduler_milestones: {list(cfg.scheduler_milestones)}")
+    print(f"scheduler_gamma: {float(cfg.scheduler_gamma)}")
+    print(f"early_stopping_patience: {int(cfg.early_stopping_patience)}")
+    print(f"min_delta: {float(cfg.min_delta)}")
     print("")
 
     model_a = build_model(VGGClass, "VGG11", num_classes=10, image_size=int(cfg.image_size))
     print("Training network A")
-    model_a = train_model(
+    model_a = train_model_cifar10(
         model_a,
         train_loader,
         val_loader,
@@ -126,6 +243,9 @@ def run_original_vgg11_cifar10_train(cfg: DictConfig | dict[str, Any]) -> dict[s
         weight_decay=float(cfg.weight_decay),
         early_stopping_patience=int(cfg.early_stopping_patience),
         min_delta=float(cfg.min_delta),
+        scheduler_name=str(cfg.scheduler_name),
+        scheduler_milestones=[int(x) for x in cfg.scheduler_milestones],
+        scheduler_gamma=float(cfg.scheduler_gamma),
     )
     loss_a, acc_a = evaluate_model(model_a, test_loader, torch.nn.CrossEntropyLoss(), device)
     print("Model A: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_a, acc_a))
@@ -133,7 +253,7 @@ def run_original_vgg11_cifar10_train(cfg: DictConfig | dict[str, Any]) -> dict[s
 
     model_b = build_model(VGGClass, "VGG11", num_classes=10, image_size=int(cfg.image_size))
     print("\nTraining network B")
-    model_b = train_model(
+    model_b = train_model_cifar10(
         model_b,
         train_loader,
         val_loader,
@@ -144,6 +264,9 @@ def run_original_vgg11_cifar10_train(cfg: DictConfig | dict[str, Any]) -> dict[s
         weight_decay=float(cfg.weight_decay),
         early_stopping_patience=int(cfg.early_stopping_patience),
         min_delta=float(cfg.min_delta),
+        scheduler_name=str(cfg.scheduler_name),
+        scheduler_milestones=[int(x) for x in cfg.scheduler_milestones],
+        scheduler_gamma=float(cfg.scheduler_gamma),
     )
     loss_b, acc_b = evaluate_model(model_b, test_loader, torch.nn.CrossEntropyLoss(), device)
     print("Model B: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_b, acc_b))

@@ -10,11 +10,14 @@ num_workers: 4
 
 val_fraction: 0.1
 batch_size: 128
-train_epochs: 80
-train_lr: 0.05
+train_epochs: 150
+train_lr: 0.01
 momentum: 0.9
-weight_decay: 1e-3
-early_stopping_patience: 5
+weight_decay: 7e-4
+scheduler_name: "multistep"
+scheduler_milestones: [75, 120]
+scheduler_gamma: 0.2
+early_stopping_patience: 25
 min_delta: 0.0005
 image_size: 32
 
