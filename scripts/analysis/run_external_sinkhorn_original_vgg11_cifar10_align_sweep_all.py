@@ -92,6 +92,7 @@ def evaluate_interp_grid_loss(
     loader,
     *,
     alpha_grid: list[float],
+    lerp,
     eval_loss_acc,
     device: torch.device,
 ) -> float:
@@ -270,6 +271,7 @@ def run_one_alignment(
                     model_b,
                     val_loader,
                     alpha_grid=validation_alpha_grid,
+                    lerp=lerp,
                     eval_loss_acc=eval_loss_acc,
                     device=device,
                 )
