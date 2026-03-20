@@ -124,6 +124,8 @@ def run_original_vgg11_cifar10_train(cfg: DictConfig | dict[str, Any]) -> dict[s
         base_lr=float(cfg.train_lr),
         momentum=float(cfg.momentum),
         weight_decay=float(cfg.weight_decay),
+        early_stopping_patience=int(cfg.early_stopping_patience),
+        min_delta=float(cfg.min_delta),
     )
     loss_a, acc_a = evaluate_model(model_a, test_loader, torch.nn.CrossEntropyLoss(), device)
     print("Model A: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_a, acc_a))
@@ -140,6 +142,8 @@ def run_original_vgg11_cifar10_train(cfg: DictConfig | dict[str, Any]) -> dict[s
         base_lr=float(cfg.train_lr),
         momentum=float(cfg.momentum),
         weight_decay=float(cfg.weight_decay),
+        early_stopping_patience=int(cfg.early_stopping_patience),
+        min_delta=float(cfg.min_delta),
     )
     loss_b, acc_b = evaluate_model(model_b, test_loader, torch.nn.CrossEntropyLoss(), device)
     print("Model B: test loss {:1.3f}, test accuracy {:1.3f}".format(loss_b, acc_b))

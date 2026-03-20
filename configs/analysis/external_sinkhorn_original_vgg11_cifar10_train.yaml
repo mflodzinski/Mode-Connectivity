@@ -10,10 +10,12 @@ num_workers: 4
 
 val_fraction: 0.1
 batch_size: 128
-train_epochs: 100
+train_epochs: 80
 train_lr: 0.05
 momentum: 0.9
-weight_decay: 5e-4
+weight_decay: 1e-3
+early_stopping_patience: 5
+min_delta: 0.0005
 image_size: 32
 
 device: "auto"
