@@ -35,9 +35,11 @@ if command -v module >/dev/null 2>&1; then
     module load graphviz >/dev/null 2>&1 || true
 fi
 
-MODEL_A_CHECKPOINT="${MODEL_A_CHECKPOINT:-VGG11_cifar10_0.911.pth}"
-MODEL_B_CHECKPOINT="${MODEL_B_CHECKPOINT:-VGG11_cifar10_0.9139.pth}"
-BASE_OUTPUT_ROOT="${BASE_OUTPUT_ROOT:-results/vgg11/cifar10/raw_pth_align_sweep}"
+MODEL_A_CHECKPOINT="${MODEL_A_CHECKPOINT:-}"
+MODEL_B_CHECKPOINT="${MODEL_B_CHECKPOINT:-}"
+BASE_OUTPUT_ROOT="${BASE_OUTPUT_ROOT:-}"
+SCALE_INVARIANT="${SCALE_INVARIANT:-}"
+LAMBDA_SCALE="${LAMBDA_SCALE:-}"
 START_INDEX="${START_INDEX:-0}"
 END_INDEX="${END_INDEX:-null}"
 CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-true}"
@@ -46,9 +48,11 @@ echo "========================================"
 echo "Original Sinkhorn VGG11 CIFAR10 Align Sweep"
 echo "========================================"
 echo "PROJECT_ROOT: ${PROJECT_ROOT}"
-echo "MODEL_A_CHECKPOINT: ${MODEL_A_CHECKPOINT}"
-echo "MODEL_B_CHECKPOINT: ${MODEL_B_CHECKPOINT}"
-echo "BASE_OUTPUT_ROOT: ${BASE_OUTPUT_ROOT}"
+echo "MODEL_A_CHECKPOINT: ${MODEL_A_CHECKPOINT:-<from config>}"
+echo "MODEL_B_CHECKPOINT: ${MODEL_B_CHECKPOINT:-<from config>}"
+echo "BASE_OUTPUT_ROOT: ${BASE_OUTPUT_ROOT:-<from config>}"
+echo "SCALE_INVARIANT: ${SCALE_INVARIANT:-<from config>}"
+echo "LAMBDA_SCALE: ${LAMBDA_SCALE:-<from config>}"
 echo "START_INDEX: ${START_INDEX}"
 echo "END_INDEX: ${END_INDEX}"
 echo "CONTINUE_ON_ERROR: ${CONTINUE_ON_ERROR}"
@@ -64,9 +68,21 @@ args=(
     "num_workers=${SLURM_CPUS_PER_TASK}"
     "device=cuda"
 )
-args+=("model_a_checkpoint=${MODEL_A_CHECKPOINT}")
-args+=("model_b_checkpoint=${MODEL_B_CHECKPOINT}")
-args+=("base_output_root=${BASE_OUTPUT_ROOT}")
+if [ -n "${MODEL_A_CHECKPOINT}" ]; then
+    args+=("model_a_checkpoint=${MODEL_A_CHECKPOINT}")
+fi
+if [ -n "${MODEL_B_CHECKPOINT}" ]; then
+    args+=("model_b_checkpoint=${MODEL_B_CHECKPOINT}")
+fi
+if [ -n "${BASE_OUTPUT_ROOT}" ]; then
+    args+=("base_output_root=${BASE_OUTPUT_ROOT}")
+fi
+if [ -n "${SCALE_INVARIANT}" ]; then
+    args+=("scale_invariant=${SCALE_INVARIANT}")
+fi
+if [ -n "${LAMBDA_SCALE}" ]; then
+    args+=("lambda_scale=${LAMBDA_SCALE}")
+fi
 
 srun python scripts/analysis/run_external_sinkhorn_original_vgg11_cifar10_align_sweep_all.py "${args[@]}"
 
@@ -74,4 +90,4 @@ echo ""
 echo "========================================"
 echo "ORIGINAL SINKHORN VGG11 CIFAR10 ALIGN SWEEP COMPLETE"
 echo "========================================"
-echo "Results written under: ${BASE_OUTPUT_ROOT}"
+echo "Results written under: ${BASE_OUTPUT_ROOT:-<base_output_root from config>}"
