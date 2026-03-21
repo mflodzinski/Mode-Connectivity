@@ -550,6 +550,8 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
                 "sinkhorn_iters": int(cfg.sinkhorn_iters),
                 "sinkhorn_l": float(combo["sinkhorn_l"]),
                 "identity_init": bool(cfg.identity_init),
+                "scale_invariant": bool(cfg.get("scale_invariant", False)),
+                "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
                 "best_eval_interval": int(cfg.best_eval_interval),
                 "validation_alpha_grid": [float(alpha) for alpha in cfg.validation_alpha_grid],
                 "starting_alignment_artifact": cfg.get("starting_alignment_artifact", None),
