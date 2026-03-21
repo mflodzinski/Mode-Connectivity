@@ -31,15 +31,16 @@ from src.utils import set_global_seed
 
 
 def build_output_tag(combo: Dict[str, Any]) -> str:
-    return "_".join(
-        [
-            f"steps{combo['alignment_iterations']}",
-            f"tau{sanitize_value(combo['tau'])}",
-            f"lr{sanitize_value(combo['lr'])}",
-            f"l{sanitize_value(combo['sinkhorn_l'])}",
-            f"loss{combo['loss_name']}",
-        ]
-    )
+    parts = [
+        f"steps{combo['alignment_iterations']}",
+        f"tau{sanitize_value(combo['tau'])}",
+        f"lr{sanitize_value(combo['lr'])}",
+        f"l{sanitize_value(combo['sinkhorn_l'])}",
+        f"loss{combo['loss_name']}",
+    ]
+    if "lambda_scale" in combo:
+        parts.append(f"lam{sanitize_value(combo['lambda_scale'])}")
+    return "_".join(parts)
 
 
 def build_cifar10_loaders(cfg: DictConfig, dnn_data):
@@ -193,6 +194,8 @@ def run_one_alignment(
         l=float(cfg.sinkhorn_l),
         tau=float(cfg.tau),
         n_iter=int(cfg.sinkhorn_iters),
+        scale_invariant=bool(cfg.get("scale_invariant", False)),
+        lambda_scale=float(cfg.get("lambda_scale", 1e-4)),
     )
     pi_model_a.to(device)
     if bool(cfg.identity_init):
@@ -201,7 +204,7 @@ def run_one_alignment(
 
     loss_name = str(cfg.loss_name)
     criterion = build_criterion(loss_name, model_b, MidLoss, RndLoss, DistL1Loss, DistL2Loss)
-    optimizer = torch.optim.AdamW(pi_model_a.p.parameters(), lr=float(cfg.alignment_lr))
+    optimizer = torch.optim.AdamW(pi_model_a.parameters(), lr=float(cfg.alignment_lr))
     validation_alpha_grid = [float(alpha) for alpha in cfg.get("validation_alpha_grid", [0.0, 0.25, 0.5, 0.75, 1.0])]
 
     print("")
@@ -217,6 +220,8 @@ def run_one_alignment(
     print(f"alignment_lr: {cfg.alignment_lr}")
     print(f"sinkhorn_l: {cfg.sinkhorn_l}")
     print(f"sinkhorn_iters: {cfg.sinkhorn_iters}")
+    print(f"scale_invariant: {bool(cfg.get('scale_invariant', False))}")
+    print(f"lambda_scale: {float(cfg.get('lambda_scale', 1e-4))}")
     print(f"best_eval_interval: {int(cfg.get('best_eval_interval', 5))}")
     print(f"validation_alpha_grid: {validation_alpha_grid}")
     print(f"starting_alignment_artifact: {cfg.get('starting_alignment_artifact', None)}")
@@ -238,6 +243,7 @@ def run_one_alignment(
             for x, y in train_loader:
                 rebased_model = pi_model_a()
                 loss_training = criterion(rebased_model, x.to(device), y.to(device))
+                loss_training = loss_training + pi_model_a.scale_regularizer()
                 optimizer.zero_grad()
                 loss_training.backward()
                 optimizer.step()
@@ -247,6 +253,7 @@ def run_one_alignment(
         else:
             rebased_model = pi_model_a()
             loss_training = criterion(rebased_model)
+            loss_training = loss_training + pi_model_a.scale_regularizer()
             optimizer.zero_grad()
             loss_training.backward()
             optimizer.step()
@@ -270,7 +277,7 @@ def run_one_alignment(
                 cumulative_val_loss = float("nan")
         else:
             rebased_model = pi_model_a()
-            cumulative_val_loss = float(criterion(rebased_model).item())
+            cumulative_val_loss = float((criterion(rebased_model) + pi_model_a.scale_regularizer()).item())
 
         alignment_history.append({"iteration": iteration, "train_loss": float(cumulative_train_loss), "val_loss": float(cumulative_val_loss)})
 
@@ -328,6 +335,8 @@ def run_one_alignment(
             "best_alignment_score": best_alignment_score,
             "best_eval_interval": best_eval_interval,
             "validation_alpha_grid": validation_alpha_grid,
+            "scale_invariant": bool(cfg.get("scale_invariant", False)),
+            "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
             "starting_alignment_artifact": None if cfg.get("starting_alignment_artifact", None) in (None, "", "null") else str(to_absolute_path(str(cfg.starting_alignment_artifact))),
             "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
             "config": OmegaConf.to_container(cfg, resolve=True),
@@ -403,6 +412,8 @@ def run_one_alignment(
         "best_alignment_score": best_alignment_score,
         "best_eval_interval": best_eval_interval,
         "validation_alpha_grid": validation_alpha_grid,
+        "scale_invariant": bool(cfg.get("scale_invariant", False)),
+        "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
         "starting_alignment_artifact": None if cfg.get("starting_alignment_artifact", None) in (None, "", "null") else str(to_absolute_path(str(cfg.starting_alignment_artifact))),
         "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
         "config": OmegaConf.to_container(cfg, resolve=True),
@@ -540,6 +551,8 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
                 "sinkhorn_iters": int(cfg.sinkhorn_iters),
                 "sinkhorn_l": float(combo["sinkhorn_l"]),
                 "identity_init": bool(cfg.identity_init),
+                "scale_invariant": bool(cfg.get("scale_invariant", False)),
+                "lambda_scale": float(combo["lambda_scale"]) if "lambda_scale" in combo else float(cfg.get("lambda_scale", 1e-4)),
                 "best_eval_interval": int(cfg.best_eval_interval),
                 "validation_alpha_grid": [float(alpha) for alpha in cfg.validation_alpha_grid],
                 "starting_alignment_artifact": cfg.get("starting_alignment_artifact", None),
