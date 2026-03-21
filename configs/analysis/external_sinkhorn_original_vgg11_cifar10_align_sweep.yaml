@@ -44,6 +44,6 @@ sweep:
   sinkhorn_l:
     - 1.0
   lambda_scale:
-    - 1e-3
-    - 5e-3
     - 1e-2
+    - 5e-2
+    - 5e-3
