@@ -141,7 +141,18 @@ def maybe_load_starting_alignment(pi_model_a: torch.nn.Module, cfg: DictConfig) 
 def load_model_from_checkpoint(model_path: Path, VGGClass, *, vgg_name: str, image_size: int, device: torch.device) -> torch.nn.Module:
     checkpoint = torch.load(model_path, map_location="cpu")
     model = build_model(VGGClass, vgg_name, num_classes=10, image_size=image_size)
-    model.load_state_dict(checkpoint["model_state"])
+    if isinstance(checkpoint, dict) and "model_state" in checkpoint:
+        state_dict = checkpoint["model_state"]
+    elif isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+        state_dict = checkpoint["state_dict"]
+    elif isinstance(checkpoint, dict):
+        state_dict = checkpoint
+    else:
+        raise ValueError(
+            f"Unsupported checkpoint payload at {model_path}; expected a raw state_dict or dict with "
+            "'model_state'/'state_dict'."
+        )
+    model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
     return model

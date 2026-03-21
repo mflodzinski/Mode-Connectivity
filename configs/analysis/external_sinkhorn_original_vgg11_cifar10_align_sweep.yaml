@@ -3,9 +3,9 @@ defaults: []
 experiment_name: "external_sinkhorn_original_vgg11_cifar10_align_sweep"
 vgg_name: "VGG11"
 
-model_a_checkpoint: "results/vgg11/cifar10/original_sinkhorn_lmc/model_a.pt"
-model_b_checkpoint: "results/vgg11/cifar10/original_sinkhorn_lmc/model_b.pt"
-base_output_root: "results/vgg11/cifar10/original_sinkhorn_lmc_align_sweep"
+model_a_checkpoint: "VGG11_cifar10_0.911.pth"
+model_b_checkpoint: "VGG11_cifar10_0.9139.pth"
+base_output_root: "results/vgg11/cifar10/raw_pth_align_sweep"
 
 data_path: "./data"
 seed: 0
@@ -14,13 +14,13 @@ num_workers: 4
 
 image_size: 32
 val_fraction: 0.1
-batch_size: 2000
+batch_size: 1000
 num_eval_points: 50
 
 sinkhorn_iters: 20
 identity_init: false
 best_eval_interval: 2
-validation_alpha_grid: [0.3, 0.4, 0.5, 0.6, 0.7]
+validation_alpha_grid: [0.5]
 starting_alignment_artifact: null
 starting_permutation_kind: "hard"
 device: "auto"
@@ -31,7 +31,7 @@ continue_on_error: true
 
 sweep:
   alignment_iterations:
-    - 100
+    - 50
   loss_name:
     - "random"
     - "midpoint"
