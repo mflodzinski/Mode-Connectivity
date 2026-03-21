@@ -2,9 +2,9 @@ defaults: []
 
 experiment_name: "external_sinkhorn_original_vgg11_cifar10_endpoint_eval"
 
-output_root: "results/vgg11/cifar10/original_sinkhorn_lmc_endpoint_eval"
-model_a_checkpoint: "results/vgg11/cifar10/original_sinkhorn_lmc/model_a.pt"
-model_b_checkpoint: "results/vgg11/cifar10/original_sinkhorn_lmc/model_b.pt"
+output_root: "results/vgg11/cifar10/raw_pth_endpoint_eval"
+model_a_checkpoint: "VGG11_cifar10_0.911.pth"
+model_b_checkpoint: "VGG11_cifar10_0.9139.pth"
 
 data_path: "./data"
 image_size: 32
