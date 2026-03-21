@@ -47,42 +47,22 @@ def build_cifar10_loaders(cfg: DictConfig, dnn_data):
     transform_test = dnn_data.Transforms.CIFAR10.VGG.test
     cifar_root = Path(to_absolute_path(str(cfg.data_path))) / "cifar10"
 
-    dataset_train_source = torchvision.datasets.CIFAR10(
+    dataset_train = torchvision.datasets.CIFAR10(
         root=cifar_root,
         train=True,
         download=True,
         transform=transform_train,
     )
-    dataset_val_source = torchvision.datasets.CIFAR10(
-        root=cifar_root,
-        train=True,
-        download=True,
-        transform=transform_test,
-    )
-    dataset_test_source = torchvision.datasets.CIFAR10(
+    dataset_test = torchvision.datasets.CIFAR10(
         root=cifar_root,
         train=False,
         download=True,
         transform=transform_test,
     )
 
-    train_total_size = len(dataset_train_source)
-    val_fraction = float(cfg.val_fraction)
-    if not (0.0 < val_fraction < 1.0):
-        raise ValueError(f"val_fraction must be in (0, 1); got {val_fraction}.")
-    val_size = int(train_total_size * val_fraction)
-    train_size = train_total_size - val_size
-    indices = torch.randperm(train_total_size, generator=torch.Generator().manual_seed(int(cfg.split_seed)))
-    train_indices = indices[:train_size].tolist()
-    val_indices = indices[train_size:].tolist()
-
-    dataset_train = torch.utils.data.Subset(dataset_train_source, train_indices)
-    dataset_val = torch.utils.data.Subset(dataset_val_source, val_indices)
-    dataset_test = dataset_test_source
-
     train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=int(cfg.batch_size), shuffle=True, num_workers=int(cfg.num_workers))
-    val_loader = torch.utils.data.DataLoader(dataset_val, batch_size=int(cfg.batch_size), shuffle=False, num_workers=int(cfg.num_workers))
     test_loader = torch.utils.data.DataLoader(dataset_test, batch_size=int(cfg.batch_size), shuffle=False, num_workers=int(cfg.num_workers))
+    val_loader = test_loader
     return train_loader, val_loader, test_loader
 
 
