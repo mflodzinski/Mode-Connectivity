@@ -31,15 +31,16 @@ from src.utils import set_global_seed
 
 
 def build_output_tag(combo: Dict[str, Any]) -> str:
-    return "_".join(
-        [
-            f"steps{combo['alignment_iterations']}",
-            f"tau{sanitize_value(combo['tau'])}",
-            f"lr{sanitize_value(combo['lr'])}",
-            f"l{sanitize_value(combo['sinkhorn_l'])}",
-            f"loss{combo['loss_name']}",
-        ]
-    )
+    parts = [
+        f"steps{combo['alignment_iterations']}",
+        f"tau{sanitize_value(combo['tau'])}",
+        f"lr{sanitize_value(combo['lr'])}",
+        f"l{sanitize_value(combo['sinkhorn_l'])}",
+        f"loss{combo['loss_name']}",
+    ]
+    if "lambda_scale" in combo:
+        parts.append(f"lam{sanitize_value(combo['lambda_scale'])}")
+    return "_".join(parts)
 
 
 def build_cifar10_loaders(cfg: DictConfig, dnn_data):
@@ -551,7 +552,7 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
                 "sinkhorn_l": float(combo["sinkhorn_l"]),
                 "identity_init": bool(cfg.identity_init),
                 "scale_invariant": bool(cfg.get("scale_invariant", False)),
-                "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
+                "lambda_scale": float(combo["lambda_scale"]) if "lambda_scale" in combo else float(cfg.get("lambda_scale", 1e-4)),
                 "best_eval_interval": int(cfg.best_eval_interval),
                 "validation_alpha_grid": [float(alpha) for alpha in cfg.validation_alpha_grid],
                 "starting_alignment_artifact": cfg.get("starting_alignment_artifact", None),
