@@ -29,10 +29,19 @@ def load_endpoint_model(
     VGGClass,
 ) -> torch.nn.Module:
     payload = torch.load(checkpoint_path, map_location="cpu")
-    if not isinstance(payload, dict) or "model_state" not in payload:
-        raise ValueError(f"Checkpoint at {checkpoint_path} does not contain a 'model_state' entry.")
+    if isinstance(payload, dict) and "model_state" in payload:
+        state_dict = payload["model_state"]
+    elif isinstance(payload, dict) and "state_dict" in payload:
+        state_dict = payload["state_dict"]
+    elif isinstance(payload, dict):
+        state_dict = payload
+    else:
+        raise ValueError(
+            f"Unsupported checkpoint payload at {checkpoint_path}; expected a raw state_dict or dict with "
+            "'model_state'/'state_dict'."
+        )
     model = build_model(VGGClass, "VGG11", num_classes=10, image_size=image_size)
-    model.load_state_dict(payload["model_state"])
+    model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
     return model

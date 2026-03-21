@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=00:30:00
+#SBATCH --time=00:10:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=8GB
+#SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_external_sinkhorn_orig_vgg11_cifar10_endpoint_eval_%j.out
 #SBATCH --error=slurm_external_sinkhorn_orig_vgg11_cifar10_endpoint_eval_%j.err
@@ -35,9 +35,9 @@ if command -v module >/dev/null 2>&1; then
     module load graphviz >/dev/null 2>&1 || true
 fi
 
-OUTPUT_ROOT="${OUTPUT_ROOT:-results/vgg11/cifar10/original_sinkhorn_lmc_endpoint_eval}"
-MODEL_A_CHECKPOINT="${MODEL_A_CHECKPOINT:-results/vgg11/cifar10/original_sinkhorn_lmc/model_a.pt}"
-MODEL_B_CHECKPOINT="${MODEL_B_CHECKPOINT:-results/vgg11/cifar10/original_sinkhorn_lmc/model_b.pt}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-results/vgg11/cifar10/raw_pth_endpoint_eval}"
+MODEL_A_CHECKPOINT="${MODEL_A_CHECKPOINT:-VGG11_cifar10_0.911.pth}"
+MODEL_B_CHECKPOINT="${MODEL_B_CHECKPOINT:-VGG11_cifar10_0.9139.pth}"
 BATCH_SIZE="${BATCH_SIZE:-128}"
 
 echo "========================================"
