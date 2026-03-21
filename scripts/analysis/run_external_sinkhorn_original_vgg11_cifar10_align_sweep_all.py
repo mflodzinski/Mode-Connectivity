@@ -87,6 +87,15 @@ def evaluate_interp_grid_loss(
     return float(sum(losses) / len(losses))
 
 
+def format_scale_stats(scale_stats: Dict[str, Any] | None) -> str:
+    if not scale_stats:
+        return "scale_stats=<disabled>"
+    return (
+        "scale[min={scale_min:.4f}, mean={scale_mean:.4f}, max={scale_max:.4f}] "
+        "inv_scale[min={inv_scale_min:.4f}, mean={inv_scale_mean:.4f}, max={inv_scale_max:.4f}]"
+    ).format(**scale_stats)
+
+
 def maybe_load_starting_alignment(pi_model_a: torch.nn.Module, cfg: DictConfig) -> None:
     """Warm-start permutation parameters from a previous alignment artifact."""
 
@@ -288,17 +297,28 @@ def run_one_alignment(
             best_alignment_score = float(cumulative_val_loss)
             best_alignment_iteration = iteration
             best_alignment_state = clone_module_state_dict(pi_model_a)
-            print(
-                "[original_sinkhorn_align] new_best iter={:03d} val_loss={:.4f}".format(
-                    iteration + 1, cumulative_val_loss
-                )
+            best_msg = "[original_sinkhorn_align] new_best iter={:03d} val_loss={:.4f}".format(
+                iteration + 1, cumulative_val_loss
             )
+            if bool(cfg.get("scale_invariant", False)) and hasattr(pi_model_a, "scale_stats"):
+                best_msg = f"{best_msg} {format_scale_stats(pi_model_a.scale_stats())}"
+            print(best_msg)
 
         if iteration == 0 or (iteration + 1) % int(cfg.log_interval) == 0 or iteration + 1 == int(cfg.alignment_iterations):
             if cumulative_val_loss == cumulative_val_loss:
-                print("[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss={:.4f}".format(iteration + 1, cumulative_train_loss, cumulative_val_loss))
+                iter_msg = "[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss={:.4f}".format(
+                    iteration + 1,
+                    cumulative_train_loss,
+                    cumulative_val_loss,
+                )
             else:
-                print("[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss=<skipped>".format(iteration + 1, cumulative_train_loss))
+                iter_msg = "[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss=<skipped>".format(
+                    iteration + 1,
+                    cumulative_train_loss,
+                )
+            if bool(cfg.get("scale_invariant", False)) and hasattr(pi_model_a, "scale_stats"):
+                iter_msg = f"{iter_msg} {format_scale_stats(pi_model_a.scale_stats())}"
+            print(iter_msg)
 
     print("Elapsed time {:1.3f} secs".format(time() - t1))
     save_json(alignment_history, output_root / "alignment_history.json", indent=2)
@@ -337,6 +357,7 @@ def run_one_alignment(
             "validation_alpha_grid": validation_alpha_grid,
             "scale_invariant": bool(cfg.get("scale_invariant", False)),
             "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
+            "scale_stats": pi_model_a.scale_stats() if hasattr(pi_model_a, "scale_stats") else None,
             "starting_alignment_artifact": None if cfg.get("starting_alignment_artifact", None) in (None, "", "null") else str(to_absolute_path(str(cfg.starting_alignment_artifact))),
             "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
             "config": OmegaConf.to_container(cfg, resolve=True),
@@ -414,6 +435,7 @@ def run_one_alignment(
         "validation_alpha_grid": validation_alpha_grid,
         "scale_invariant": bool(cfg.get("scale_invariant", False)),
         "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
+        "scale_stats": pi_model_a.scale_stats() if hasattr(pi_model_a, "scale_stats") else None,
         "starting_alignment_artifact": None if cfg.get("starting_alignment_artifact", None) in (None, "", "null") else str(to_absolute_path(str(cfg.starting_alignment_artifact))),
         "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
         "config": OmegaConf.to_container(cfg, resolve=True),
