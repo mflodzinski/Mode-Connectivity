@@ -96,6 +96,60 @@ def format_scale_stats(scale_stats: Dict[str, Any] | None) -> str:
     ).format(**scale_stats)
 
 
+def extract_scale_artifacts(pi_model_a: torch.nn.Module) -> Dict[str, Any]:
+    if not hasattr(pi_model_a, "u"):
+        return {
+            "raw_log_scales": [],
+            "scales": [],
+            "inv_scales": [],
+            "layer_scale_stats": [],
+        }
+
+    raw_log_scales: list[torch.Tensor] = []
+    scales: list[torch.Tensor] = []
+    inv_scales: list[torch.Tensor] = []
+    layer_scale_stats: list[dict[str, float | int]] = []
+    permutation_to_parameter_names: dict[int, list[str]] = {}
+    if hasattr(pi_model_a, "reparamnet"):
+        for parameter_name, permutation_graph_index in pi_model_a.reparamnet.map_param_index.items():
+            permutation_index = pi_model_a.reparamnet.perm_dict[permutation_graph_index]
+            if permutation_index is None:
+                continue
+            permutation_to_parameter_names.setdefault(int(permutation_index), []).append(parameter_name)
+    for layer_index, log_scale in enumerate(pi_model_a.u):
+        if log_scale is None:
+            continue
+        log_scale_cpu = log_scale.detach().cpu().clone()
+        scale_cpu = torch.exp(log_scale_cpu)
+        inv_scale_cpu = torch.exp(-log_scale_cpu)
+        raw_log_scales.append(log_scale_cpu)
+        scales.append(scale_cpu)
+        inv_scales.append(inv_scale_cpu)
+        layer_scale_stats.append(
+            {
+                "layer_index": int(layer_index),
+                "parameter_names": sorted(permutation_to_parameter_names.get(int(layer_index), [])),
+                "num_channels": int(scale_cpu.numel()),
+                "log_scale_min": float(log_scale_cpu.min().item()),
+                "log_scale_max": float(log_scale_cpu.max().item()),
+                "log_scale_mean": float(log_scale_cpu.mean().item()),
+                "scale_min": float(scale_cpu.min().item()),
+                "scale_max": float(scale_cpu.max().item()),
+                "scale_mean": float(scale_cpu.mean().item()),
+                "inv_scale_min": float(inv_scale_cpu.min().item()),
+                "inv_scale_max": float(inv_scale_cpu.max().item()),
+                "inv_scale_mean": float(inv_scale_cpu.mean().item()),
+            }
+        )
+
+    return {
+        "raw_log_scales": raw_log_scales,
+        "scales": scales,
+        "inv_scales": inv_scales,
+        "layer_scale_stats": layer_scale_stats,
+    }
+
+
 def maybe_load_starting_alignment(pi_model_a: torch.nn.Module, cfg: DictConfig) -> None:
     """Warm-start permutation parameters from a previous alignment artifact."""
 
@@ -347,10 +401,12 @@ def run_one_alignment(
     )
     raw_permutation_parameters = [parameter.detach().cpu().clone() for parameter in pi_model_a.p if parameter is not None]
     hard_permutation_matrices = [matching(parameter.detach().cpu().numpy()).to(torch.float32).cpu() for parameter in pi_model_a.p if parameter is not None]
+    scale_artifacts = extract_scale_artifacts(pi_model_a)
     torch.save(
         {
             "raw_parameters": raw_permutation_parameters,
             "hard_permutations": hard_permutation_matrices,
+            **scale_artifacts,
             "best_alignment_iteration": best_alignment_iteration,
             "best_alignment_score": best_alignment_score,
             "best_eval_interval": best_eval_interval,
@@ -436,6 +492,7 @@ def run_one_alignment(
         "scale_invariant": bool(cfg.get("scale_invariant", False)),
         "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
         "scale_stats": pi_model_a.scale_stats() if hasattr(pi_model_a, "scale_stats") else None,
+        "layer_scale_stats": scale_artifacts["layer_scale_stats"],
         "starting_alignment_artifact": None if cfg.get("starting_alignment_artifact", None) in (None, "", "null") else str(to_absolute_path(str(cfg.starting_alignment_artifact))),
         "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
         "config": OmegaConf.to_container(cfg, resolve=True),
