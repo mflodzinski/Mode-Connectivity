@@ -30,7 +30,7 @@ from scripts.lib.core.output import ensure_dir, load_json, save_json
 from src.utils import set_global_seed
 
 
-def build_output_tag(combo: Dict[str, Any]) -> str:
+def build_output_tag(combo: Dict[str, Any], cfg: DictConfig) -> str:
     parts = [
         f"steps{combo['alignment_iterations']}",
         f"tau{sanitize_value(combo['tau'])}",
@@ -40,6 +40,10 @@ def build_output_tag(combo: Dict[str, Any]) -> str:
     ]
     if "lambda_scale" in combo:
         parts.append(f"lam{sanitize_value(combo['lambda_scale'])}")
+    finetune_mode = str(cfg.get("finetune_mode", "joint")).lower()
+    starting_alignment_artifact = cfg.get("starting_alignment_artifact", None)
+    if finetune_mode != "joint" or starting_alignment_artifact not in (None, "", "null"):
+        parts.append(f"ft{finetune_mode}")
     return "_".join(parts)
 
 
@@ -48,11 +52,17 @@ def build_cifar10_loaders(cfg: DictConfig, dnn_data):
     transform_test = dnn_data.Transforms.CIFAR10.VGG.test
     cifar_root = Path(to_absolute_path(str(cfg.data_path))) / "cifar10"
 
-    dataset_train = torchvision.datasets.CIFAR10(
+    dataset_train_source = torchvision.datasets.CIFAR10(
         root=cifar_root,
         train=True,
         download=True,
         transform=transform_train,
+    )
+    dataset_val_source = torchvision.datasets.CIFAR10(
+        root=cifar_root,
+        train=True,
+        download=True,
+        transform=transform_test,
     )
     dataset_test = torchvision.datasets.CIFAR10(
         root=cifar_root,
@@ -61,9 +71,20 @@ def build_cifar10_loaders(cfg: DictConfig, dnn_data):
         transform=transform_test,
     )
 
+    full_train_size = len(dataset_train_source)
+    val_size = int(full_train_size * float(cfg.val_fraction))
+    train_size = full_train_size - val_size
+    generator = torch.Generator().manual_seed(int(cfg.split_seed))
+    shuffled_indices = torch.randperm(full_train_size, generator=generator).tolist()
+    train_indices = shuffled_indices[:train_size]
+    val_indices = shuffled_indices[train_size:]
+
+    dataset_train = torch.utils.data.Subset(dataset_train_source, train_indices)
+    dataset_val = torch.utils.data.Subset(dataset_val_source, val_indices)
+
     train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=int(cfg.batch_size), shuffle=True, num_workers=int(cfg.num_workers))
+    val_loader = torch.utils.data.DataLoader(dataset_val, batch_size=int(cfg.batch_size), shuffle=False, num_workers=int(cfg.num_workers))
     test_loader = torch.utils.data.DataLoader(dataset_test, batch_size=int(cfg.batch_size), shuffle=False, num_workers=int(cfg.num_workers))
-    val_loader = test_loader
     return train_loader, val_loader, test_loader
 
 
@@ -87,8 +108,71 @@ def evaluate_interp_grid_loss(
     return float(sum(losses) / len(losses))
 
 
+def format_scale_stats(scale_stats: Dict[str, Any] | None) -> str:
+    if not scale_stats:
+        return "scale_stats=<disabled>"
+    return (
+        "scale[min={scale_min:.4f}, mean={scale_mean:.4f}, max={scale_max:.4f}] "
+        "inv_scale[min={inv_scale_min:.4f}, mean={inv_scale_mean:.4f}, max={inv_scale_max:.4f}]"
+    ).format(**scale_stats)
+
+
+def extract_scale_artifacts(pi_model_a: torch.nn.Module) -> Dict[str, Any]:
+    if not hasattr(pi_model_a, "u"):
+        return {
+            "raw_log_scales": [],
+            "scales": [],
+            "inv_scales": [],
+            "layer_scale_stats": [],
+        }
+
+    raw_log_scales: list[torch.Tensor] = []
+    scales: list[torch.Tensor] = []
+    inv_scales: list[torch.Tensor] = []
+    layer_scale_stats: list[dict[str, float | int]] = []
+    permutation_to_parameter_names: dict[int, list[str]] = {}
+    if hasattr(pi_model_a, "reparamnet"):
+        for parameter_name, permutation_graph_index in pi_model_a.reparamnet.map_param_index.items():
+            permutation_index = pi_model_a.reparamnet.perm_dict[permutation_graph_index]
+            if permutation_index is None:
+                continue
+            permutation_to_parameter_names.setdefault(int(permutation_index), []).append(parameter_name)
+    for layer_index, log_scale in enumerate(pi_model_a.u):
+        if log_scale is None:
+            continue
+        log_scale_cpu = log_scale.detach().cpu().clone()
+        scale_cpu = torch.exp(log_scale_cpu)
+        inv_scale_cpu = torch.exp(-log_scale_cpu)
+        raw_log_scales.append(log_scale_cpu)
+        scales.append(scale_cpu)
+        inv_scales.append(inv_scale_cpu)
+        layer_scale_stats.append(
+            {
+                "layer_index": int(layer_index),
+                "parameter_names": sorted(permutation_to_parameter_names.get(int(layer_index), [])),
+                "num_channels": int(scale_cpu.numel()),
+                "log_scale_min": float(log_scale_cpu.min().item()),
+                "log_scale_max": float(log_scale_cpu.max().item()),
+                "log_scale_mean": float(log_scale_cpu.mean().item()),
+                "scale_min": float(scale_cpu.min().item()),
+                "scale_max": float(scale_cpu.max().item()),
+                "scale_mean": float(scale_cpu.mean().item()),
+                "inv_scale_min": float(inv_scale_cpu.min().item()),
+                "inv_scale_max": float(inv_scale_cpu.max().item()),
+                "inv_scale_mean": float(inv_scale_cpu.mean().item()),
+            }
+        )
+
+    return {
+        "raw_log_scales": raw_log_scales,
+        "scales": scales,
+        "inv_scales": inv_scales,
+        "layer_scale_stats": layer_scale_stats,
+    }
+
+
 def maybe_load_starting_alignment(pi_model_a: torch.nn.Module, cfg: DictConfig) -> None:
-    """Warm-start permutation parameters from a previous alignment artifact."""
+    """Warm-start permutation parameters and, when available, scale parameters."""
 
     artifact_path = cfg.get("starting_alignment_artifact", None)
     if artifact_path in (None, "", "null"):
@@ -117,6 +201,50 @@ def maybe_load_starting_alignment(pi_model_a: torch.nn.Module, cfg: DictConfig) 
         for target, source_value in zip(target_params, source):
             source_tensor = source_value if isinstance(source_value, torch.Tensor) else torch.as_tensor(source_value)
             target.data.copy_(source_tensor.to(device=target.device, dtype=target.dtype))
+
+        if bool(cfg.get("scale_invariant", False)) and hasattr(pi_model_a, "u"):
+            raw_log_scales = payload.get("raw_log_scales")
+            if raw_log_scales is not None:
+                target_scale_params = [parameter for parameter in pi_model_a.u if parameter is not None]
+                if len(raw_log_scales) != len(target_scale_params):
+                    raise ValueError(
+                        f"Starting alignment artifact {resolved_path} has {len(raw_log_scales)} raw_log_scales but "
+                        f"the current model expects {len(target_scale_params)}."
+                    )
+                for target, source_value in zip(target_scale_params, raw_log_scales):
+                    source_tensor = source_value if isinstance(source_value, torch.Tensor) else torch.as_tensor(source_value)
+                    target.data.copy_(source_tensor.to(device=target.device, dtype=target.dtype))
+
+
+def configure_trainable_alignment_params(pi_model_a: torch.nn.Module, *, finetune_mode: str) -> None:
+    if finetune_mode == "joint":
+        for parameter in pi_model_a.p:
+            if parameter is not None:
+                parameter.requires_grad_(True)
+        for parameter in getattr(pi_model_a, "u", []):
+            if parameter is not None:
+                parameter.requires_grad_(True)
+        return
+
+    if finetune_mode == "scale_only":
+        if not hasattr(pi_model_a, "u") or not any(parameter is not None for parameter in pi_model_a.u):
+            raise ValueError("finetune_mode='scale_only' requires scale_invariant=true so scale parameters exist.")
+        for parameter in pi_model_a.p:
+            if parameter is not None:
+                parameter.requires_grad_(False)
+        for parameter in pi_model_a.u:
+            if parameter is not None:
+                parameter.requires_grad_(True)
+        return
+
+    raise ValueError(f"Unsupported finetune_mode={finetune_mode!r}. Expected 'joint' or 'scale_only'.")
+
+
+def build_optimizer(pi_model_a: torch.nn.Module, *, learning_rate: float) -> torch.optim.Optimizer:
+    trainable_params = [parameter for parameter in pi_model_a.parameters() if parameter.requires_grad]
+    if not trainable_params:
+        raise ValueError("No trainable alignment parameters were selected for optimization.")
+    return torch.optim.AdamW(trainable_params, lr=float(learning_rate))
 
 
 def load_model_from_checkpoint(model_path: Path, VGGClass, *, vgg_name: str, image_size: int, device: torch.device) -> torch.nn.Module:
@@ -201,10 +329,12 @@ def run_one_alignment(
     if bool(cfg.identity_init):
         pi_model_a.identity_init()
     maybe_load_starting_alignment(pi_model_a, cfg)
+    finetune_mode = str(cfg.get("finetune_mode", "joint")).lower()
+    configure_trainable_alignment_params(pi_model_a, finetune_mode=finetune_mode)
 
     loss_name = str(cfg.loss_name)
     criterion = build_criterion(loss_name, model_b, MidLoss, RndLoss, DistL1Loss, DistL2Loss)
-    optimizer = torch.optim.AdamW(pi_model_a.parameters(), lr=float(cfg.alignment_lr))
+    optimizer = build_optimizer(pi_model_a, learning_rate=float(cfg.alignment_lr))
     validation_alpha_grid = [float(alpha) for alpha in cfg.get("validation_alpha_grid", [0.0, 0.25, 0.5, 0.75, 1.0])]
 
     print("")
@@ -222,6 +352,9 @@ def run_one_alignment(
     print(f"sinkhorn_iters: {cfg.sinkhorn_iters}")
     print(f"scale_invariant: {bool(cfg.get('scale_invariant', False))}")
     print(f"lambda_scale: {float(cfg.get('lambda_scale', 1e-4))}")
+    print(f"finetune_mode: {finetune_mode}")
+    print(f"val_fraction: {float(cfg.val_fraction)}")
+    print(f"split_seed: {int(cfg.split_seed)}")
     print(f"best_eval_interval: {int(cfg.get('best_eval_interval', 5))}")
     print(f"validation_alpha_grid: {validation_alpha_grid}")
     print(f"starting_alignment_artifact: {cfg.get('starting_alignment_artifact', None)}")
@@ -288,17 +421,28 @@ def run_one_alignment(
             best_alignment_score = float(cumulative_val_loss)
             best_alignment_iteration = iteration
             best_alignment_state = clone_module_state_dict(pi_model_a)
-            print(
-                "[original_sinkhorn_align] new_best iter={:03d} val_loss={:.4f}".format(
-                    iteration + 1, cumulative_val_loss
-                )
+            best_msg = "[original_sinkhorn_align] new_best iter={:03d} val_loss={:.4f}".format(
+                iteration + 1, cumulative_val_loss
             )
+            if bool(cfg.get("scale_invariant", False)) and hasattr(pi_model_a, "scale_stats"):
+                best_msg = f"{best_msg} {format_scale_stats(pi_model_a.scale_stats())}"
+            print(best_msg)
 
         if iteration == 0 or (iteration + 1) % int(cfg.log_interval) == 0 or iteration + 1 == int(cfg.alignment_iterations):
             if cumulative_val_loss == cumulative_val_loss:
-                print("[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss={:.4f}".format(iteration + 1, cumulative_train_loss, cumulative_val_loss))
+                iter_msg = "[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss={:.4f}".format(
+                    iteration + 1,
+                    cumulative_train_loss,
+                    cumulative_val_loss,
+                )
             else:
-                print("[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss=<skipped>".format(iteration + 1, cumulative_train_loss))
+                iter_msg = "[original_sinkhorn_align] iter={:03d} train_loss={:.4f} val_loss=<skipped>".format(
+                    iteration + 1,
+                    cumulative_train_loss,
+                )
+            if bool(cfg.get("scale_invariant", False)) and hasattr(pi_model_a, "scale_stats"):
+                iter_msg = f"{iter_msg} {format_scale_stats(pi_model_a.scale_stats())}"
+            print(iter_msg)
 
     print("Elapsed time {:1.3f} secs".format(time() - t1))
     save_json(alignment_history, output_root / "alignment_history.json", indent=2)
@@ -327,16 +471,20 @@ def run_one_alignment(
     )
     raw_permutation_parameters = [parameter.detach().cpu().clone() for parameter in pi_model_a.p if parameter is not None]
     hard_permutation_matrices = [matching(parameter.detach().cpu().numpy()).to(torch.float32).cpu() for parameter in pi_model_a.p if parameter is not None]
+    scale_artifacts = extract_scale_artifacts(pi_model_a)
     torch.save(
         {
             "raw_parameters": raw_permutation_parameters,
             "hard_permutations": hard_permutation_matrices,
+            **scale_artifacts,
             "best_alignment_iteration": best_alignment_iteration,
             "best_alignment_score": best_alignment_score,
             "best_eval_interval": best_eval_interval,
             "validation_alpha_grid": validation_alpha_grid,
             "scale_invariant": bool(cfg.get("scale_invariant", False)),
             "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
+            "finetune_mode": finetune_mode,
+            "scale_stats": pi_model_a.scale_stats() if hasattr(pi_model_a, "scale_stats") else None,
             "starting_alignment_artifact": None if cfg.get("starting_alignment_artifact", None) in (None, "", "null") else str(to_absolute_path(str(cfg.starting_alignment_artifact))),
             "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
             "config": OmegaConf.to_container(cfg, resolve=True),
@@ -414,6 +562,9 @@ def run_one_alignment(
         "validation_alpha_grid": validation_alpha_grid,
         "scale_invariant": bool(cfg.get("scale_invariant", False)),
         "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
+        "finetune_mode": finetune_mode,
+        "scale_stats": pi_model_a.scale_stats() if hasattr(pi_model_a, "scale_stats") else None,
+        "layer_scale_stats": scale_artifacts["layer_scale_stats"],
         "starting_alignment_artifact": None if cfg.get("starting_alignment_artifact", None) in (None, "", "null") else str(to_absolute_path(str(cfg.starting_alignment_artifact))),
         "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
         "config": OmegaConf.to_container(cfg, resolve=True),
@@ -533,7 +684,7 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
 
     for task_id in range(start_index, end_index + 1):
         combo = combos[task_id]
-        output_tag = build_output_tag(combo)
+        output_tag = build_output_tag(combo, cfg)
         output_root = str(base_output_root / output_tag)
         run_cfg = OmegaConf.create(
             {
@@ -557,6 +708,7 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
                 "validation_alpha_grid": [float(alpha) for alpha in cfg.validation_alpha_grid],
                 "starting_alignment_artifact": cfg.get("starting_alignment_artifact", None),
                 "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
+                "finetune_mode": str(cfg.get("finetune_mode", "joint")),
                 "num_eval_points": int(cfg.num_eval_points),
                 "log_interval": int(cfg.log_interval),
             }
