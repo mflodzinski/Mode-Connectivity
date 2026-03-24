@@ -52,11 +52,17 @@ def build_cifar10_loaders(cfg: DictConfig, dnn_data):
     transform_test = dnn_data.Transforms.CIFAR10.VGG.test
     cifar_root = Path(to_absolute_path(str(cfg.data_path))) / "cifar10"
 
-    dataset_train = torchvision.datasets.CIFAR10(
+    dataset_train_source = torchvision.datasets.CIFAR10(
         root=cifar_root,
         train=True,
         download=True,
         transform=transform_train,
+    )
+    dataset_val_source = torchvision.datasets.CIFAR10(
+        root=cifar_root,
+        train=True,
+        download=True,
+        transform=transform_test,
     )
     dataset_test = torchvision.datasets.CIFAR10(
         root=cifar_root,
@@ -65,9 +71,20 @@ def build_cifar10_loaders(cfg: DictConfig, dnn_data):
         transform=transform_test,
     )
 
+    full_train_size = len(dataset_train_source)
+    val_size = int(full_train_size * float(cfg.val_fraction))
+    train_size = full_train_size - val_size
+    generator = torch.Generator().manual_seed(int(cfg.split_seed))
+    shuffled_indices = torch.randperm(full_train_size, generator=generator).tolist()
+    train_indices = shuffled_indices[:train_size]
+    val_indices = shuffled_indices[train_size:]
+
+    dataset_train = torch.utils.data.Subset(dataset_train_source, train_indices)
+    dataset_val = torch.utils.data.Subset(dataset_val_source, val_indices)
+
     train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=int(cfg.batch_size), shuffle=True, num_workers=int(cfg.num_workers))
+    val_loader = torch.utils.data.DataLoader(dataset_val, batch_size=int(cfg.batch_size), shuffle=False, num_workers=int(cfg.num_workers))
     test_loader = torch.utils.data.DataLoader(dataset_test, batch_size=int(cfg.batch_size), shuffle=False, num_workers=int(cfg.num_workers))
-    val_loader = test_loader
     return train_loader, val_loader, test_loader
 
 
@@ -336,6 +353,8 @@ def run_one_alignment(
     print(f"scale_invariant: {bool(cfg.get('scale_invariant', False))}")
     print(f"lambda_scale: {float(cfg.get('lambda_scale', 1e-4))}")
     print(f"finetune_mode: {finetune_mode}")
+    print(f"val_fraction: {float(cfg.val_fraction)}")
+    print(f"split_seed: {int(cfg.split_seed)}")
     print(f"best_eval_interval: {int(cfg.get('best_eval_interval', 5))}")
     print(f"validation_alpha_grid: {validation_alpha_grid}")
     print(f"starting_alignment_artifact: {cfg.get('starting_alignment_artifact', None)}")
