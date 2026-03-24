@@ -155,7 +155,7 @@ def extract_scale_artifacts(pi_model_a: torch.nn.Module) -> Dict[str, Any]:
 
 
 def maybe_load_starting_alignment(pi_model_a: torch.nn.Module, cfg: DictConfig) -> None:
-    """Warm-start permutation parameters from a previous alignment artifact."""
+    """Warm-start permutation parameters and, when available, scale parameters."""
 
     artifact_path = cfg.get("starting_alignment_artifact", None)
     if artifact_path in (None, "", "null"):
@@ -184,6 +184,19 @@ def maybe_load_starting_alignment(pi_model_a: torch.nn.Module, cfg: DictConfig) 
         for target, source_value in zip(target_params, source):
             source_tensor = source_value if isinstance(source_value, torch.Tensor) else torch.as_tensor(source_value)
             target.data.copy_(source_tensor.to(device=target.device, dtype=target.dtype))
+
+        if bool(cfg.get("scale_invariant", False)) and hasattr(pi_model_a, "u"):
+            raw_log_scales = payload.get("raw_log_scales")
+            if raw_log_scales is not None:
+                target_scale_params = [parameter for parameter in pi_model_a.u if parameter is not None]
+                if len(raw_log_scales) != len(target_scale_params):
+                    raise ValueError(
+                        f"Starting alignment artifact {resolved_path} has {len(raw_log_scales)} raw_log_scales but "
+                        f"the current model expects {len(target_scale_params)}."
+                    )
+                for target, source_value in zip(target_scale_params, raw_log_scales):
+                    source_tensor = source_value if isinstance(source_value, torch.Tensor) else torch.as_tensor(source_value)
+                    target.data.copy_(source_tensor.to(device=target.device, dtype=target.dtype))
 
 
 def configure_trainable_alignment_params(pi_model_a: torch.nn.Module, *, finetune_mode: str) -> None:

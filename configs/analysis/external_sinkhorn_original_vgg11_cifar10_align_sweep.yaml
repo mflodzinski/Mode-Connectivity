@@ -5,7 +5,7 @@ vgg_name: "VGG11"
 
 model_a_checkpoint: "VGG11_cifar10_0.911.pth"
 model_b_checkpoint: "VGG11_cifar10_0.9139.pth"
-base_output_root: "results/vgg11/cifar10/raw_pth_align_sweep_finetune_new"
+base_output_root: "results/vgg11/cifar10/raw_pth_align_sweep_finetune_from_permonly"
 
 data_path: "./data"
 seed: 0
@@ -25,7 +25,7 @@ finetune_mode: "joint"
 best_eval_interval: 2
 validation_alpha_grid: [0.5]
 starting_alignment_artifact: "results/vgg11/cifar10/raw_pth_align_sweep/steps150_tau1p0_lr0p1_l1p0_lossmidpoint/alignment_artifacts.pt"
-starting_permutation_kind: "hard"
+starting_permutation_kind: "raw"
 device: "auto"
 log_interval: 5
 start_index: 0
