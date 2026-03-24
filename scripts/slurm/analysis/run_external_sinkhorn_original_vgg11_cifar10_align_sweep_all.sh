@@ -40,6 +40,9 @@ MODEL_B_CHECKPOINT="${MODEL_B_CHECKPOINT:-}"
 BASE_OUTPUT_ROOT="${BASE_OUTPUT_ROOT:-}"
 SCALE_INVARIANT="${SCALE_INVARIANT:-}"
 LAMBDA_SCALE="${LAMBDA_SCALE:-}"
+FINETUNE_MODE="${FINETUNE_MODE:-}"
+STARTING_ALIGNMENT_ARTIFACT="${STARTING_ALIGNMENT_ARTIFACT:-}"
+STARTING_PERMUTATION_KIND="${STARTING_PERMUTATION_KIND:-}"
 START_INDEX="${START_INDEX:-0}"
 END_INDEX="${END_INDEX:-null}"
 CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-true}"
@@ -53,6 +56,9 @@ echo "MODEL_B_CHECKPOINT: ${MODEL_B_CHECKPOINT:-<from config>}"
 echo "BASE_OUTPUT_ROOT: ${BASE_OUTPUT_ROOT:-<from config>}"
 echo "SCALE_INVARIANT: ${SCALE_INVARIANT:-<from config>}"
 echo "LAMBDA_SCALE: ${LAMBDA_SCALE:-<from config>}"
+echo "FINETUNE_MODE: ${FINETUNE_MODE:-<from config>}"
+echo "STARTING_ALIGNMENT_ARTIFACT: ${STARTING_ALIGNMENT_ARTIFACT:-<from config>}"
+echo "STARTING_PERMUTATION_KIND: ${STARTING_PERMUTATION_KIND:-<from config>}"
 echo "START_INDEX: ${START_INDEX}"
 echo "END_INDEX: ${END_INDEX}"
 echo "CONTINUE_ON_ERROR: ${CONTINUE_ON_ERROR}"
@@ -82,6 +88,15 @@ if [ -n "${SCALE_INVARIANT}" ]; then
 fi
 if [ -n "${LAMBDA_SCALE}" ]; then
     args+=("lambda_scale=${LAMBDA_SCALE}")
+fi
+if [ -n "${FINETUNE_MODE}" ]; then
+    args+=("finetune_mode=${FINETUNE_MODE}")
+fi
+if [ -n "${STARTING_ALIGNMENT_ARTIFACT}" ]; then
+    args+=("starting_alignment_artifact=${STARTING_ALIGNMENT_ARTIFACT}")
+fi
+if [ -n "${STARTING_PERMUTATION_KIND}" ]; then
+    args+=("starting_permutation_kind=${STARTING_PERMUTATION_KIND}")
 fi
 
 srun python scripts/analysis/run_external_sinkhorn_original_vgg11_cifar10_align_sweep_all.py "${args[@]}"

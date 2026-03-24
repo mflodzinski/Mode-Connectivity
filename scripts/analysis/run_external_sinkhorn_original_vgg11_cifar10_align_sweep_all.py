@@ -30,7 +30,7 @@ from scripts.lib.core.output import ensure_dir, load_json, save_json
 from src.utils import set_global_seed
 
 
-def build_output_tag(combo: Dict[str, Any]) -> str:
+def build_output_tag(combo: Dict[str, Any], cfg: DictConfig) -> str:
     parts = [
         f"steps{combo['alignment_iterations']}",
         f"tau{sanitize_value(combo['tau'])}",
@@ -40,6 +40,10 @@ def build_output_tag(combo: Dict[str, Any]) -> str:
     ]
     if "lambda_scale" in combo:
         parts.append(f"lam{sanitize_value(combo['lambda_scale'])}")
+    finetune_mode = str(cfg.get("finetune_mode", "joint")).lower()
+    starting_alignment_artifact = cfg.get("starting_alignment_artifact", None)
+    if finetune_mode != "joint" or starting_alignment_artifact not in (None, "", "null"):
+        parts.append(f"ft{finetune_mode}")
     return "_".join(parts)
 
 
@@ -182,6 +186,37 @@ def maybe_load_starting_alignment(pi_model_a: torch.nn.Module, cfg: DictConfig) 
             target.data.copy_(source_tensor.to(device=target.device, dtype=target.dtype))
 
 
+def configure_trainable_alignment_params(pi_model_a: torch.nn.Module, *, finetune_mode: str) -> None:
+    if finetune_mode == "joint":
+        for parameter in pi_model_a.p:
+            if parameter is not None:
+                parameter.requires_grad_(True)
+        for parameter in getattr(pi_model_a, "u", []):
+            if parameter is not None:
+                parameter.requires_grad_(True)
+        return
+
+    if finetune_mode == "scale_only":
+        if not hasattr(pi_model_a, "u") or not any(parameter is not None for parameter in pi_model_a.u):
+            raise ValueError("finetune_mode='scale_only' requires scale_invariant=true so scale parameters exist.")
+        for parameter in pi_model_a.p:
+            if parameter is not None:
+                parameter.requires_grad_(False)
+        for parameter in pi_model_a.u:
+            if parameter is not None:
+                parameter.requires_grad_(True)
+        return
+
+    raise ValueError(f"Unsupported finetune_mode={finetune_mode!r}. Expected 'joint' or 'scale_only'.")
+
+
+def build_optimizer(pi_model_a: torch.nn.Module, *, learning_rate: float) -> torch.optim.Optimizer:
+    trainable_params = [parameter for parameter in pi_model_a.parameters() if parameter.requires_grad]
+    if not trainable_params:
+        raise ValueError("No trainable alignment parameters were selected for optimization.")
+    return torch.optim.AdamW(trainable_params, lr=float(learning_rate))
+
+
 def load_model_from_checkpoint(model_path: Path, VGGClass, *, vgg_name: str, image_size: int, device: torch.device) -> torch.nn.Module:
     checkpoint = torch.load(model_path, map_location="cpu")
     model = build_model(VGGClass, vgg_name, num_classes=10, image_size=image_size)
@@ -264,10 +299,12 @@ def run_one_alignment(
     if bool(cfg.identity_init):
         pi_model_a.identity_init()
     maybe_load_starting_alignment(pi_model_a, cfg)
+    finetune_mode = str(cfg.get("finetune_mode", "joint")).lower()
+    configure_trainable_alignment_params(pi_model_a, finetune_mode=finetune_mode)
 
     loss_name = str(cfg.loss_name)
     criterion = build_criterion(loss_name, model_b, MidLoss, RndLoss, DistL1Loss, DistL2Loss)
-    optimizer = torch.optim.AdamW(pi_model_a.parameters(), lr=float(cfg.alignment_lr))
+    optimizer = build_optimizer(pi_model_a, learning_rate=float(cfg.alignment_lr))
     validation_alpha_grid = [float(alpha) for alpha in cfg.get("validation_alpha_grid", [0.0, 0.25, 0.5, 0.75, 1.0])]
 
     print("")
@@ -285,6 +322,7 @@ def run_one_alignment(
     print(f"sinkhorn_iters: {cfg.sinkhorn_iters}")
     print(f"scale_invariant: {bool(cfg.get('scale_invariant', False))}")
     print(f"lambda_scale: {float(cfg.get('lambda_scale', 1e-4))}")
+    print(f"finetune_mode: {finetune_mode}")
     print(f"best_eval_interval: {int(cfg.get('best_eval_interval', 5))}")
     print(f"validation_alpha_grid: {validation_alpha_grid}")
     print(f"starting_alignment_artifact: {cfg.get('starting_alignment_artifact', None)}")
@@ -413,6 +451,7 @@ def run_one_alignment(
             "validation_alpha_grid": validation_alpha_grid,
             "scale_invariant": bool(cfg.get("scale_invariant", False)),
             "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
+            "finetune_mode": finetune_mode,
             "scale_stats": pi_model_a.scale_stats() if hasattr(pi_model_a, "scale_stats") else None,
             "starting_alignment_artifact": None if cfg.get("starting_alignment_artifact", None) in (None, "", "null") else str(to_absolute_path(str(cfg.starting_alignment_artifact))),
             "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
@@ -491,6 +530,7 @@ def run_one_alignment(
         "validation_alpha_grid": validation_alpha_grid,
         "scale_invariant": bool(cfg.get("scale_invariant", False)),
         "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
+        "finetune_mode": finetune_mode,
         "scale_stats": pi_model_a.scale_stats() if hasattr(pi_model_a, "scale_stats") else None,
         "layer_scale_stats": scale_artifacts["layer_scale_stats"],
         "starting_alignment_artifact": None if cfg.get("starting_alignment_artifact", None) in (None, "", "null") else str(to_absolute_path(str(cfg.starting_alignment_artifact))),
@@ -612,7 +652,7 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
 
     for task_id in range(start_index, end_index + 1):
         combo = combos[task_id]
-        output_tag = build_output_tag(combo)
+        output_tag = build_output_tag(combo, cfg)
         output_root = str(base_output_root / output_tag)
         run_cfg = OmegaConf.create(
             {
@@ -636,6 +676,7 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
                 "validation_alpha_grid": [float(alpha) for alpha in cfg.validation_alpha_grid],
                 "starting_alignment_artifact": cfg.get("starting_alignment_artifact", None),
                 "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
+                "finetune_mode": str(cfg.get("finetune_mode", "joint")),
                 "num_eval_points": int(cfg.num_eval_points),
                 "log_interval": int(cfg.log_interval),
             }
