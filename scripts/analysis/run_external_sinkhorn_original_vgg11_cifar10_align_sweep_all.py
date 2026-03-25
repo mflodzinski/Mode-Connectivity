@@ -695,6 +695,8 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
                 "output_root": output_root,
                 "data_path": to_absolute_path(str(cfg.data_path)),
                 "image_size": int(cfg.image_size),
+                "val_fraction": float(cfg.val_fraction),
+                "split_seed": int(cfg.split_seed),
                 "alignment_iterations": int(combo["alignment_iterations"]),
                 "alignment_lr": float(combo["lr"]),
                 "loss_name": str(combo["loss_name"]),
