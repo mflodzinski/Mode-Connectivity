@@ -19,7 +19,7 @@ num_eval_points: 50
 
 sinkhorn_iters: 20
 identity_init: false
-scale_invariant: true
+scale_invariant: false
 lambda_scale: 1e-3
 finetune_mode: "joint"
 best_eval_interval: 2
