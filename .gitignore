@@ -221,4 +221,4 @@ checkpoints/
 .DS_Store
 .AppleDouble
 .LSOverride
-plots/
+downloaded_models/

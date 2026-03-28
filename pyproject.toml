@@ -25,6 +25,7 @@ dependencies = [
     "plotly (>=6.5.2,<7.0.0)",
     "jax (==0.4.33)",
     "jaxlib (==0.4.33)",
+    "timm (>=1.0.26,<2.0.0)",
 ]
 
 [tool.poetry]

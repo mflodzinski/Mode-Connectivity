@@ -1,0 +1,21 @@
+defaults:
+  - external_sinkhorn_experiment_matrix_common
+  - _self_
+
+mode_name: "permutation_only"
+scale_invariant: false
+lambda_scale: 0.0
+finetune_mode: "joint"
+requires_permutation_warm_start: false
+
+sweep:
+  alignment_iterations:
+    - 150
+  loss_name:
+    - "midpoint"
+  tau:
+    - 1.0
+  lr:
+    - 0.1
+  sinkhorn_l:
+    - 1.0
