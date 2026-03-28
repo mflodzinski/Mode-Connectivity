@@ -22,7 +22,7 @@ identity_init: false
 scale_invariant: true
 lambda_scale: 1e-3
 finetune_mode: "joint"
-best_eval_interval: 2
+best_eval_interval: 5
 validation_alpha_grid: [0.5]
 starting_alignment_artifact: null
 starting_permutation_kind: hard

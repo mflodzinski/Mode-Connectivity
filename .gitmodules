@@ -16,3 +16,6 @@
 [submodule "external/sinkhorn-rebasin"]
 	path = external/sinkhorn-rebasin
 	url = https://github.com/mflodzinski/sinkhorn-rebasin.git
+[submodule "external/pytorch-vgg-cifar10"]
+	path = external/pytorch-vgg-cifar10
+	url = https://github.com/mflodzinski/pytorch-vgg-cifar10.git
