@@ -1,11 +1,11 @@
 defaults: []
 
-experiment_name: "external_sinkhorn_original_vgg11_cifar10_align_sweep"
-vgg_name: "VGG11"
+experiment_name: "external_sinkhorn_original_vgg13_cifar10_align_sweep"
+vgg_name: "VGG13"
 
-model_a_checkpoint: "VGG11_cifar10_0.911.pth"
-model_b_checkpoint: "VGG11_cifar10_0.9139.pth"
-base_output_root: "results/vgg11/cifar10/raw_pth_align_sweep_joint_huge"
+model_a_checkpoint: "external/pytorch-vgg-cifar10/save_vgg13_seed0/model_final_state_dict.pth"
+model_b_checkpoint: "external/pytorch-vgg-cifar10/save_vgg13_seed1/model_final_state_dict.pth"
+base_output_root: "results/vgg13/cifar10/raw_pth_align_sweep_joint_huge"
 
 data_path: "./data"
 seed: 0
@@ -27,7 +27,7 @@ validation_alpha_grid: [0.5]
 starting_alignment_artifact: null
 starting_permutation_kind: hard
 device: "auto"
-log_interval: 5
+log_interval: 10
 start_index: 0
 end_index: null
 continue_on_error: true
