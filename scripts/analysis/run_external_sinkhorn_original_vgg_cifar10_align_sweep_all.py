@@ -25,6 +25,7 @@ sys.path.insert(0, str(project_root / "scripts"))
 
 from scripts.analysis.run_external_sinkhorn_baseline_sweep import enumerate_sweep_combinations, sanitize_value
 from scripts.analysis.run_external_sinkhorn_original_small_mnist_lmc import build_model, clone_module_state_dict, import_original_mnist_components
+from scripts.analysis.sinkhorn_experiment_utils import normalize_state_dict_keys
 from scripts.lib.alignment.permutation_pipeline import resolve_device, write_summary_files
 from scripts.lib.core.output import ensure_dir, load_json, save_json
 from src.utils import set_global_seed
@@ -261,7 +262,7 @@ def load_model_from_checkpoint(model_path: Path, VGGClass, *, vgg_name: str, ima
             f"Unsupported checkpoint payload at {model_path}; expected a raw state_dict or dict with "
             "'model_state'/'state_dict'."
         )
-    model.load_state_dict(state_dict)
+    model.load_state_dict(normalize_state_dict_keys(state_dict))
     model.to(device)
     model.eval()
     return model

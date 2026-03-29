@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=04:00:00
+#SBATCH --time=03:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=8GB
+#SBATCH --mem=6GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_external_pytorch_vgg_cifar10_vgg13_3seeds_%j.out
 #SBATCH --error=slurm_external_pytorch_vgg_cifar10_vgg13_3seeds_%j.err

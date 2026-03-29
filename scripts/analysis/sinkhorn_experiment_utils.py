@@ -11,6 +11,18 @@ import torch
 from scripts.analysis.run_external_sinkhorn_original_small_mnist_lmc import build_model
 
 
+def normalize_state_dict_keys(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    normalized_state_dict = {}
+    for key, value in state_dict.items():
+        normalized_key = key
+        if normalized_key.startswith("module."):
+            normalized_key = normalized_key[len("module.") :]
+        if normalized_key.startswith("features.module."):
+            normalized_key = "features." + normalized_key[len("features.module.") :]
+        normalized_state_dict[normalized_key] = value
+    return normalized_state_dict
+
+
 def load_model_from_checkpoint(
     model_path: Path,
     VGGClass,
@@ -32,7 +44,7 @@ def load_model_from_checkpoint(
             f"Unsupported checkpoint payload at {model_path}; expected a raw state_dict or dict with "
             "'model_state'/'state_dict'."
         )
-    model.load_state_dict(state_dict)
+    model.load_state_dict(normalize_state_dict_keys(state_dict))
     model.to(device)
     model.eval()
     return model

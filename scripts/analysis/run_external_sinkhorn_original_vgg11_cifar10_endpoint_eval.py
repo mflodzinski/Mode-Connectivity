@@ -15,6 +15,7 @@ from scripts.analysis.run_external_sinkhorn_original_small_mnist_lmc import (
     evaluate_model,
     import_original_mnist_components,
 )
+from scripts.analysis.sinkhorn_experiment_utils import normalize_state_dict_keys
 from scripts.analysis.run_external_sinkhorn_original_vgg11_cifar10_train import build_cifar10_loaders
 from scripts.lib.alignment.permutation_pipeline import resolve_device
 from scripts.lib.core.output import ensure_dir, save_json
@@ -41,7 +42,7 @@ def load_endpoint_model(
             "'model_state'/'state_dict'."
         )
     model = build_model(VGGClass, "VGG11", num_classes=10, image_size=image_size)
-    model.load_state_dict(state_dict)
+    model.load_state_dict(normalize_state_dict_keys(state_dict))
     model.to(device)
     model.eval()
     return model
