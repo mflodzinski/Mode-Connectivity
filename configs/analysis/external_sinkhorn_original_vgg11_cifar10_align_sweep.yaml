@@ -42,11 +42,11 @@ sweep:
     - 0.8
   lr:
     - 0.08
-    - 0.05
+    - 0.04
   sinkhorn_l:
     - 1.0
   lambda_scale:
-    - 5e-3
-    - 3e-3
+    - 7e-3
+    - 1e-2
 
 
