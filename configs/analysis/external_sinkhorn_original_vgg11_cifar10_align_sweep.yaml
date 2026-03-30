@@ -5,7 +5,7 @@ vgg_name: "VGG13"
 
 model_a_checkpoint: "external/pytorch-vgg-cifar10/save_vgg13_seed0/model_final_state_dict.pth"
 model_b_checkpoint: "external/pytorch-vgg-cifar10/save_vgg13_seed1/model_final_state_dict.pth"
-base_output_root: "results/vgg13/cifar10/raw_pth_align_sweep_joint_hugev2"
+base_output_root: "results/vgg13/cifar10/raw_pth_align_sweep_joint_scale"
 
 data_path: "./data"
 seed: 0
@@ -19,10 +19,10 @@ num_eval_points: 50
 
 sinkhorn_iters: 20
 identity_init: false
-scale_invariant: false
-lambda_scale: 0.0
+scale_invariant: true
+lambda_scale: 5e-3
 finetune_mode: "joint"
-best_eval_interval: 5
+best_eval_interval: 3
 validation_alpha_grid: [0.5]
 starting_alignment_artifact: null
 starting_permutation_kind: hard
@@ -37,16 +37,18 @@ sweep:
     - 100
   loss_name:
     - "midpoint"
-    - "dist_l2"
-    - "random"
   tau:
     - 1.5
     - 1.0
   lr:
     - 0.1
-    - 0.08
+    - 0.05
+    - 0.02
   sinkhorn_l:
     - 1.0
+  lambda_scale:
+    - 0.003
+    - 0.005
 
 
 
