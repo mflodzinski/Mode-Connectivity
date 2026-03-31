@@ -319,19 +319,35 @@ def save_interpolation_results(output_path: str, results: Dict[str, np.ndarray])
     )
 
 
+def compute_paper_loss_barrier(losses: np.ndarray, ts: np.ndarray | None = None) -> float:
+    """Compute the paper loss barrier against the linear interpolation of endpoint losses."""
+
+    loss_array = np.asarray(losses, dtype=np.float64)
+    if ts is None:
+        ts = np.linspace(0.0, 1.0, loss_array.shape[0], dtype=np.float64)
+    else:
+        ts = np.asarray(ts, dtype=np.float64)
+    baseline = (1.0 - ts) * float(loss_array[0]) + ts * float(loss_array[-1])
+    return float(np.max(loss_array - baseline))
+
+
 def compute_barrier_metrics(results: Dict[str, np.ndarray]) -> Dict[str, float]:
-    """Compute the requested interpolation barrier metrics."""
+    """Compute interpolation barrier metrics using the paper loss-barrier definition."""
 
     tr_loss = results["tr_loss"]
     te_loss = results["te_loss"]
     tr_acc = results["tr_acc"]
     te_acc = results["te_acc"]
+    ts = results.get("ts")
+
+    train_loss_barrier = compute_paper_loss_barrier(tr_loss, ts)
+    test_loss_barrier = compute_paper_loss_barrier(te_loss, ts)
 
     metrics = {
-        "train_loss_barrier_avg": float(np.max(tr_loss) - 0.5 * (tr_loss[0] + tr_loss[-1])),
-        "test_loss_barrier_avg": float(np.max(te_loss) - 0.5 * (te_loss[0] + te_loss[-1])),
-        "train_loss_barrier_max_endpoint": float(np.max(tr_loss) - max(tr_loss[0], tr_loss[-1])),
-        "test_loss_barrier_max_endpoint": float(np.max(te_loss) - max(te_loss[0], te_loss[-1])),
+        "train_loss_barrier_avg": train_loss_barrier,
+        "test_loss_barrier_avg": test_loss_barrier,
+        "train_loss_barrier_max_endpoint": train_loss_barrier,
+        "test_loss_barrier_max_endpoint": test_loss_barrier,
         "min_train_acc": float(np.min(tr_acc)),
         "min_test_acc": float(np.min(te_acc)),
         "train_acc_drop_from_endpoint_min": float(min(tr_acc[0], tr_acc[-1]) - np.min(tr_acc)),

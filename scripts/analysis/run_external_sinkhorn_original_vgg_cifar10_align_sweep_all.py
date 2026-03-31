@@ -10,6 +10,7 @@ from typing import Any, Dict
 
 import hydra
 import matplotlib
+import numpy as np
 import torch
 import torchvision
 from hydra.utils import to_absolute_path
@@ -26,7 +27,7 @@ sys.path.insert(0, str(project_root / "scripts"))
 from scripts.analysis.run_external_sinkhorn_baseline_sweep import enumerate_sweep_combinations, sanitize_value
 from scripts.analysis.run_external_sinkhorn_original_small_mnist_lmc import build_model, clone_module_state_dict, import_original_mnist_components
 from scripts.analysis.sinkhorn_experiment_utils import normalize_state_dict_keys
-from scripts.lib.alignment.permutation_pipeline import resolve_device, write_summary_files
+from scripts.lib.alignment.permutation_pipeline import compute_paper_loss_barrier, resolve_device, write_summary_files
 from scripts.lib.core.output import ensure_dir, load_json, save_json
 from src.utils import set_global_seed
 
@@ -281,11 +282,12 @@ def build_criterion(loss_name: str, model_b: torch.nn.Module, MidLoss, RndLoss, 
 
 
 def compute_curve_metrics(costs: list[float], accs: list[float], endpoint_a_loss: float, endpoint_b_loss: float) -> dict[str, float]:
-    max_endpoint_loss = max(endpoint_a_loss, endpoint_b_loss)
+    ts = torch.linspace(0.0, 1.0, len(costs)).tolist()
+    paper_barrier = compute_paper_loss_barrier(np.asarray(costs, dtype=np.float64), np.asarray(ts, dtype=np.float64))
     return {
         "mean_test_interp_loss": float(sum(costs) / len(costs)),
-        "test_loss_barrier_avg": float((sum(costs) / len(costs)) - ((endpoint_a_loss + endpoint_b_loss) / 2.0)),
-        "test_loss_barrier_max_endpoint": float(max(costs) - max_endpoint_loss),
+        "test_loss_barrier_avg": paper_barrier,
+        "test_loss_barrier_max_endpoint": paper_barrier,
         "min_test_acc": float(min(accs)),
         "endpoint_a_test_loss": float(endpoint_a_loss),
         "endpoint_b_test_loss": float(endpoint_b_loss),

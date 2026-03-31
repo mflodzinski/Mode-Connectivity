@@ -34,19 +34,19 @@ continue_on_error: true
 
 sweep:
   alignment_iterations:
-    - 150
+    - 100
   loss_name:
     - "midpoint"
-    - "random"
-    - "dist_l2"
   tau:
-    - 1.5
     - 2.0
+    - 2.5
   lr:
+    - 0.1
     - 0.05
   sinkhorn_l:
     - 1.0
   lambda_scale:
+    - 0.01
     - 0.005
     - 0.003
 
