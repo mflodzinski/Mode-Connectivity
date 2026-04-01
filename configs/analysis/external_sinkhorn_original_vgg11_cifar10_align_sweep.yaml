@@ -1,7 +1,7 @@
 defaults: []
 
-experiment_name: "external_sinkhorn_original_vgg13_cifar10_align_sweep"
-vgg_name: "VGG13"
+experiment_name: "external_sinkhorn_original_vgg16_cifar10_align_sweep"
+vgg_name: "VGG16"
 
 model_a_checkpoint: "external/pytorch-vgg-cifar10/save_vgg16_seed0/model_final_state_dict.pth"
 model_b_checkpoint: "external/pytorch-vgg-cifar10/save_vgg16_seed1/model_final_state_dict.pth"
