@@ -9,6 +9,7 @@ import numpy as np
 import torch
 
 from scripts.analysis.run_external_sinkhorn_original_small_mnist_lmc import build_model
+from scripts.lib.alignment.permutation_pipeline import compute_paper_loss_barrier
 
 
 def normalize_state_dict_keys(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -88,6 +89,8 @@ def evaluate_interpolation_results(
 
 
 def save_interpolation_npz(output_path: Path, results: Dict[str, np.ndarray]) -> None:
+    train_loss_barrier = compute_paper_loss_barrier(results["tr_loss"], results["ts"])
+    test_loss_barrier = compute_paper_loss_barrier(results["te_loss"], results["ts"])
     np.savez(
         output_path,
         ts=results["ts"],
@@ -97,10 +100,10 @@ def save_interpolation_npz(output_path: Path, results: Dict[str, np.ndarray]) ->
         te_loss=results["te_loss"],
         te_acc=results["te_acc"],
         te_err=results["te_err"],
-        train_loss_barrier_avg=float(np.max(results["tr_loss"]) - 0.5 * (results["tr_loss"][0] + results["tr_loss"][-1])),
-        test_loss_barrier_avg=float(np.max(results["te_loss"]) - 0.5 * (results["te_loss"][0] + results["te_loss"][-1])),
-        train_loss_barrier_max_endpoint=float(np.max(results["tr_loss"]) - max(results["tr_loss"][0], results["tr_loss"][-1])),
-        test_loss_barrier_max_endpoint=float(np.max(results["te_loss"]) - max(results["te_loss"][0], results["te_loss"][-1])),
+        train_loss_barrier_avg=train_loss_barrier,
+        test_loss_barrier_avg=test_loss_barrier,
+        train_loss_barrier_max_endpoint=train_loss_barrier,
+        test_loss_barrier_max_endpoint=test_loss_barrier,
         min_train_acc=float(np.min(results["tr_acc"])),
         min_test_acc=float(np.min(results["te_acc"])),
     )
