@@ -38,7 +38,6 @@ sweep:
   loss_name:
     - "midpoint"
   tau:
-    - 1.0
     - 1.5
     - 2.0
   lr:
