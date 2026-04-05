@@ -23,9 +23,9 @@ scale_invariant: false
 lambda_scale: 0
 finetune_mode: "joint"
 best_eval_interval: 5
-validation_alpha_grid: [0.3, 0.5, 0.7]
-early_stopping_patience: 0
-early_stopping_min_delta: 0.0
+validation_alpha_grid: [0.5]
+early_stopping_patience: 5
+early_stopping_min_delta: 1e-3
 starting_alignment_artifact: null
 starting_permutation_kind: hard
 device: "auto"
