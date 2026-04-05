@@ -141,6 +141,8 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
                 "lambda_scale": float(combo["lambda_scale"]) if "lambda_scale" in combo else float(cfg.get("lambda_scale", 1e-4)),
                 "best_eval_interval": int(cfg.best_eval_interval),
                 "validation_alpha_grid": [float(alpha) for alpha in cfg.validation_alpha_grid],
+                "early_stopping_patience": int(cfg.get("early_stopping_patience", 0)),
+                "early_stopping_min_delta": float(cfg.get("early_stopping_min_delta", 0.0)),
                 "starting_alignment_artifact": cfg.get("starting_alignment_artifact", None),
                 "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
                 "finetune_mode": str(cfg.get("finetune_mode", "joint")),
