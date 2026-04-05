@@ -161,6 +161,8 @@ def build_pair_cfg(cfg: DictConfig, pair: dict[str, Any], pair_root: Path, start
             "finetune_mode": str(cfg.finetune_mode),
             "best_eval_interval": int(cfg.best_eval_interval),
             "validation_alpha_grid": list(cfg.validation_alpha_grid),
+            "early_stopping_patience": int(cfg.get("early_stopping_patience", 0)),
+            "early_stopping_min_delta": float(cfg.get("early_stopping_min_delta", 0.0)),
             "starting_alignment_artifact": starting_alignment_artifact,
             "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "raw")),
             "num_eval_points": int(cfg.num_eval_points),

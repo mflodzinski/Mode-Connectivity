@@ -405,6 +405,8 @@ def run_one_alignment(
     print(f"split_seed: {int(cfg.split_seed)}")
     print(f"best_eval_interval: {int(cfg.get('best_eval_interval', 5))}")
     print(f"validation_alpha_grid: {validation_alpha_grid}")
+    print(f"early_stopping_patience: {int(cfg.get('early_stopping_patience', 0))}")
+    print(f"early_stopping_min_delta: {float(cfg.get('early_stopping_min_delta', 0.0))}")
     print(f"starting_alignment_artifact: {cfg.get('starting_alignment_artifact', None)}")
     print(f"starting_permutation_kind: {cfg.get('starting_permutation_kind', 'hard')}")
     print(f"device: {device}")
@@ -413,9 +415,14 @@ def run_one_alignment(
     alignment_history: list[dict[str, float | int]] = []
     t1 = time()
     best_eval_interval = int(cfg.get("best_eval_interval", 5))
+    early_stopping_patience = int(cfg.get("early_stopping_patience", 0))
+    early_stopping_min_delta = float(cfg.get("early_stopping_min_delta", 0.0))
     best_alignment_iteration: int | None = None
     best_alignment_score: float | None = None
     best_alignment_state: dict[str, torch.Tensor] | None = None
+    no_improve_evals = 0
+    early_stopped = False
+    stop_iteration: int | None = None
     for iteration in range(int(cfg.alignment_iterations)):
         pi_model_a.train()
         cumulative_train_loss = 0.0
@@ -463,18 +470,21 @@ def run_one_alignment(
         alignment_history.append({"iteration": iteration, "train_loss": float(cumulative_train_loss), "val_loss": float(cumulative_val_loss)})
 
         should_track_best = (iteration + 1) % best_eval_interval == 0 or iteration + 1 == int(cfg.alignment_iterations)
-        if should_track_best and not torch.isnan(torch.tensor(cumulative_val_loss)) and (
-            best_alignment_score is None or cumulative_val_loss < best_alignment_score
-        ):
-            best_alignment_score = float(cumulative_val_loss)
-            best_alignment_iteration = iteration
-            best_alignment_state = clone_module_state_dict(pi_model_a)
-            best_msg = "[original_sinkhorn_align] new_best iter={:03d} val_loss={:.4f}".format(
-                iteration + 1, cumulative_val_loss
-            )
-            if bool(cfg.get("scale_invariant", False)) and hasattr(pi_model_a, "scale_stats"):
-                best_msg = f"{best_msg} {format_scale_stats(pi_model_a.scale_stats())}"
-            print(best_msg)
+        if should_track_best and not torch.isnan(torch.tensor(cumulative_val_loss)):
+            improved = best_alignment_score is None or cumulative_val_loss < (best_alignment_score - early_stopping_min_delta)
+            if improved:
+                best_alignment_score = float(cumulative_val_loss)
+                best_alignment_iteration = iteration
+                best_alignment_state = clone_module_state_dict(pi_model_a)
+                no_improve_evals = 0
+                best_msg = "[original_sinkhorn_align] new_best iter={:03d} val_loss={:.4f}".format(
+                    iteration + 1, cumulative_val_loss
+                )
+                if bool(cfg.get("scale_invariant", False)) and hasattr(pi_model_a, "scale_stats"):
+                    best_msg = f"{best_msg} {format_scale_stats(pi_model_a.scale_stats())}"
+                print(best_msg)
+            else:
+                no_improve_evals += 1
 
         if iteration == 0 or (iteration + 1) % int(cfg.log_interval) == 0 or iteration + 1 == int(cfg.alignment_iterations):
             if cumulative_val_loss == cumulative_val_loss:
@@ -491,6 +501,24 @@ def run_one_alignment(
             if bool(cfg.get("scale_invariant", False)) and hasattr(pi_model_a, "scale_stats"):
                 iter_msg = f"{iter_msg} {format_scale_stats(pi_model_a.scale_stats())}"
             print(iter_msg)
+
+        if early_stopping_patience > 0 and no_improve_evals >= early_stopping_patience:
+            stop_iteration = iteration
+            early_stopped = True
+            print(
+                "[original_sinkhorn_align] early_stop iter={:03d} best_iter={:03d} best_val_loss={:.4f} "
+                "no_improve_evals={:d} patience={:d}".format(
+                    iteration + 1,
+                    int(best_alignment_iteration) + 1 if best_alignment_iteration is not None else iteration + 1,
+                    float(best_alignment_score) if best_alignment_score is not None else float("nan"),
+                    no_improve_evals,
+                    early_stopping_patience,
+                )
+            )
+            break
+
+    if stop_iteration is None:
+        stop_iteration = int(cfg.alignment_iterations) - 1
 
     print("Elapsed time {:1.3f} secs".format(time() - t1))
     save_json(alignment_history, output_root / "alignment_history.json", indent=2)
@@ -529,6 +557,10 @@ def run_one_alignment(
             "best_alignment_score": best_alignment_score,
             "best_eval_interval": best_eval_interval,
             "validation_alpha_grid": validation_alpha_grid,
+            "early_stopping_patience": early_stopping_patience,
+            "early_stopping_min_delta": early_stopping_min_delta,
+            "early_stopped": early_stopped,
+            "stop_iteration": stop_iteration,
             "scale_invariant": bool(cfg.get("scale_invariant", False)),
             "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
             "finetune_mode": finetune_mode,
@@ -640,6 +672,10 @@ def run_one_alignment(
         "best_alignment_score": best_alignment_score,
         "best_eval_interval": best_eval_interval,
         "validation_alpha_grid": validation_alpha_grid,
+        "early_stopping_patience": early_stopping_patience,
+        "early_stopping_min_delta": early_stopping_min_delta,
+        "early_stopped": early_stopped,
+        "stop_iteration": stop_iteration,
         "scale_invariant": bool(cfg.get("scale_invariant", False)),
         "lambda_scale": float(cfg.get("lambda_scale", 1e-4)),
         "finetune_mode": finetune_mode,
@@ -801,6 +837,8 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
                 "lambda_scale": float(combo["lambda_scale"]) if "lambda_scale" in combo else float(cfg.get("lambda_scale", 1e-4)),
                 "best_eval_interval": int(cfg.best_eval_interval),
                 "validation_alpha_grid": [float(alpha) for alpha in cfg.validation_alpha_grid],
+                "early_stopping_patience": int(cfg.get("early_stopping_patience", 0)),
+                "early_stopping_min_delta": float(cfg.get("early_stopping_min_delta", 0.0)),
                 "starting_alignment_artifact": cfg.get("starting_alignment_artifact", None),
                 "starting_permutation_kind": str(cfg.get("starting_permutation_kind", "hard")),
                 "finetune_mode": str(cfg.get("finetune_mode", "joint")),
