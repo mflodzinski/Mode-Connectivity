@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=04:00:00
+#SBATCH --time=01:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=6GB
+#SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_external_sinkhorn_orig_vgg_cifar10_align_sweep_%j.out
 #SBATCH --error=slurm_external_sinkhorn_orig_vgg_cifar10_align_sweep_%j.err
