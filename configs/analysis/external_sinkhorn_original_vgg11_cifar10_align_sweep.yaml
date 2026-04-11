@@ -41,8 +41,9 @@ sweep:
     - "midpoint"
   tau:
     - 1.0
+    - 1.5
   lr:
     - 0.1
-    - 0.05
+    - 0.2
   sinkhorn_l:
     - 1.0
