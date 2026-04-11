@@ -6,9 +6,9 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=6GB
 #SBATCH --mail-type=END,FAIL
-#SBATCH --output=slurm_external_pytorch_vgg_cifar10_vgg16_2seeds_%j.out
-#SBATCH --error=slurm_external_pytorch_vgg_cifar10_vgg16_2seeds_%j.err
-#SBATCH --job-name=ext_vgg16_2s
+#SBATCH --output=slurm_external_pytorch_vgg_cifar10_vgg19_2seeds_%j.out
+#SBATCH --error=slurm_external_pytorch_vgg_cifar10_vgg19_2seeds_%j.err
+#SBATCH --job-name=ext_vgg19_2s
 #SBATCH --gres=gpu:a40:1
 
 set -euo pipefail
@@ -33,10 +33,10 @@ if [ ! -f "${EXTERNAL_ROOT}/run.sh" ]; then
     exit 1
 fi
 
-ARCH="${ARCH:-vgg16}"
+ARCH="${ARCH:-vgg19}"
 
 echo "========================================"
-echo "External pytorch-vgg-cifar10 VGG16 x2"
+echo "External pytorch-vgg-cifar10 VGG19 x2"
 echo "========================================"
 echo "PROJECT_ROOT: ${PROJECT_ROOT}"
 echo "EXTERNAL_ROOT: ${EXTERNAL_ROOT}"
