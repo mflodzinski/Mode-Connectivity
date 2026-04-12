@@ -1,0 +1,16 @@
+target_epsilon: 0.01
+search_steps:
+  - 500
+search_lrs:
+  - 0.01
+  - 0.1
+search_taus:
+  - 1.0
+  - 2.0
+search_identity_strengths:
+  - 1.0
+search_regs:
+  - 0.0
+  - 0.0001
+search_patience: 50
+search_min_delta: 1.0e-3
