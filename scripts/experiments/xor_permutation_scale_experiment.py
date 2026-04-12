@@ -1649,6 +1649,7 @@ def main() -> None:
             json.dump(pair_payload, handle, indent=2)
 
     print("Step 3/4: aggregating summaries")
+    comparison_tolerance = 1.0e-9
     summary: dict[str, Any] = {
         "num_pairs": len(pair_results),
         "no_alignment": summarize_method([pair["no_alignment"]["metrics"] for pair in pair_results]),
@@ -1712,6 +1713,31 @@ def main() -> None:
             "target_epsilon": sinkhorn_perm_scale_target_epsilon,
             "num_pairs_triggered": int(sum(bool(pair["sinkhorn_perm_plus_scale"]["search_triggered"]) for pair in pair_results)),
             "num_pairs_satisfied_epsilon": int(sum(bool(pair["sinkhorn_perm_plus_scale"]["satisfied_target_epsilon"]) for pair in pair_results)),
+        },
+        "pairwise_comparison_counts": {
+            "comparison_tolerance": comparison_tolerance,
+            "perm_plus_scale_better_than_permutation": int(sum(
+                float(pair["perm_plus_scale"]["metrics"]["loss_barrier"])
+                < float(pair["best_permutation"]["metrics"]["loss_barrier"]) - comparison_tolerance
+                for pair in pair_results
+            )),
+            "sinkhorn_perm_plus_scale_better_than_permutation": int(sum(
+                float(pair["sinkhorn_perm_plus_scale"]["metrics"]["loss_barrier"])
+                < float(pair["best_permutation"]["metrics"]["loss_barrier"]) - comparison_tolerance
+                for pair in pair_results
+            )),
+            "sinkhorn_permutation_equal_to_permutation": int(sum(
+                abs(
+                    float(pair["sinkhorn_permutation"]["metrics"]["loss_barrier"])
+                    - float(pair["best_permutation"]["metrics"]["loss_barrier"])
+                ) <= comparison_tolerance
+                for pair in pair_results
+            )),
+            "perm_plus_scale_better_than_sinkhorn_perm_plus_scale": int(sum(
+                float(pair["perm_plus_scale"]["metrics"]["loss_barrier"])
+                < float(pair["sinkhorn_perm_plus_scale"]["metrics"]["loss_barrier"]) - comparison_tolerance
+                for pair in pair_results
+            )),
         },
     }
     if args.run_joint_perm_scale:
@@ -1845,6 +1871,17 @@ def main() -> None:
             f"{summary['perm_plus_scale_search']['num_pairs_satisfied_epsilon']}/"
             f"{len(pair_results)} pairs <= {perm_scale_target_epsilon}"
         )
+    print(
+        "Pairwise wins: "
+        f"perm+scale < perm: {summary['pairwise_comparison_counts']['perm_plus_scale_better_than_permutation']}/"
+        f"{len(pair_results)}, "
+        f"sinkhorn_perm+scale < perm: {summary['pairwise_comparison_counts']['sinkhorn_perm_plus_scale_better_than_permutation']}/"
+        f"{len(pair_results)}, "
+        f"sinkhorn_perm == perm: {summary['pairwise_comparison_counts']['sinkhorn_permutation_equal_to_permutation']}/"
+        f"{len(pair_results)}, "
+        f"perm+scale < sinkhorn_perm+scale: {summary['pairwise_comparison_counts']['perm_plus_scale_better_than_sinkhorn_perm_plus_scale']}/"
+        f"{len(pair_results)}"
+    )
     print(f"Results written under: {output_dir}")
 
 
