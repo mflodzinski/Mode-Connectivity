@@ -1,11 +1,11 @@
 defaults: []
 
-experiment_name: "external_sinkhorn_original_vgg19_cifar10_align_sweep"
+experiment_name: "external_sinkhorn_original_vgg19_cifar10_align_sweep_scale"
 vgg_name: "VGG19"
 
 model_a_checkpoint: "external/pytorch-vgg-cifar10/save_vgg19_seed0/model_final_state_dict.pth"
 model_b_checkpoint: "external/pytorch-vgg-cifar10/save_vgg19_seed1/model_final_state_dict.pth"
-base_output_root: "results/vgg19/cifar10/raw_pth_align_sweep"
+base_output_root: "results/vgg19/cifar10/raw_pth_align_sweep_scale"
 
 data_path: "./data"
 seed: 0
@@ -19,8 +19,8 @@ num_eval_points: 50
 
 sinkhorn_iters: 20
 identity_init: true
-scale_invariant: false
-lambda_scale: 0
+scale_invariant: true
+lambda_scale: 0.003
 finetune_mode: "joint"
 best_eval_interval: 5
 validation_alpha_grid: [0.5]
@@ -36,13 +36,17 @@ continue_on_error: true
 
 sweep:
   alignment_iterations:
-    - 200
+    - 150
   loss_name:
     - "midpoint"
   tau:
     - 1.0
   lr:
-    - 0.3
-    - 0.4
+    - 0.05
+    - 0.1
+    - 0.2
   sinkhorn_l:
     - 1.0
+  lambda_scale:
+    - 0.003
+    - 0.005
