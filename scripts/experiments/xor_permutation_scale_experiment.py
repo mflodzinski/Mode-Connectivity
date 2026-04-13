@@ -1115,14 +1115,7 @@ def plot_aggregate_curves(
 ) -> None:
     plt.figure()
     colors, labels = get_plot_style()
-    ordered_methods = [
-        "no_alignment",
-        "best_permutation",
-        "sinkhorn_permutation",
-        "sinkhorn_perm_plus_scale",
-        "perm_plus_scale",
-        "joint_perm_scale_exact",
-    ]
+    ordered_methods = get_core_plot_methods() + ["joint_perm_scale_exact"]
     for method_key in ordered_methods:
         if method_key not in aggregates:
             continue

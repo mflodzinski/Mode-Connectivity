@@ -23,6 +23,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from scripts.analysis.run_external_sinkhorn_original_small_mnist_lmc import build_model
+from scripts.analysis.sinkhorn_experiment_utils import normalize_state_dict_keys
 from scripts.lib.alignment.permutation_pipeline import resolve_device
 from scripts.lib.core.output import ensure_dir
 
@@ -64,7 +65,7 @@ def load_model_from_checkpoint(*, checkpoint_path: Path, vgg_name: str, image_si
         )
 
     model = build_model(VGGClass, vgg_name, num_classes=10, image_size=image_size)
-    model.load_state_dict(state_dict)
+    model.load_state_dict(normalize_state_dict_keys(state_dict))
     model.to(device)
     model.eval()
     return model
