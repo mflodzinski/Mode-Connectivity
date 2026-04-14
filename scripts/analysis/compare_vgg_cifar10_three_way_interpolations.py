@@ -139,15 +139,18 @@ def plot_three_curves(
     title: str,
     ylabel: str,
     output_path: Path,
+    show_legend: bool,
 ) -> None:
     plt.figure()
-    plt.plot(x, y_naive, label="Before alignment")
-    plt.plot(x, y_perm, label="After alignment (perm only)")
-    plt.plot(x, y_scale, label="After alignment (perm+scale)")
-    plt.xlabel("alpha")
+    plt.plot(x, y_naive, label="No Alignment", color="tab:gray", linewidth=2.0)
+    plt.plot(x, y_perm, label="Sinkhorn Permutation Only (From Scratch)", color="tab:orange", linewidth=2.0)
+    plt.plot(x, y_scale, label="Sinkhorn Permutation + Scale (From Scratch)", color="tab:purple", linewidth=2.0)
+    plt.xlabel("t (interpolation parameter)")
     plt.ylabel(ylabel)
     plt.title(title)
-    plt.legend()
+    plt.grid(True, which="major", linestyle="--", linewidth=0.7, alpha=0.5)
+    if show_legend:
+        plt.legend()
     plt.savefig(output_path, dpi=200, bbox_inches="tight")
     plt.close()
 
@@ -316,32 +319,36 @@ def main() -> None:
     save_curve_arrays(output_dir, curves)
 
     if not args.skip_plots:
+        show_legend = str(args.vgg_name).upper() == "VGG11"
         plot_three_curves(
             x=test_naive["lambdas"],
             y_naive=test_naive["losses"],
             y_perm=test_perm["losses"],
             y_scale=test_scale["losses"],
-            title="Test Loss Along Interpolation",
-            ylabel="Cross-entropy",
+            title=f"{args.vgg_name}: test loss",
+            ylabel="Test Loss",
             output_path=output_dir / "compare_test_loss.png",
+            show_legend=show_legend,
         )
         plot_three_curves(
             x=test_naive["lambdas"],
             y_naive=test_naive["accuracies"],
             y_perm=test_perm["accuracies"],
             y_scale=test_scale["accuracies"],
-            title="Test Accuracy Along Interpolation",
+            title=f"{args.vgg_name}: test accuracy",
             ylabel="Accuracy (%)",
             output_path=output_dir / "compare_test_accuracy.png",
+            show_legend=show_legend,
         )
         plot_three_curves(
             x=test_naive["lambdas"],
             y_naive=test_naive["errors"],
             y_perm=test_perm["errors"],
             y_scale=test_scale["errors"],
-            title="Test Error Along Interpolation",
+            title=f"{args.vgg_name}: test error",
             ylabel="Error (%)",
             output_path=output_dir / "compare_test_error.png",
+            show_legend=show_legend,
         )
 
     payload = {

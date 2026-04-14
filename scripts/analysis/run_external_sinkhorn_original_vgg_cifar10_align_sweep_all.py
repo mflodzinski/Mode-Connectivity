@@ -6,6 +6,7 @@ import sys
 from copy import deepcopy
 from pathlib import Path
 from time import time
+from types import MethodType
 from typing import Any, Dict
 
 import hydra
@@ -218,6 +219,51 @@ def maybe_load_starting_alignment(pi_model_a: torch.nn.Module, cfg: DictConfig) 
                     target.data.copy_(source_tensor.to(device=target.device, dtype=target.dtype))
 
 
+def enable_fixed_hard_permutation_scale_only_mode(
+    pi_model_a: torch.nn.Module,
+    *,
+    matching,
+) -> None:
+    """Replace the training-time Sinkhorn path with constant hard permutations.
+
+    This matches the XOR perm+scale refinement setup: permutation is fixed exactly
+    and only scale parameters remain trainable.
+    """
+
+    fixed_hard_permutations: list[torch.Tensor | None] = []
+    for parameter in pi_model_a.p:
+        if parameter is None:
+            fixed_hard_permutations.append(None)
+            continue
+        hard_perm = matching(parameter.detach().cpu().numpy()).to(pi_model_a.param_precision).to(parameter.device)
+        fixed_hard_permutations.append(hard_perm)
+
+    pi_model_a._fixed_hard_permutations = fixed_hard_permutations
+
+    def forward_with_fixed_hard_permutations(self, x=None):
+        gk = []
+        for hard_perm, log_scale in zip(self._fixed_hard_permutations, self.u):
+            if hard_perm is None:
+                continue
+            if self.scale_invariant:
+                scale = torch.exp(log_scale)
+                inv_scale = torch.exp(-log_scale)
+                gk.append({"perm": hard_perm, "scale": scale, "inv_scale": inv_scale})
+            else:
+                gk.append(hard_perm)
+
+        m = self.reparamnet(gk)
+        if x is not None and x.ndim == 1:
+            x.unsqueeze_(0)
+
+        if x is not None:
+            return m(x)
+
+        return m
+
+    pi_model_a.forward = MethodType(forward_with_fixed_hard_permutations, pi_model_a)
+
+
 def configure_trainable_alignment_params(pi_model_a: torch.nn.Module, *, finetune_mode: str) -> None:
     if finetune_mode == "joint":
         for parameter in pi_model_a.p:
@@ -239,7 +285,20 @@ def configure_trainable_alignment_params(pi_model_a: torch.nn.Module, *, finetun
                 parameter.requires_grad_(True)
         return
 
-    raise ValueError(f"Unsupported finetune_mode={finetune_mode!r}. Expected 'joint' or 'scale_only'.")
+    if finetune_mode == "scale_only_fixed_hard":
+        if not hasattr(pi_model_a, "u") or not any(parameter is not None for parameter in pi_model_a.u):
+            raise ValueError("finetune_mode='scale_only_fixed_hard' requires scale_invariant=true so scale parameters exist.")
+        for parameter in pi_model_a.p:
+            if parameter is not None:
+                parameter.requires_grad_(False)
+        for parameter in pi_model_a.u:
+            if parameter is not None:
+                parameter.requires_grad_(True)
+        return
+
+    raise ValueError(
+        f"Unsupported finetune_mode={finetune_mode!r}. Expected 'joint', 'scale_only', or 'scale_only_fixed_hard'."
+    )
 
 
 def build_optimizer(pi_model_a: torch.nn.Module, *, learning_rate: float) -> torch.optim.Optimizer:
@@ -378,6 +437,8 @@ def run_one_alignment(
         pi_model_a.identity_init()
     maybe_load_starting_alignment(pi_model_a, cfg)
     finetune_mode = str(cfg.get("finetune_mode", "joint")).lower()
+    if finetune_mode == "scale_only_fixed_hard":
+        enable_fixed_hard_permutation_scale_only_mode(pi_model_a, matching=matching)
     configure_trainable_alignment_params(pi_model_a, finetune_mode=finetune_mode)
 
     loss_name = str(cfg.loss_name)

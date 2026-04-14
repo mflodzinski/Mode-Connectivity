@@ -1,11 +1,11 @@
 defaults: []
 
-experiment_name: "external_sinkhorn_original_vgg11_cifar10_align_sweep_scale"
-vgg_name: "VGG11"
+experiment_name: "external_sinkhorn_original_vgg16_cifar10_align_sweep_perm_then_scale_only"
+vgg_name: "VGG16"
 
-model_a_checkpoint: "external/pytorch-vgg-cifar10/save_vgg11_seed0/model_final_state_dict.pth"
-model_b_checkpoint: "external/pytorch-vgg-cifar10/save_vgg11_seed1/model_final_state_dict.pth"
-base_output_root: "results/vgg11/cifar10/raw_pth_align_sweep_scalebest"
+model_a_checkpoint: "external/pytorch-vgg-cifar10/save_vgg16_seed0/model_final_state_dict.pth"
+model_b_checkpoint: "external/pytorch-vgg-cifar10/save_vgg16_seed1/model_final_state_dict.pth"
+base_output_root: "results/vgg16/cifar10/raw_pth_align_sweep_perm_then_scale_only"
 
 data_path: "./data"
 seed: 0
@@ -21,12 +21,12 @@ sinkhorn_iters: 20
 identity_init: true
 scale_invariant: true
 lambda_scale: 0.003
-finetune_mode: "joint"
+finetune_mode: "scale_only_fixed_hard"
 best_eval_interval: 5
 validation_alpha_grid: [0.5]
 early_stopping_patience: 4
 early_stopping_min_delta: 1e-4
-starting_alignment_artifact: null
+starting_alignment_artifact: "results/vgg16/cifar10/raw_pth_align_sweep_joint_permonly/steps200_tau1p0_lr0p08_l1p0_lossmidpoint/alignment_artifacts.pt"
 starting_permutation_kind: hard
 device: "auto"
 log_interval: 10
@@ -36,16 +36,18 @@ continue_on_error: true
 
 sweep:
   alignment_iterations:
-    - 150
+    - 50
   loss_name:
     - "midpoint"
   tau:
     - 1.0
   lr:
-    - 0.3
-    - 0.4
-    - 0.5
+    - 0.02
+    - 0.05
+    - 0.1
+    - 0.2
   sinkhorn_l:
     - 1.0
   lambda_scale:
     - 0.001
+    - 0.003
