@@ -996,6 +996,85 @@ def save_pair_curve(pair_dir: Path, name: str, model_a: SimpleMLP, model_b: Simp
     return str(npz_path)
 
 
+def get_plot_style() -> tuple[dict[str, str], dict[str, str]]:
+    colors = {
+        "no_alignment": "tab:gray",
+        "best_permutation": "tab:blue",
+        "sinkhorn_permutation": "tab:orange",
+        "perm_plus_scale": "tab:green",
+        "sinkhorn_perm_plus_scale": "tab:purple",
+        "joint_perm_scale_exact": "tab:red",
+    }
+    labels = {
+        "no_alignment": "No Alignment",
+        "best_permutation": "Best Exhaustive Permutation",
+        "sinkhorn_permutation": "Sinkhorn Permutation Only (From Scratch)",
+        "sinkhorn_perm_plus_scale": "Sinkhorn Permutation + Scale (From Scratch)",
+        "perm_plus_scale": "Best Exhaustive Permutation + Scale Refinement",
+        "joint_perm_scale_exact": "Joint permutation + scale (exact)",
+    }
+    return colors, labels
+
+
+def get_core_plot_methods() -> list[str]:
+    return [
+        "no_alignment",
+        "sinkhorn_permutation",
+        "best_permutation",
+        "sinkhorn_perm_plus_scale",
+        "perm_plus_scale",
+    ]
+
+
+def plot_pair_curves(pair_payload: dict[str, Any], output_path: Path, metric_key: str, ylabel: str, title: str) -> None:
+    colors, labels = get_plot_style()
+    ordered_methods = get_core_plot_methods()
+    plt.figure()
+    for method_key in ordered_methods:
+        metrics = pair_payload[method_key]["metrics"]
+        t = np.asarray(metrics["t"], dtype=np.float64)
+        values = np.asarray(metrics["accuracy" if metric_key == "acc" else "loss"], dtype=np.float64)
+        plt.plot(t, values, label=labels[method_key], color=colors[method_key])
+    plt.xlabel("t")
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.legend()
+    plt.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close()
+
+
+def plot_pair_bar_metrics(pair_payload: dict[str, Any], output_path: Path, title: str) -> None:
+    colors, labels = get_plot_style()
+    ordered_methods = get_core_plot_methods()
+    x = np.arange(len(ordered_methods), dtype=np.float64)
+    loss_barriers = np.asarray(
+        [float(pair_payload[method_key]["metrics"]["loss_barrier"]) for method_key in ordered_methods],
+        dtype=np.float64,
+    )
+    min_accuracies = np.asarray(
+        [float(pair_payload[method_key]["metrics"]["min_accuracy"]) for method_key in ordered_methods],
+        dtype=np.float64,
+    )
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    axes[0].bar(x, loss_barriers, color=[colors[method_key] for method_key in ordered_methods])
+    axes[0].set_title("Loss Barrier")
+    axes[0].set_ylabel("Loss Barrier")
+    axes[0].set_xticks(x)
+    axes[0].set_xticklabels([labels[method_key] for method_key in ordered_methods], rotation=20, ha="right")
+
+    axes[1].bar(x, min_accuracies, color=[colors[method_key] for method_key in ordered_methods])
+    axes[1].set_title("Minimum Interpolation Accuracy")
+    axes[1].set_ylabel("Accuracy (%)")
+    axes[1].set_xticks(x)
+    axes[1].set_xticklabels([labels[method_key] for method_key in ordered_methods], rotation=20, ha="right")
+
+    fig.suptitle(title)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
 def summarize_method(metrics_list: list[dict[str, Any]]) -> dict[str, float]:
     loss_barriers = [float(item["loss_barrier"]) for item in metrics_list]
     acc_barriers = [float(item["barrier"]) for item in metrics_list]
@@ -1026,37 +1105,153 @@ def aggregate_curves(pair_results: list[dict[str, Any]], method_key: str) -> dic
     }
 
 
-def plot_aggregate_curves(aggregates: dict[str, dict[str, list[float]]], output_path: Path, metric_key: str, ylabel: str, title: str) -> None:
+def plot_aggregate_curves(
+    aggregates: dict[str, dict[str, list[float]]],
+    output_path: Path,
+    metric_key: str,
+    ylabel: str,
+    title: str,
+    include_std: bool,
+) -> None:
     plt.figure()
-    colors = {
-        "no_alignment": "tab:gray",
-        "best_permutation": "tab:blue",
-        "sinkhorn_permutation": "tab:orange",
-        "perm_plus_scale": "tab:green",
-        "sinkhorn_perm_plus_scale": "tab:purple",
-        "joint_perm_scale_exact": "tab:red",
-    }
-    labels = {
-        "no_alignment": "No alignment",
-        "best_permutation": "Best exact permutation",
-        "sinkhorn_permutation": "Sinkhorn permutation-only",
-        "perm_plus_scale": "Best permutation + scale",
-        "sinkhorn_perm_plus_scale": "Sinkhorn permutation + scale",
-        "joint_perm_scale_exact": "Joint permutation + scale (exact)",
-    }
-    for method_key, aggregate in aggregates.items():
+    colors, labels = get_plot_style()
+    ordered_methods = get_core_plot_methods() + ["joint_perm_scale_exact"]
+    for method_key in ordered_methods:
+        if method_key not in aggregates:
+            continue
+        aggregate = aggregates[method_key]
         t = np.asarray(aggregate["t"], dtype=np.float64)
         mean = np.asarray(aggregate[f"{metric_key}_mean"], dtype=np.float64)
         std = np.asarray(aggregate[f"{metric_key}_std"], dtype=np.float64)
         color = colors[method_key]
         plt.plot(t, mean, label=labels[method_key], color=color)
-        plt.fill_between(t, mean - std, mean + std, color=color, alpha=0.15)
+        if include_std:
+            plt.fill_between(t, mean - std, mean + std, color=color, alpha=0.15)
     plt.xlabel("t")
     plt.ylabel(ylabel)
     plt.title(title)
     plt.legend()
     plt.savefig(output_path, dpi=220, bbox_inches="tight")
     plt.close()
+
+
+def plot_aggregate_bar_metrics(
+    pair_results: list[dict[str, Any]],
+    output_path: Path,
+    title: str,
+) -> None:
+    colors, labels = get_plot_style()
+    ordered_methods = get_core_plot_methods()
+    x = np.arange(len(ordered_methods), dtype=np.float64)
+    loss_barriers = np.asarray(
+        [
+            [float(pair[method_key]["metrics"]["loss_barrier"]) for method_key in ordered_methods]
+            for pair in pair_results
+        ],
+        dtype=np.float64,
+    )
+    min_accuracies = np.asarray(
+        [
+            [float(pair[method_key]["metrics"]["min_accuracy"]) for method_key in ordered_methods]
+            for pair in pair_results
+        ],
+        dtype=np.float64,
+    )
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    axes[0].bar(
+        x,
+        loss_barriers.mean(axis=0),
+        yerr=loss_barriers.std(axis=0),
+        color=[colors[method_key] for method_key in ordered_methods],
+        capsize=4,
+    )
+    axes[0].set_title("Mean Loss Barrier Across Pairs")
+    axes[0].set_ylabel("Loss Barrier")
+    axes[0].set_xticks(x)
+    axes[0].set_xticklabels([labels[method_key] for method_key in ordered_methods], rotation=20, ha="right")
+
+    axes[1].bar(
+        x,
+        min_accuracies.mean(axis=0),
+        yerr=min_accuracies.std(axis=0),
+        color=[colors[method_key] for method_key in ordered_methods],
+        capsize=4,
+    )
+    axes[1].set_title("Mean Minimum Interpolation Accuracy Across Pairs")
+    axes[1].set_ylabel("Accuracy (%)")
+    axes[1].set_xticks(x)
+    axes[1].set_xticklabels([labels[method_key] for method_key in ordered_methods], rotation=20, ha="right")
+
+    fig.suptitle(title)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
+def write_aggregate_stats_txt(
+    aggregates: dict[str, dict[str, list[float]]],
+    output_path: Path,
+    metric_key: str,
+) -> None:
+    colors, labels = get_plot_style()
+    ordered_methods = get_core_plot_methods() + ["joint_perm_scale_exact"]
+    with open(output_path, "w") as handle:
+        for method_key in ordered_methods:
+            if method_key not in aggregates:
+                continue
+            aggregate = aggregates[method_key]
+            t = np.asarray(aggregate["t"], dtype=np.float64)
+            mean = np.asarray(aggregate[f"{metric_key}_mean"], dtype=np.float64)
+            std = np.asarray(aggregate[f"{metric_key}_std"], dtype=np.float64)
+            handle.write(f"[{method_key}] {labels[method_key]}\n")
+            handle.write("t mean std\n")
+            for t_value, mean_value, std_value in zip(t, mean, std):
+                handle.write(f"{t_value:.8f} {mean_value:.8f} {std_value:.8f}\n")
+            handle.write("\n")
+
+
+def write_method_summary_markdown(summary: dict[str, Any], output_path: Path, include_joint_perm_scale: bool) -> None:
+    colors, labels = get_plot_style()
+    ordered_methods = get_core_plot_methods()
+    if include_joint_perm_scale:
+        ordered_methods.append("joint_perm_scale_exact")
+
+    rows = [
+        "| Method | Loss Barrier | Mean Interp Loss | Min Interp Acc | Accuracy Barrier |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for method_key in ordered_methods:
+        method_summary = summary[method_key]
+        rows.append(
+            "| {} | {}+{} | {}+{} | {}+{} | {}+{} |".format(
+                labels[method_key],
+                f"{method_summary['loss_barrier_mean']:.6f}",
+                f"{method_summary['loss_barrier_std']:.6f}",
+                f"{method_summary['mean_interp_loss_mean']:.6f}",
+                f"{method_summary['mean_interp_loss_std']:.6f}",
+                f"{method_summary['min_interp_acc_mean']:.6f}",
+                f"{method_summary['min_interp_acc_std']:.6f}",
+                f"{method_summary['barrier_mean']:.6f}",
+                f"{method_summary['barrier_std']:.6f}",
+            )
+        )
+    output_path.write_text("\n".join(rows) + "\n")
+
+
+def write_pairwise_comparison_table(summary: dict[str, Any], num_pairs: int, output_path: Path) -> None:
+    counts = summary["pairwise_comparison_counts"]
+    rows = [
+        f"comparison_tolerance: {counts['comparison_tolerance']:.1e}",
+        "",
+        "| Comparison | Count |",
+        "|---|---:|",
+        f"| perm+scale <= perm | {counts['perm_plus_scale_better_than_permutation']}/{num_pairs} |",
+        f"| sinkhorn_perm+scale <= perm | {counts['sinkhorn_perm_plus_scale_better_than_permutation']}/{num_pairs} |",
+        f"| sinkhorn_perm == perm | {counts['sinkhorn_permutation_equal_to_permutation']}/{num_pairs} |",
+        f"| perm+scale <= sinkhorn_perm+scale | {counts['perm_plus_scale_better_than_sinkhorn_perm_plus_scale']}/{num_pairs} |",
+    ]
+    output_path.write_text("\n".join(rows) + "\n")
 
 
 def main() -> None:
@@ -1645,10 +1840,31 @@ def main() -> None:
         if joint_perm_scale is not None:
             print(f"  joint_perm_scale loss barrier={float(joint_perm_scale['metrics']['loss_barrier']):.6f}")
 
+        plot_pair_curves(
+            pair_payload,
+            pair_dir / "pair_loss_curves.png",
+            metric_key="loss",
+            ylabel="Loss",
+            title=f"XOR Pair {seed_a}-{seed_b}: Loss Along Interpolation",
+        )
+        plot_pair_curves(
+            pair_payload,
+            pair_dir / "pair_accuracy_curves.png",
+            metric_key="acc",
+            ylabel="Accuracy (%)",
+            title=f"XOR Pair {seed_a}-{seed_b}: Accuracy Along Interpolation",
+        )
+        plot_pair_bar_metrics(
+            pair_payload,
+            pair_dir / "pair_bar_metrics.png",
+            title=f"XOR Pair {seed_a}-{seed_b}: Method Comparison",
+        )
+
         with open(pair_dir / "pair_results.json", "w") as handle:
             json.dump(pair_payload, handle, indent=2)
 
     print("Step 3/4: aggregating summaries")
+    comparison_tolerance = 1.0e-9
     summary: dict[str, Any] = {
         "num_pairs": len(pair_results),
         "no_alignment": summarize_method([pair["no_alignment"]["metrics"] for pair in pair_results]),
@@ -1713,6 +1929,31 @@ def main() -> None:
             "num_pairs_triggered": int(sum(bool(pair["sinkhorn_perm_plus_scale"]["search_triggered"]) for pair in pair_results)),
             "num_pairs_satisfied_epsilon": int(sum(bool(pair["sinkhorn_perm_plus_scale"]["satisfied_target_epsilon"]) for pair in pair_results)),
         },
+        "pairwise_comparison_counts": {
+            "comparison_tolerance": comparison_tolerance,
+            "perm_plus_scale_better_than_permutation": int(sum(
+                float(pair["perm_plus_scale"]["metrics"]["loss_barrier"])
+                <= float(pair["best_permutation"]["metrics"]["loss_barrier"]) + comparison_tolerance
+                for pair in pair_results
+            )),
+            "sinkhorn_perm_plus_scale_better_than_permutation": int(sum(
+                float(pair["sinkhorn_perm_plus_scale"]["metrics"]["loss_barrier"])
+                <= float(pair["best_permutation"]["metrics"]["loss_barrier"]) + comparison_tolerance
+                for pair in pair_results
+            )),
+            "sinkhorn_permutation_equal_to_permutation": int(sum(
+                abs(
+                    float(pair["sinkhorn_permutation"]["metrics"]["loss_barrier"])
+                    - float(pair["best_permutation"]["metrics"]["loss_barrier"])
+                ) <= comparison_tolerance
+                for pair in pair_results
+            )),
+            "perm_plus_scale_better_than_sinkhorn_perm_plus_scale": int(sum(
+                float(pair["perm_plus_scale"]["metrics"]["loss_barrier"])
+                <= float(pair["sinkhorn_perm_plus_scale"]["metrics"]["loss_barrier"]) + comparison_tolerance
+                for pair in pair_results
+            )),
+        },
     }
     if args.run_joint_perm_scale:
         summary["joint_perm_scale_exact"] = summarize_method([pair["joint_perm_scale_exact"]["metrics"] for pair in pair_results])
@@ -1729,17 +1970,52 @@ def main() -> None:
 
     plot_aggregate_curves(
         aggregates,
-        plots_dir / "aggregate_loss_curves.png",
+        plots_dir / "aggregate_loss_curves_with_std.png",
         metric_key="loss",
         ylabel="Loss",
-        title="XOR Loss Along Interpolation",
+        title="Mean XOR Loss Along Interpolation Across Pairs",
+        include_std=True,
     )
     plot_aggregate_curves(
         aggregates,
-        plots_dir / "aggregate_accuracy_curves.png",
+        plots_dir / "aggregate_loss_curves_no_std.png",
+        metric_key="loss",
+        ylabel="Loss",
+        title="Mean XOR Loss Along Interpolation Across Pairs",
+        include_std=False,
+    )
+    plot_aggregate_curves(
+        aggregates,
+        plots_dir / "aggregate_accuracy_curves_with_std.png",
         metric_key="acc",
         ylabel="Accuracy (%)",
-        title="XOR Accuracy Along Interpolation",
+        title="Mean XOR Accuracy Along Interpolation Across Pairs",
+        include_std=True,
+    )
+    plot_aggregate_curves(
+        aggregates,
+        plots_dir / "aggregate_accuracy_curves_no_std.png",
+        metric_key="acc",
+        ylabel="Accuracy (%)",
+        title="Mean XOR Accuracy Along Interpolation Across Pairs",
+        include_std=False,
+    )
+    write_aggregate_stats_txt(aggregates, plots_dir / "aggregate_loss_curves_stats.txt", metric_key="loss")
+    write_aggregate_stats_txt(aggregates, plots_dir / "aggregate_accuracy_curves_stats.txt", metric_key="acc")
+    plot_aggregate_bar_metrics(
+        pair_results,
+        plots_dir / "aggregate_bar_metrics.png",
+        title="XOR Method Comparison Averaged Across Pairs",
+    )
+    write_method_summary_markdown(
+        summary,
+        output_dir / "method_summary_table.md",
+        include_joint_perm_scale=bool(args.run_joint_perm_scale),
+    )
+    write_pairwise_comparison_table(
+        summary,
+        len(pair_results),
+        output_dir / "pairwise_comparisons_table.md",
     )
 
     print("Step 4/4: writing results")
@@ -1795,8 +2071,15 @@ def main() -> None:
             "checkpoints_dir": str(args.checkpoints_dir.resolve()),
             "evaluations_dir": str(evaluations_dir),
             "plots_dir": str(plots_dir),
-            "aggregate_loss_plot": str(plots_dir / "aggregate_loss_curves.png"),
-            "aggregate_accuracy_plot": str(plots_dir / "aggregate_accuracy_curves.png"),
+            "aggregate_loss_plot_with_std": str(plots_dir / "aggregate_loss_curves_with_std.png"),
+            "aggregate_loss_plot_no_std": str(plots_dir / "aggregate_loss_curves_no_std.png"),
+            "aggregate_loss_stats_txt": str(plots_dir / "aggregate_loss_curves_stats.txt"),
+            "aggregate_accuracy_plot_with_std": str(plots_dir / "aggregate_accuracy_curves_with_std.png"),
+            "aggregate_accuracy_plot_no_std": str(plots_dir / "aggregate_accuracy_curves_no_std.png"),
+            "aggregate_accuracy_stats_txt": str(plots_dir / "aggregate_accuracy_curves_stats.txt"),
+            "aggregate_bar_metrics_plot": str(plots_dir / "aggregate_bar_metrics.png"),
+            "method_summary_table_md": str(output_dir / "method_summary_table.md"),
+            "pairwise_comparisons_table_md": str(output_dir / "pairwise_comparisons_table.md"),
         },
     }
     with open(output_dir / "xor_perm_scale_results.json", "w") as handle:
@@ -1845,6 +2128,17 @@ def main() -> None:
             f"{summary['perm_plus_scale_search']['num_pairs_satisfied_epsilon']}/"
             f"{len(pair_results)} pairs <= {perm_scale_target_epsilon}"
         )
+    print(
+        "Pairwise comparisons: "
+        f"perm+scale <= perm: {summary['pairwise_comparison_counts']['perm_plus_scale_better_than_permutation']}/"
+        f"{len(pair_results)}, "
+        f"sinkhorn_perm+scale <= perm: {summary['pairwise_comparison_counts']['sinkhorn_perm_plus_scale_better_than_permutation']}/"
+        f"{len(pair_results)}, "
+        f"sinkhorn_perm == perm: {summary['pairwise_comparison_counts']['sinkhorn_permutation_equal_to_permutation']}/"
+        f"{len(pair_results)}, "
+        f"perm+scale <= sinkhorn_perm+scale: {summary['pairwise_comparison_counts']['perm_plus_scale_better_than_sinkhorn_perm_plus_scale']}/"
+        f"{len(pair_results)}"
+    )
     print(f"Results written under: {output_dir}")
 
 

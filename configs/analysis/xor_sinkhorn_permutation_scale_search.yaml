@@ -11,6 +11,6 @@ search_identity_strengths:
   - 1.0
 search_regs:
   - 0.0
-  - 0.0001
+  - 0.0005
 search_patience: 50
 search_min_delta: 1.0e-3

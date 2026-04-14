@@ -1,0 +1,119 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[utf8]{inputenc}
+\usepackage{amssymb}
+\usepackage{enumitem}
+\usepackage{float}
+
+\setstretch{1.15}
+\geometry{a4paper, margin=1in}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+\title{Linear and Non-Linear Mode Connectivity in Neural Networks\\and the Role of Symmetries\\ \vspace{0.3cm}}
+\author{Maciek Lodzinski}
+\date{April 16, 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{XOR Experiments}
+Adding scale to a Sinkhorn permutation-finding method is a promising idea, because it enlarges the set of symmetries that can potentially be exploited during alignment. However, even when permutation+scale achieves a lower barrier than permutation alone, that observation is not yet conclusive. It does not by itself show whether scale invariance genuinely unlocks additional symmetry directions and lowers the best attainable barrier, or whether it merely adds more freedom to the optimization and thereby makes the search easier. One possible diagnostic would be to optimize a permutation+scale solution, reset the scales to $1$, and then compare the resulting permutation-only model to a direct permutation baseline. A cleaner alternative is to move to a sufficiently small problem such that exhaustive search over all permutations is feasible. In that setting, the best possible permutation can be identified exactly, and any additional gain from scale can be attributed to scale itself rather than uncertainty about the quality of the permutation search. This is the role of the XOR experiments described below.
+
+\subsection{Methodology}
+XOR is studied with small ReLU MLPs of architecture $2$-$h$-$1$, where $h \in \{3,5,7\}$. The number of trained networks was not kept fixed across widths: in the wider settings fewer networks, and therefore fewer model pairs, were used in order to keep the total experiment time manageable. All models were trained on the full XOR dataset, and only solutions that achieve $100\%$ training accuracy and sufficiently low endpoint loss are retained. Thus, every endpoint considered in the pairwise analysis is already a perfect XOR classifier. This yields $21$ valid model pairs for $h=3$, $36$ valid pairs for $h=5$, and $10$ valid pairs for $h=7$.
+
+For each pair, linear interpolation in parameter space is evaluated under five alignment modes:
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{No Alignment}: direct interpolation between the two trained endpoints.
+    \item \textbf{Sinkhorn Permutation Only (From Scratch)}: a relaxed permutation is optimized from scratch with Sinkhorn and then projected to a hard permutation.
+    \item \textbf{Best Exhaustive Permutation}: all hidden-unit permutations are enumerated and the one with the lowest barrier is selected. This is the oracle best result achievable by permutation alone.
+    \item \textbf{Sinkhorn Permutation + Scale (From Scratch)}: permutation and positive hidden-unit scalings are optimized jointly from scratch.
+    \item \textbf{Best Exhaustive Permutation + Scale Refinement}: first find the oracle best permutation by exhaustive search, then optimize only the scale variables while keeping that permutation fixed.
+\end{enumerate}
+
+The purpose of these modes is to separate two different effects. One question is whether a practical relaxed method such as Sinkhorn can \emph{find} the right correspondence between hidden units. A second, and more important, question is whether positive scaling gives a genuine improvement \emph{even after} the best possible permutation has already been found. If the exhaustive permutation can still be improved by a scale-only refinement, then scale is not merely helping the optimizer; it is enlarging the symmetry class that can improve linear mode connectivity.
+
+For the optimization-based methods, a default hyperparameter setting is run first. If that default run fails to satisfy the target criterion, a bounded hyperparameter search is triggered. For the scale-based methods, the target is a small barrier threshold ($\epsilon=0.01$). For Sinkhorn permutation-only, the target is the barrier achieved by the best exhaustive permutation on that same pair. This fallback search is necessary because the effective optimization hyperparameters depend not only on the problem class and architecture, but also on the particular pair of trained networks being aligned.
+
+The main evaluation criterion is the interpolation loss barrier, which measures the largest loss increase encountered along the linear path between two endpoints.
+
+\subsection{Results and Analysis}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{0.50\linewidth}ccc}
+\toprule
+\textbf{Method} & \textbf{3h} & \textbf{5h} & \textbf{7h} \\
+\midrule
+No Alignment & 0.780 $\pm$ 0.610 & 0.608 $\pm$ 0.465 & 0.331 $\pm$ 0.184 \\
+Sinkhorn Permutation Only (From Scratch) & 0.444 $\pm$ 0.325 & 0.189 $\pm$ 0.162 & 0.063 $\pm$ 0.044 \\
+Best Exhaustive Permutation & \textit{0.357} $\pm$ \textit{0.309} & \textit{0.111} $\pm$ \textit{0.118} & \textit{0.023} $\pm$ \textit{0.015} \\
+Sinkhorn Permutation + Scale (From Scratch) & 0.428 $\pm$ 0.380 & 0.074 $\pm$ 0.149 & 0.009 $\pm$ 0.009 \\
+Best Exhaustive Permutation + Scale Refinement & \textbf{0.247 $\pm$ 0.283} & \textbf{0.025 $\pm$ 0.044} & \textbf{0.005 $\pm$ 0.003} \\
+\bottomrule
+\end{tabular}
+\caption{Mean loss barrier $\pm$ standard deviation across valid model pairs.}
+\label{tab:xor_loss_barrier}
+\end{table}
+
+Table~\ref{tab:xor_loss_barrier} is the main quantitative result. As width increases, the best permutation-based alignment becomes substantially more effective: the mean barrier of \emph{Best Exhaustive Permutation} drops from $0.357$ at $h=3$ to $0.111$ at $h=5$ and further to $0.023$ at $h=7$. This agrees with previous findings: wider networks provide more redundancy that can be leveraged by symmetry-based alignment.\\
+\newline
+The key comparison is then between \emph{Best Exhaustive Permutation} and \emph{Best Exhaustive Permutation + Scale Refinement}: once the best permutation is already fixed, adding scale still reduces the mean barrier from $0.357$ to $0.247$ for $h=3$, from $0.111$ to $0.025$ for $h=5$, and from $0.023$ to $0.005$ for $h=7$. This is the strongest evidence that scaling is not just helping the search procedure; it genuinely improves the best barrier achievable by permutation alone. \\
+\newline
+The from-scratch \emph{Sinkhorn Permutaion + Scale} method also benefits from scale, especially at $h=5$ and $h=7$ where it beats \emph{Best Exhaustive Permutation} and fails to do that only when $h=3$. It's also consistently better than \emph{Sinkhorn Permutation Only (From Scratch)}.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{0.50\linewidth}ccc}
+\toprule
+\textbf{Comparison} & \textbf{3h} & \textbf{5h} & \textbf{7h} \\
+\midrule
+Best Exhaustive Permutation + Scale Refinement $\leq$ Best Exhaustive Permutation & 21/21 & 36/36 & 10/10 \\
+Sinkhorn Permutation + Scale (From Scratch) $\leq$ Best Exhaustive Permutation & 9/21 & 29/36 & 8/10 \\
+Sinkhorn Permutation Only (From Scratch) $=$ Best Exhaustive Permutation & 9/21 & 7/36 & 0/10 \\
+Best Exhaustive Permutation + Scale Refinement $\leq$ Sinkhorn Permutation + Scale (From Scratch) & 15/21 & 25/36 & 5/10 \\
+\bottomrule
+\end{tabular}
+\caption{Pairwise comparison counts across valid model pairs.}
+\label{tab:xor_pairwise}
+\end{table}
+
+Table~\ref{tab:xor_pairwise} reports how often the main pairwise method comparisons hold across all valid model pairs. The table compares loss barriers so the lower the better. The strongest result is that \emph{Best Exhaustive Permutation + Scale Refinement} is never worse than \emph{Best Exhaustive Permutation}. So scale reliably improves, or at least preserves, the oracle permutation solution.\\
+\newline
+By contrast, the from-scratch Sinkhorn permutation solver exactly matches the exhaustive permutation on only $9/21$ pairs for $h=3$, $7/36$ for $h=5$, and $0/10$ for $h=7$, which shows that the Perm-Only method gets stuck in this minimal xor setting even in the presence of hyperparam search.\\
+\newline
+The joint Sinkhorn permutation+scale method is often better than exhaustive permutation, but not universally. However, it's outperforms the oracle with increasing hidden size.\\
+\newline
+Overall, the evidence supports the conclusion that permutation symmetry explains a large part of linear mode connectivity, but not all of it. Positive hidden-unit scaling provides a systematic improvement beyond the best permutation alone. Despite that, the joint Sinkhorn Permutation + Scale (From Scratch) method is proven to sometime fail to find those optimal permutations and scales.
+
+\begin{figure}[p]
+    \centering
+    \includegraphics[width=0.9\linewidth]{3h_xor.png}
+    \caption{Aggregate interpolation comparison for XOR with hidden size $h=3$.}
+    \label{fig:xor3h}
+    
+    \vspace{0.6cm}
+    
+    \includegraphics[width=0.9\linewidth]{h5_xor.png}
+    \caption{Aggregate interpolation comparison for XOR with hidden size $h=5$.}
+    \label{fig:xor5h}
+ \end{figure}
+
+\begin{figure}
+    \includegraphics[width=0.9\linewidth]{7h_xor.png}
+    \caption{Aggregate interpolation comparison for XOR with hidden size $h=7$.}
+    \label{fig:xor7h}
+\end{figure}
+\end{document}
