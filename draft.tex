@@ -12,6 +12,7 @@
 \usepackage{amssymb}
 \usepackage{enumitem}
 \usepackage{float}
+\usepackage{subcaption}
 
 \setstretch{1.15}
 \geometry{a4paper, margin=1in}
@@ -100,21 +101,33 @@ Overall, the evidence supports the conclusion that permutation symmetry explains
 
 \begin{figure}[p]
     \centering
-    \includegraphics[width=0.9\linewidth]{3h_xor.png}
-    \caption{Aggregate interpolation comparison for XOR with hidden size $h=3$.}
-    \label{fig:xor3h}
-    
-    \vspace{0.6cm}
-    
-    \includegraphics[width=0.9\linewidth]{h5_xor.png}
-    \caption{Aggregate interpolation comparison for XOR with hidden size $h=5$.}
-    \label{fig:xor5h}
- \end{figure}
+    \begin{subfigure}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{3h_xor.png}
+        \caption{Aggregate interpolation comparison for XOR with hidden size $h=3$.}
+        \label{fig:xor3h}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{h5_xor.png}
+        \caption{Aggregate interpolation comparison for XOR with hidden size $h=5$.}
+        \label{fig:xor5h}
+    \end{subfigure}
 
-\begin{figure}
-    \includegraphics[width=0.9\linewidth]{7h_xor.png}
-    \caption{Aggregate interpolation comparison for XOR with hidden size $h=7$.}
-    \label{fig:xor7h}
+    \vspace{0.8cm}
+
+    \begin{subfigure}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{7h_xor.png}
+        \caption{Aggregate interpolation comparison for XOR with hidden size $h=7$.}
+        \label{fig:xor7h}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.48\linewidth}
+        \centering
+        \vspace{0.35\linewidth}
+    \end{subfigure}
 \end{figure}
 
 \section{Sinkhorn Perm + Scale Experiments on VGGs}
@@ -154,5 +167,6 @@ The qualitative ordering of the results is consistent across the architectures c
 \subsection{questions and wonderings}
 1) there is some randomness in the method - train-loader shuffle order which influences the method's results - to report results more scientificly some seed sweep should be in order to take mean and std but the method is so volatile that this randomness changes the resutls very much, so for each... #ill see when the results come tomorrow
 2)in the paper they  include some plots of loss along interpolation and average barrier - the barrier on the interpolation plot is lower than reported average  on the bar plot - meaning on the interpolation lot they included the best reuslts achieved and on bar plot average which is worse - the question is average over what - random seeds or different pair of endpoints - what should I do
-3)
+3)for now the hyperparam search was that i set some values for search - they looked at the results and tried to finegrade the params to acheive the lowest barrier and run the search again- is that something that should be done or should I set reasonable hyperparam search once and report thus found results.
+4) todo - 4th mode - perm only then joint perm+scale
 \end{document}
