@@ -109,6 +109,42 @@ def vgg16_permutation_spec() -> PermutationSpec:
     return permutation_spec_from_axes_to_perm(axes_to_perm)
 
 
+def vgg16_features_permutation_spec() -> PermutationSpec:
+    """Create permutation spec for VGG16 with ``features.*``/``classifier.*`` keys.
+
+    This matches the VGG16 layout used by:
+    - ``external/pytorch-vgg-cifar10``
+    - ``external/sinkhorn-rebasin/examples/models/vgg.py``
+    """
+
+    conv_indices = [0, 2, 5, 7, 10, 12, 14, 17, 19, 21, 24, 26, 28]
+
+    axes_to_perm = {}
+
+    first_conv = conv_indices[0]
+    axes_to_perm[f"features.{first_conv}.weight"] = ("P_Conv_0", None, None, None)
+    axes_to_perm[f"features.{first_conv}.bias"] = ("P_Conv_0",)
+
+    for i in range(1, len(conv_indices)):
+        curr = conv_indices[i]
+        axes_to_perm[f"features.{curr}.weight"] = (
+            f"P_Conv_{i}",
+            f"P_Conv_{i-1}",
+            None,
+            None,
+        )
+        axes_to_perm[f"features.{curr}.bias"] = (f"P_Conv_{i}",)
+
+    axes_to_perm["classifier.1.weight"] = ("P_Dense_0", "P_Conv_12")
+    axes_to_perm["classifier.1.bias"] = ("P_Dense_0",)
+    axes_to_perm["classifier.4.weight"] = ("P_Dense_1", "P_Dense_0")
+    axes_to_perm["classifier.4.bias"] = ("P_Dense_1",)
+    axes_to_perm["classifier.6.weight"] = (None, "P_Dense_1")
+    axes_to_perm["classifier.6.bias"] = (None,)
+
+    return permutation_spec_from_axes_to_perm(axes_to_perm)
+
+
 def mlp_permutation_spec(num_hidden_layers: int) -> PermutationSpec:
     """Create permutation spec for MLP.
 

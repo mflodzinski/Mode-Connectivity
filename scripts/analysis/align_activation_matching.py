@@ -4,31 +4,52 @@ Supports:
 - activation matching (git-rebasin style, via activation correlations)
 - weight matching (git-rebasin iterative algorithm on weights)
 
-Then it evaluates linear interpolation barriers (LMC proxy) before/after
-alignment.
+The script supports two checkpoint layouts:
+- legacy ``layer_blocks.*`` VGG16 checkpoints from this repo
+- external ``features.*`` VGG16 checkpoints from ``external/pytorch-vgg-cifar10``
+
+It saves:
+- aligned checkpoint
+- permutation artifact
+- functional equivalence report
+- train/test interpolation curves before and after alignment
+- before/after interpolation plots
+- summary JSON with barrier metrics
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Dict
+from pathlib import Path
+from typing import Callable, Dict
 
+import matplotlib
 import numpy as np
 import torch
 from scipy.optimize import linear_sum_assignment
 
-# Add project root to import scripts.lib.*
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
-import sys
-sys.path.insert(0, PROJECT_ROOT)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "scripts"))
+project_root = Path(__file__).resolve().parents[2]
+os.environ.setdefault("MPLCONFIGDIR", str(project_root / ".mplcache"))
+os.environ.setdefault("XDG_CACHE_HOME", str(project_root / ".mplcache"))
 
-from scripts.lib.alignment.permutation_spec import vgg16_permutation_spec
+import sys
+
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "scripts"))
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from scripts.lib.alignment.permutation_spec import (
+    PermutationSpec,
+    vgg16_features_permutation_spec,
+    vgg16_permutation_spec,
+)
 from scripts.lib.alignment.weight_matching import apply_permutation, weight_matching
 from scripts.lib.analysis.alignment import (
     compute_state_dict_l2_distance,
@@ -39,20 +60,130 @@ from scripts.lib.analysis.alignment import (
 )
 
 
-def vgg16_activation_module_map() -> Dict[str, str]:
-    """Map permutation keys to post-ReLU module names in PyTorch VGG16."""
-    mapping: Dict[str, str] = {}
+def normalize_state_dict_keys(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    normalized_state_dict = {}
+    for key, value in state_dict.items():
+        normalized_key = key
+        if normalized_key.startswith("module."):
+            normalized_key = normalized_key[len("module.") :]
+        if normalized_key.startswith("features.module."):
+            normalized_key = "features." + normalized_key[len("features.module.") :]
+        normalized_state_dict[normalized_key] = value
+    return normalized_state_dict
 
+
+def extract_state_dict(payload: object) -> OrderedDict[str, torch.Tensor]:
+    if isinstance(payload, dict) and "model_state" in payload:
+        state_dict = payload["model_state"]
+    elif isinstance(payload, dict) and "state_dict" in payload:
+        state_dict = payload["state_dict"]
+    elif isinstance(payload, dict):
+        state_dict = payload
+    else:
+        raise ValueError("Unsupported checkpoint payload; expected raw state_dict or dict with model_state/state_dict.")
+    return OrderedDict((key, value) for key, value in normalize_state_dict_keys(state_dict).items())
+
+
+def infer_vgg16_layout(state_dict: Dict[str, torch.Tensor]) -> str:
+    keys = set(state_dict.keys())
+    if any(key.startswith("layer_blocks.") for key in keys):
+        return "layer_blocks"
+    if any(key.startswith("features.") for key in keys):
+        return "features"
+    raise ValueError(
+        "Unable to infer VGG16 checkpoint layout. Expected keys starting with 'layer_blocks.' or 'features.'."
+    )
+
+
+def import_external_vgg_class():
+    sinkhorn_root = project_root / "external" / "sinkhorn-rebasin"
+    examples_root = sinkhorn_root / "examples"
+    dnn_root = project_root / "external" / "dnn-mode-connectivity"
+    for path in (str(examples_root), str(sinkhorn_root), str(dnn_root)):
+        if path not in sys.path:
+            sys.path.insert(0, path)
+
+    sinkhorn_vgg_path = examples_root / "models" / "vgg.py"
+    spec = importlib.util.spec_from_file_location("_sinkhorn_rebasin_examples_vgg_for_alignment", sinkhorn_vgg_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load sinkhorn VGG definition from {sinkhorn_vgg_path}.")
+    vgg_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vgg_module)
+    return vgg_module.VGG
+
+
+def build_external_vgg16_model(device: torch.device | None = None) -> torch.nn.Module:
+    VGGClass = import_external_vgg_class()
+    model = VGGClass("VGG16", in_channels=3, out_features=10, h_in=32, w_in=32)
+    if device is not None:
+        model = model.to(device)
+    return model
+
+
+def vgg16_activation_module_map_layer_blocks() -> Dict[str, str]:
+    mapping: Dict[str, str] = {}
     convs_per_block = [2, 2, 3, 3, 3]
     conv_idx = 0
     for block_idx, num_layers in enumerate(convs_per_block):
         for layer_idx in range(num_layers):
             mapping[f"P_Conv_{conv_idx}"] = f"activation_blocks.{block_idx}.{layer_idx}"
             conv_idx += 1
-
     mapping["P_Dense_0"] = "classifier.2"
     mapping["P_Dense_1"] = "classifier.5"
     return mapping
+
+
+def vgg16_activation_module_map_features() -> Dict[str, str]:
+    relu_indices = [1, 3, 6, 8, 11, 13, 15, 18, 20, 22, 25, 27, 29]
+    mapping = {f"P_Conv_{index}": f"features.{relu_index}" for index, relu_index in enumerate(relu_indices)}
+    mapping["P_Dense_0"] = "classifier.2"
+    mapping["P_Dense_1"] = "classifier.5"
+    return mapping
+
+
+@dataclass
+class VGG16Runtime:
+    layout: str
+    perm_spec: PermutationSpec
+    activation_module_map: Dict[str, str]
+    build_model: Callable[[torch.device | None], torch.nn.Module]
+
+
+def build_runtime(layout: str) -> VGG16Runtime:
+    if layout == "layer_blocks":
+        return VGG16Runtime(
+            layout=layout,
+            perm_spec=vgg16_permutation_spec(),
+            activation_module_map=vgg16_activation_module_map_layer_blocks(),
+            build_model=lambda device=None: create_vgg16_model(num_classes=10, device=device),
+        )
+    if layout == "features":
+        return VGG16Runtime(
+            layout=layout,
+            perm_spec=vgg16_features_permutation_spec(),
+            activation_module_map=vgg16_activation_module_map_features(),
+            build_model=build_external_vgg16_model,
+        )
+    raise ValueError(f"Unsupported layout={layout!r}")
+
+
+def load_model_for_runtime(
+    checkpoint_path: str,
+    *,
+    runtime: VGG16Runtime,
+    device: torch.device,
+) -> torch.nn.Module:
+    if runtime.layout == "layer_blocks":
+        model = load_vgg16_model(checkpoint_path, map_location="cpu").to(device)
+        model.eval()
+        return model
+
+    payload = torch.load(checkpoint_path, map_location="cpu")
+    state_dict = extract_state_dict(payload)
+    model = runtime.build_model(device)
+    model.load_state_dict(state_dict)
+    model.eval()
+    return model
 
 
 class ActivationTap:
@@ -75,6 +206,7 @@ class ActivationTap:
     def _hook(self, layer_key: str):
         def _capture(_module, _inputs, output):
             self.outputs[layer_key] = output.detach()
+
         return _capture
 
     def close(self):
@@ -107,7 +239,6 @@ class OnlineMoments:
         )
 
     def update(self, a: torch.Tensor, b: torch.Tensor) -> None:
-        # a,b: [N, C] on CPU float64
         self.sum_a += a.sum(dim=0)
         self.sum_b += b.sum(dim=0)
         self.sumsq_a += (a * a).sum(dim=0)
@@ -123,7 +254,6 @@ class OnlineMoments:
         mean_a = self.sum_a / n
         mean_b = self.sum_b / n
 
-        # Numerator/variance in unnormalized form; n/(n-1) cancels in Pearson.
         cov_num = self.sum_ab - n * torch.outer(mean_a, mean_b)
         var_a_num = self.sumsq_a - n * (mean_a * mean_a)
         var_b_num = self.sumsq_b - n * (mean_b * mean_b)
@@ -137,12 +267,9 @@ class OnlineMoments:
 
 
 def flatten_activations(x: torch.Tensor) -> torch.Tensor:
-    """Convert activations to [N, C] format."""
     if x.ndim == 2:
-        # [B, C]
         return x
     if x.ndim == 4:
-        # [B, C, H, W] -> [B*H*W, C]
         return x.permute(0, 2, 3, 1).reshape(-1, x.shape[1])
     raise ValueError(f"Unsupported activation shape: {tuple(x.shape)}")
 
@@ -153,7 +280,6 @@ def subsample_rows(
     max_rows: int,
     rng: np.random.RandomState,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Subsample rows consistently across a/b if needed."""
     n = a.shape[0]
     if max_rows <= 0 or n <= max_rows:
         return a, b
@@ -171,11 +297,10 @@ def compute_activation_permutation(
     max_batches: int,
     max_rows_per_batch: int,
     seed: int,
+    module_name_map: Dict[str, str],
 ) -> Dict[str, np.ndarray]:
-    """Compute per-layer permutation using activation correlations."""
-    layer_map = vgg16_activation_module_map()
-    tap_a = ActivationTap(model_a, layer_map)
-    tap_b = ActivationTap(model_b, layer_map)
+    tap_a = ActivationTap(model_a, module_name_map)
+    tap_b = ActivationTap(model_b, module_name_map)
     moments: Dict[str, OnlineMoments] = {}
     rng = np.random.RandomState(seed)
 
@@ -195,7 +320,7 @@ def compute_activation_permutation(
                 _ = model_a(inputs)
                 _ = model_b(inputs)
 
-                for layer_key in layer_map:
+                for layer_key in module_name_map:
                     a = flatten_activations(tap_a.outputs[layer_key])
                     b = flatten_activations(tap_b.outputs[layer_key])
                     a, b = subsample_rows(a, b, max_rows_per_batch, rng)
@@ -212,7 +337,7 @@ def compute_activation_permutation(
 
     permutation: Dict[str, np.ndarray] = {}
     print("\nActivation matching summary (Pearson correlation):")
-    for layer_key in layer_map:
+    for layer_key in module_name_map:
         corr = moments[layer_key].pearson_corr().numpy()
         ri, ci = linear_sum_assignment(corr, maximize=True)
         if not np.all(ri == np.arange(len(ri))):
@@ -232,15 +357,15 @@ def compute_activation_permutation(
 def compute_weight_permutation(
     state_a: OrderedDict[str, torch.Tensor],
     state_b: OrderedDict[str, torch.Tensor],
+    *,
+    perm_spec: PermutationSpec,
     max_iter: int,
     seed: int,
 ) -> Dict[str, np.ndarray]:
-    """Compute permutation with iterative weight matching."""
-    ps = vgg16_permutation_spec()
-    params_a = state_dict_to_perm_params(state_a, ps)
-    params_b = state_dict_to_perm_params(state_b, ps)
+    params_a = state_dict_to_perm_params(state_a, perm_spec)
+    params_b = state_dict_to_perm_params(state_b, perm_spec)
     return weight_matching(
-        ps=ps,
+        ps=perm_spec,
         params_a=params_a,
         params_b=params_b,
         max_iter=max_iter,
@@ -249,14 +374,14 @@ def compute_weight_permutation(
     )
 
 
-def apply_vgg16_permutation_to_state(
+def apply_permutation_to_state(
     state_dict: OrderedDict[str, torch.Tensor],
     permutation: Dict[str, np.ndarray],
+    *,
+    perm_spec: PermutationSpec,
 ) -> OrderedDict[str, torch.Tensor]:
-    """Apply permutation spec-consistently and return a new state dict."""
-    ps = vgg16_permutation_spec()
-    params = state_dict_to_perm_params(state_dict, ps)
-    params_aligned = apply_permutation(ps, permutation, params)
+    params = state_dict_to_perm_params(state_dict, perm_spec)
+    params_aligned = apply_permutation(perm_spec, permutation, params)
 
     aligned_state = OrderedDict((k, v.clone()) for k, v in state_dict.items())
     for key, value in params_aligned.items():
@@ -270,7 +395,6 @@ def evaluate_model_limited(
     device: torch.device,
     max_batches: int,
 ) -> Dict[str, float]:
-    """Evaluate model on a loader with optional batch cap."""
     model.eval()
     total_loss = 0.0
     total_correct = 0
@@ -297,53 +421,128 @@ def evaluate_model_limited(
     }
 
 
-def evaluate_test_barrier_limited(
-    model_a: torch.nn.Module,
-    model_b: torch.nn.Module,
-    loader,
+def evaluate_interpolation_curves(
+    *,
+    state_a: OrderedDict[str, torch.Tensor],
+    state_b: OrderedDict[str, torch.Tensor],
+    loaders,
+    build_model_fn: Callable[[torch.device | None], torch.nn.Module],
     device: torch.device,
     num_points: int,
     max_batches: int,
 ) -> Dict[str, object]:
-    """Compute linear interpolation barrier on a (possibly capped) eval loader."""
-    model_a = model_a.to(device)
-    model_b = model_b.to(device)
-    state_a = model_a.state_dict()
-    state_b = model_b.state_dict()
+    interp_model = build_model_fn(device)
+    ts = np.linspace(0.0, 1.0, num_points, dtype=np.float64)
 
-    interp_model = create_vgg16_model(num_classes=10, device=device)
-
-    ts = np.linspace(0.0, 1.0, num_points)
-    test_loss = []
-    test_acc = []
+    train_loss: list[float] = []
+    train_acc: list[float] = []
+    test_loss: list[float] = []
+    test_acc: list[float] = []
 
     for t in ts:
         interp_state = OrderedDict()
         for key in state_a:
-            interp_state[key] = (1.0 - t) * state_a[key] + t * state_b[key]
+            interp_state[key] = ((1.0 - t) * state_a[key].detach().cpu() + t * state_b[key].detach().cpu())
         interp_model.load_state_dict(interp_state)
 
-        metrics = evaluate_model_limited(interp_model, loader, device, max_batches=max_batches)
-        test_loss.append(float(metrics["loss"]))
-        test_acc.append(float(metrics["accuracy"]))
+        train_metrics = evaluate_model_limited(interp_model, loaders["train"], device, max_batches=max_batches)
+        test_metrics = evaluate_model_limited(interp_model, loaders["test"], device, max_batches=max_batches)
 
-    endpoint_avg = 0.5 * (test_loss[0] + test_loss[-1])
-    max_loss = float(max(test_loss))
-    min_acc = float(min(test_acc))
+        train_loss.append(float(train_metrics["loss"]))
+        train_acc.append(float(train_metrics["accuracy"]))
+        test_loss.append(float(test_metrics["loss"]))
+        test_acc.append(float(test_metrics["accuracy"]))
+
+    endpoint_avg_test_loss = 0.5 * (test_loss[0] + test_loss[-1])
+    max_test_loss = float(max(test_loss))
+    min_test_acc = float(min(test_acc))
+    endpoint_avg_train_loss = 0.5 * (train_loss[0] + train_loss[-1])
+    max_train_loss = float(max(train_loss))
+    min_train_acc = float(min(train_acc))
 
     return {
         "t": ts.tolist(),
+        "train_loss": train_loss,
+        "train_acc": train_acc,
         "test_loss": test_loss,
         "test_acc": test_acc,
-        "barrier": max_loss - endpoint_avg,
-        "max_test_loss": max_loss,
-        "endpoint_avg_test_loss": endpoint_avg,
-        "min_test_acc": min_acc,
+        "train_barrier": max_train_loss - endpoint_avg_train_loss,
+        "max_train_loss": max_train_loss,
+        "endpoint_avg_train_loss": endpoint_avg_train_loss,
+        "min_train_acc": min_train_acc,
+        "test_barrier": max_test_loss - endpoint_avg_test_loss,
+        "max_test_loss": max_test_loss,
+        "endpoint_avg_test_loss": endpoint_avg_test_loss,
+        "min_test_acc": min_test_acc,
     }
 
 
+def get_first_batch(loader):
+    for batch in loader:
+        return batch
+    raise RuntimeError("Loader produced no batches")
+
+
+def compare_model_outputs(
+    model_original: torch.nn.Module,
+    model_permuted: torch.nn.Module,
+    batch,
+    *,
+    device: torch.device,
+    atol: float,
+    rtol: float,
+) -> Dict[str, float | int | bool]:
+    inputs, _ = batch
+    inputs = inputs.to(device)
+
+    model_original.eval()
+    model_permuted.eval()
+    with torch.no_grad():
+        outputs_original = model_original(inputs)
+        outputs_permuted = model_permuted(inputs)
+
+    diff = torch.abs(outputs_original - outputs_permuted)
+    argmax_match = (outputs_original.argmax(dim=1) == outputs_permuted.argmax(dim=1)).float().mean().item()
+
+    return {
+        "batch_size": int(inputs.shape[0]),
+        "max_abs_logit_diff": float(diff.max().item()),
+        "mean_abs_logit_diff": float(diff.mean().item()),
+        "allclose": bool(torch.allclose(outputs_original, outputs_permuted, atol=atol, rtol=rtol)),
+        "same_argmax_fraction": float(argmax_match),
+        "atol": float(atol),
+        "rtol": float(rtol),
+    }
+
+
+def plot_before_after_curves(
+    *,
+    x: list[float],
+    y_before: list[float],
+    y_after: list[float],
+    title: str,
+    ylabel: str,
+    output_path: str,
+) -> None:
+    plt.figure()
+    plt.plot(x, y_before, label="Before Alignment", color="tab:gray", linewidth=2.0)
+    plt.plot(x, y_after, label="After Alignment", color="tab:orange", linewidth=2.0)
+    plt.xlabel("t (interpolation parameter)")
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.grid(True, which="major", linestyle="--", linewidth=0.7, alpha=0.5)
+    plt.legend()
+    plt.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close()
+
+
+def save_json(path: str, payload: Dict[str, object]) -> None:
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Permutation alignment for VGG16 CIFAR-10 checkpoints")
+    parser = argparse.ArgumentParser(description="Permutation alignment for VGG16 CIFAR-10 checkpoints.")
     parser.add_argument("--model-a", type=str, required=True, help="Reference checkpoint path")
     parser.add_argument("--model-b", type=str, required=True, help="Checkpoint path to align")
     parser.add_argument("--output-dir", type=str, required=True, help="Directory to store outputs")
@@ -360,29 +559,40 @@ def main():
     parser.add_argument("--max-batches", type=int, default=100, help="Activation batches; <=0 uses full train set")
     parser.add_argument("--max-rows-per-batch", type=int, default=8192, help="Activation rows per layer per batch")
     parser.add_argument("--wm-max-iter", type=int, default=100, help="Weight matching max iterations")
-    parser.add_argument("--num-eval-points", type=int, default=11, help="Interpolation points for LMC check")
-    parser.add_argument("--eval-max-batches", type=int, default=20, help="Max test batches per interpolation point")
+    parser.add_argument("--num-eval-points", type=int, default=21, help="Interpolation points for saved curves")
+    parser.add_argument("--eval-max-batches", type=int, default=0, help="Max train/test batches per interpolation point; <=0 uses full split")
     parser.add_argument("--lmc-threshold", type=float, default=0.1, help="Barrier threshold for LMC")
     parser.add_argument("--seed", type=int, default=0, help="Random seed for activation row subsampling")
+    parser.add_argument("--functional-atol", type=float, default=1e-5, help="Absolute tolerance for functional equivalence")
+    parser.add_argument("--functional-rtol", type=float, default=1e-4, help="Relative tolerance for functional equivalence")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
+    model_a_payload = torch.load(args.model_a, map_location="cpu")
+    model_b_payload = torch.load(args.model_b, map_location="cpu")
+    state_a = extract_state_dict(model_a_payload)
+    state_b = extract_state_dict(model_b_payload)
+
+    layout_a = infer_vgg16_layout(state_a)
+    layout_b = infer_vgg16_layout(state_b)
+    if layout_a != layout_b:
+        raise ValueError(f"Checkpoint layouts do not match: model_a={layout_a}, model_b={layout_b}")
+
+    runtime = build_runtime(layout_a)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    print(f"Detected checkpoint layout: {runtime.layout}")
     print(f"Loading checkpoints:\n  A={args.model_a}\n  B={args.model_b}")
 
-    model_a = load_vgg16_model(args.model_a).to(device)
-    model_b = load_vgg16_model(args.model_b).to(device)
+    model_a = load_model_for_runtime(args.model_a, runtime=runtime, device=device)
+    model_b = load_model_for_runtime(args.model_b, runtime=runtime, device=device)
 
     loaders, _num_classes = load_cifar10_eval_loaders(
         data_path=args.data_path,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
     )
-
-    state_a = model_a.state_dict()
-    state_b = model_b.state_dict()
 
     if args.method == "activation_matching":
         print("\nComputing activation-matching permutation...")
@@ -394,51 +604,148 @@ def main():
             max_batches=args.max_batches,
             max_rows_per_batch=args.max_rows_per_batch,
             seed=args.seed,
+            module_name_map=runtime.activation_module_map,
         )
     else:
         print("\nComputing weight-matching permutation...")
         perm = compute_weight_permutation(
             state_a=state_a,
             state_b=state_b,
+            perm_spec=runtime.perm_spec,
             max_iter=args.wm_max_iter,
             seed=args.seed,
         )
 
     print("\nApplying permutation to model B...")
-    state_b_aligned = apply_vgg16_permutation_to_state(state_b, perm)
+    state_b_aligned = apply_permutation_to_state(
+        state_b,
+        perm,
+        perm_spec=runtime.perm_spec,
+    )
 
-    model_b_aligned = load_vgg16_model(args.model_b).to(device)
+    model_b_aligned = runtime.build_model(device)
     model_b_aligned.load_state_dict(state_b_aligned)
+    model_b_aligned.eval()
 
-    # Save aligned checkpoint (preserve original checkpoint fields where possible).
     ckpt_b = torch.load(args.model_b, map_location="cpu")
-    ckpt_b["model_state"] = OrderedDict((k, v.cpu()) for k, v in state_b_aligned.items())
+    aligned_state_cpu = OrderedDict((k, v.detach().cpu()) for k, v in state_b_aligned.items())
+    if isinstance(ckpt_b, dict) and "model_state" in ckpt_b:
+        ckpt_b["model_state"] = aligned_state_cpu
+    elif isinstance(ckpt_b, dict) and "state_dict" in ckpt_b:
+        ckpt_b["state_dict"] = aligned_state_cpu
+    elif isinstance(ckpt_b, dict):
+        ckpt_b = dict(aligned_state_cpu)
+    else:
+        ckpt_b = {"model_state": aligned_state_cpu}
+
     method_tag = "activation-matched" if args.method == "activation_matching" else "weight-matched"
     aligned_ckpt_path = os.path.join(args.output_dir, f"checkpoint-200-{method_tag}.pt")
     torch.save(ckpt_b, aligned_ckpt_path)
     print(f"Aligned checkpoint saved to: {aligned_ckpt_path}")
 
-    # Save permutation
     perm_npz_path = os.path.join(args.output_dir, f"{args.method}_permutation.npz")
     np.savez(perm_npz_path, **perm)
     print(f"Permutation saved to: {perm_npz_path}")
 
-    print("\nEvaluating linear barriers (LMC proxy, test split)...")
-    barrier_before = evaluate_test_barrier_limited(
-        model_a=model_a,
-        model_b=model_b,
-        loader=loaders["test"],
+    print("\nChecking functional equivalence of model B before/after permutation...")
+    train_batch = get_first_batch(loaders["train"])
+    test_batch = get_first_batch(loaders["test"])
+    functional_equivalence = {
+        "layout": runtime.layout,
+        "train_batch": compare_model_outputs(
+            model_b,
+            model_b_aligned,
+            train_batch,
+            device=device,
+            atol=args.functional_atol,
+            rtol=args.functional_rtol,
+        ),
+        "test_batch": compare_model_outputs(
+            model_b,
+            model_b_aligned,
+            test_batch,
+            device=device,
+            atol=args.functional_atol,
+            rtol=args.functional_rtol,
+        ),
+        "train_eval_original": evaluate_model_limited(model_b, loaders["train"], device, max_batches=args.eval_max_batches),
+        "train_eval_permuted": evaluate_model_limited(model_b_aligned, loaders["train"], device, max_batches=args.eval_max_batches),
+        "test_eval_original": evaluate_model_limited(model_b, loaders["test"], device, max_batches=args.eval_max_batches),
+        "test_eval_permuted": evaluate_model_limited(model_b_aligned, loaders["test"], device, max_batches=args.eval_max_batches),
+    }
+    functional_equivalence["train_eval_delta"] = {
+        "loss": functional_equivalence["train_eval_permuted"]["loss"] - functional_equivalence["train_eval_original"]["loss"],
+        "accuracy": functional_equivalence["train_eval_permuted"]["accuracy"] - functional_equivalence["train_eval_original"]["accuracy"],
+    }
+    functional_equivalence["test_eval_delta"] = {
+        "loss": functional_equivalence["test_eval_permuted"]["loss"] - functional_equivalence["test_eval_original"]["loss"],
+        "accuracy": functional_equivalence["test_eval_permuted"]["accuracy"] - functional_equivalence["test_eval_original"]["accuracy"],
+    }
+    functional_equivalence_path = os.path.join(args.output_dir, "functional_equivalence.json")
+    save_json(functional_equivalence_path, functional_equivalence)
+    print(f"Functional equivalence report saved to: {functional_equivalence_path}")
+
+    print("\nEvaluating interpolation curves before and after alignment...")
+    curves_before = evaluate_interpolation_curves(
+        state_a=state_a,
+        state_b=state_b,
+        loaders=loaders,
+        build_model_fn=runtime.build_model,
         device=device,
         num_points=args.num_eval_points,
         max_batches=args.eval_max_batches,
     )
-    barrier_after = evaluate_test_barrier_limited(
-        model_a=model_a,
-        model_b=model_b_aligned,
-        loader=loaders["test"],
+    curves_after = evaluate_interpolation_curves(
+        state_a=state_a,
+        state_b=state_b_aligned,
+        loaders=loaders,
+        build_model_fn=runtime.build_model,
         device=device,
         num_points=args.num_eval_points,
         max_batches=args.eval_max_batches,
+    )
+
+    interpolation_curves = {
+        "num_eval_points": int(args.num_eval_points),
+        "eval_max_batches": int(args.eval_max_batches),
+        "before_alignment": curves_before,
+        "after_alignment": curves_after,
+    }
+    interpolation_curves_path = os.path.join(args.output_dir, "interpolation_curves.json")
+    save_json(interpolation_curves_path, interpolation_curves)
+    print(f"Interpolation curves saved to: {interpolation_curves_path}")
+
+    plot_before_after_curves(
+        x=curves_before["t"],
+        y_before=curves_before["test_loss"],
+        y_after=curves_after["test_loss"],
+        title="VGG16: test loss",
+        ylabel="Test Loss",
+        output_path=os.path.join(args.output_dir, "compare_test_loss.png"),
+    )
+    plot_before_after_curves(
+        x=curves_before["t"],
+        y_before=curves_before["test_acc"],
+        y_after=curves_after["test_acc"],
+        title="VGG16: test accuracy",
+        ylabel="Accuracy (%)",
+        output_path=os.path.join(args.output_dir, "compare_test_accuracy.png"),
+    )
+    plot_before_after_curves(
+        x=curves_before["t"],
+        y_before=curves_before["train_loss"],
+        y_after=curves_after["train_loss"],
+        title="VGG16: train loss",
+        ylabel="Train Loss",
+        output_path=os.path.join(args.output_dir, "compare_train_loss.png"),
+    )
+    plot_before_after_curves(
+        x=curves_before["t"],
+        y_before=curves_before["train_acc"],
+        y_after=curves_after["train_acc"],
+        title="VGG16: train accuracy",
+        ylabel="Accuracy (%)",
+        output_path=os.path.join(args.output_dir, "compare_train_accuracy.png"),
     )
 
     dist_before = compute_state_dict_l2_distance(state_a, state_b)
@@ -449,6 +756,7 @@ def main():
         "model_b": args.model_b,
         "aligned_model_b": aligned_ckpt_path,
         "method": args.method,
+        "layout": runtime.layout,
         "matching": {
             "seed": args.seed,
             "activation_matching": {
@@ -460,46 +768,76 @@ def main():
             },
         },
         "lmc_eval": {
-            "split": "test",
+            "splits": ["train", "test"],
             "num_eval_points": args.num_eval_points,
             "max_eval_batches": args.eval_max_batches,
         },
         "lmc_threshold": args.lmc_threshold,
+        "functional_equivalence_path": functional_equivalence_path,
+        "interpolation_curves_path": interpolation_curves_path,
         "before_alignment": {
             "distance": dist_before,
-            "barrier": barrier_before,
-            "is_lmc": barrier_before["barrier"] < args.lmc_threshold,
+            "barrier": {
+                "t": curves_before["t"],
+                "train_loss": curves_before["train_loss"],
+                "train_acc": curves_before["train_acc"],
+                "test_loss": curves_before["test_loss"],
+                "test_acc": curves_before["test_acc"],
+                "train_barrier": curves_before["train_barrier"],
+                "max_train_loss": curves_before["max_train_loss"],
+                "endpoint_avg_train_loss": curves_before["endpoint_avg_train_loss"],
+                "min_train_acc": curves_before["min_train_acc"],
+                "barrier": curves_before["test_barrier"],
+                "max_test_loss": curves_before["max_test_loss"],
+                "endpoint_avg_test_loss": curves_before["endpoint_avg_test_loss"],
+                "min_test_acc": curves_before["min_test_acc"],
+            },
+            "is_lmc": curves_before["test_barrier"] < args.lmc_threshold,
         },
         "after_alignment": {
             "distance": dist_after,
-            "barrier": barrier_after,
-            "is_lmc": barrier_after["barrier"] < args.lmc_threshold,
+            "barrier": {
+                "t": curves_after["t"],
+                "train_loss": curves_after["train_loss"],
+                "train_acc": curves_after["train_acc"],
+                "test_loss": curves_after["test_loss"],
+                "test_acc": curves_after["test_acc"],
+                "train_barrier": curves_after["train_barrier"],
+                "max_train_loss": curves_after["max_train_loss"],
+                "endpoint_avg_train_loss": curves_after["endpoint_avg_train_loss"],
+                "min_train_acc": curves_after["min_train_acc"],
+                "barrier": curves_after["test_barrier"],
+                "max_test_loss": curves_after["max_test_loss"],
+                "endpoint_avg_test_loss": curves_after["endpoint_avg_test_loss"],
+                "min_test_acc": curves_after["min_test_acc"],
+            },
+            "is_lmc": curves_after["test_barrier"] < args.lmc_threshold,
         },
         "improvement": {
-            "barrier_delta": barrier_before["barrier"] - barrier_after["barrier"],
+            "barrier_delta": curves_before["test_barrier"] - curves_after["test_barrier"],
             "barrier_relative_reduction_percent": (
-                100.0 * (barrier_before["barrier"] - barrier_after["barrier"]) /
-                barrier_before["barrier"]
-            ) if abs(barrier_before["barrier"]) > 1e-12 else 0.0,
+                100.0 * (curves_before["test_barrier"] - curves_after["test_barrier"]) / curves_before["test_barrier"]
+            )
+            if abs(curves_before["test_barrier"]) > 1e-12
+            else 0.0,
             "l2_delta": dist_before["l2_distance"] - dist_after["l2_distance"],
         },
     }
 
     summary_path = os.path.join(args.output_dir, f"{args.method}_lmc_summary.json")
-    with open(summary_path, "w", encoding="utf-8") as f:
-        json.dump(summary, f, indent=2)
+    save_json(summary_path, summary)
     print(f"Summary saved to: {summary_path}")
 
     print("\n=== Final metrics ===")
     print(
         "Before alignment: "
-        f"barrier={barrier_before['barrier']:.6f}, "
-        f"min_test_acc={barrier_before['min_test_acc']:.2f}%"
+        f"barrier={curves_before['test_barrier']:.6f}, "
+        f"min_test_acc={curves_before['min_test_acc']:.2f}%"
     )
     print(
         "After alignment:  "
-        f"barrier={barrier_after['barrier']:.6f}, "
-        f"min_test_acc={barrier_after['min_test_acc']:.2f}%"
+        f"barrier={curves_after['test_barrier']:.6f}, "
+        f"min_test_acc={curves_after['min_test_acc']:.2f}%"
     )
     print(
         f"LMC status (threshold={args.lmc_threshold:.4f}): "
