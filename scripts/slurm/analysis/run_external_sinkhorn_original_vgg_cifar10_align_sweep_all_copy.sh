@@ -36,6 +36,7 @@ if command -v module >/dev/null 2>&1; then
 fi
 
 CONFIG_NAME="${CONFIG_NAME:-external_sinkhorn_original_vgg11_cifar10_align_sweep_copy}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
 MODEL_A_CHECKPOINT="${MODEL_A_CHECKPOINT:-}"
 MODEL_B_CHECKPOINT="${MODEL_B_CHECKPOINT:-}"
 BASE_OUTPUT_ROOT="${BASE_OUTPUT_ROOT:-}"
@@ -54,6 +55,7 @@ echo "Original Sinkhorn VGG CIFAR10 Align Sweep (copy config)"
 echo "========================================"
 echo "PROJECT_ROOT: ${PROJECT_ROOT}"
 echo "CONFIG_NAME: ${CONFIG_NAME}"
+echo "EXPERIMENT_NAME: ${EXPERIMENT_NAME:-<from config>}"
 echo "VGG_NAME: ${VGG_NAME:-<from config>}"
 echo "MODEL_A_CHECKPOINT: ${MODEL_A_CHECKPOINT:-<from config>}"
 echo "MODEL_B_CHECKPOINT: ${MODEL_B_CHECKPOINT:-<from config>}"
@@ -82,6 +84,9 @@ args=(
 if [ -n "${MODEL_A_CHECKPOINT}" ]; then
     args+=("model_a_checkpoint=${MODEL_A_CHECKPOINT}")
 fi
+if [ -n "${EXPERIMENT_NAME}" ]; then
+    args+=("experiment_name=${EXPERIMENT_NAME}")
+fi
 if [ -n "${MODEL_B_CHECKPOINT}" ]; then
     args+=("model_b_checkpoint=${MODEL_B_CHECKPOINT}")
 fi
@@ -107,7 +112,7 @@ if [ -n "${STARTING_PERMUTATION_KIND}" ]; then
     args+=("starting_permutation_kind=${STARTING_PERMUTATION_KIND}")
 fi
 
-srun python scripts/analysis/run_external_sinkhorn_original_vgg_cifar10_align_sweep_all.py "${args[@]}"
+srun python -u scripts/analysis/run_external_sinkhorn_original_vgg_cifar10_align_sweep_all.py "${args[@]}"
 
 echo ""
 echo "========================================"
