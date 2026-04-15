@@ -5,11 +5,11 @@ vgg_name: "VGG11"
 
 model_a_checkpoint: "external/pytorch-vgg-cifar10/save_vgg11_seed0/model_final_state_dict.pth"
 model_b_checkpoint: "external/pytorch-vgg-cifar10/save_vgg11_seed1/model_final_state_dict.pth"
-base_output_root: "results/vgg11/cifar10/raw_pth_align_sweep"
+base_output_root: "results/vgg11/cifar10/raw_pth_align_sweep_repro"
 
 data_path: "./data"
-seed: 0
-split_seed: 1
+seed: 1
+split_seed: 2
 num_workers: 4
 
 image_size: 32
@@ -36,12 +36,12 @@ continue_on_error: true
 
 sweep:
   alignment_iterations:
-    - 200
+    - 150
   loss_name:
     - "midpoint"
   tau:
     - 2.0
-    - 2.5
+    - 2.5 
     - 3.0
   lr:
     - 0.1

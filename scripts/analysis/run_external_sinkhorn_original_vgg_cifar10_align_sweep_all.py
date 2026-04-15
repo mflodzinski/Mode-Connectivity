@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -30,7 +31,7 @@ from scripts.analysis.run_external_sinkhorn_original_small_mnist_lmc import buil
 from scripts.analysis.sinkhorn_experiment_utils import normalize_state_dict_keys
 from scripts.lib.alignment.permutation_pipeline import compute_paper_loss_barrier, resolve_device, write_summary_files
 from scripts.lib.core.output import ensure_dir, load_json, save_json
-from src.utils import set_global_seed
+from src.utils import set_global_seed, worker_init_fn
 
 
 def build_output_tag(combo: Dict[str, Any], cfg: DictConfig) -> str:
@@ -51,8 +52,9 @@ def build_output_tag(combo: Dict[str, Any], cfg: DictConfig) -> str:
 
 
 def build_cifar10_loaders(cfg: DictConfig, dnn_data):
-    transform_train = dnn_data.Transforms.CIFAR10.VGG.train
     transform_test = dnn_data.Transforms.CIFAR10.VGG.test
+    # Alignment should not depend on stochastic data augmentation.
+    transform_train = transform_test
     cifar_root = Path(to_absolute_path(str(cfg.data_path))) / "cifar10"
 
     dataset_train_source = torchvision.datasets.CIFAR10(
@@ -85,9 +87,32 @@ def build_cifar10_loaders(cfg: DictConfig, dnn_data):
     dataset_train = torch.utils.data.Subset(dataset_train_source, train_indices)
     dataset_val = torch.utils.data.Subset(dataset_val_source, val_indices)
 
-    train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=int(cfg.batch_size), shuffle=True, num_workers=int(cfg.num_workers))
-    val_loader = torch.utils.data.DataLoader(dataset_val, batch_size=int(cfg.batch_size), shuffle=False, num_workers=int(cfg.num_workers))
-    test_loader = torch.utils.data.DataLoader(dataset_test, batch_size=int(cfg.batch_size), shuffle=False, num_workers=int(cfg.num_workers))
+    # Force single-process loading for the strictest reproducibility.
+    effective_num_workers = 0
+    train_generator = torch.Generator().manual_seed(int(cfg.seed))
+
+    train_loader = torch.utils.data.DataLoader(
+        dataset_train,
+        batch_size=int(cfg.batch_size),
+        shuffle=True,
+        num_workers=effective_num_workers,
+        generator=train_generator,
+        worker_init_fn=worker_init_fn,
+    )
+    val_loader = torch.utils.data.DataLoader(
+        dataset_val,
+        batch_size=int(cfg.batch_size),
+        shuffle=False,
+        num_workers=effective_num_workers,
+        worker_init_fn=worker_init_fn,
+    )
+    test_loader = torch.utils.data.DataLoader(
+        dataset_test,
+        batch_size=int(cfg.batch_size),
+        shuffle=False,
+        num_workers=effective_num_workers,
+        worker_init_fn=worker_init_fn,
+    )
     return train_loader, val_loader, test_loader
 
 
@@ -841,6 +866,8 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
     if end_index < start_index or end_index >= total_runs:
         raise ValueError(f"end_index={end_index} is invalid for start_index={start_index} and total_runs={total_runs}.")
 
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    torch.use_deterministic_algorithms(True)
     set_global_seed(int(cfg.seed))
     device = resolve_device(str(cfg.device))
     base_output_root = ensure_dir(Path(to_absolute_path(str(cfg.base_output_root))))
