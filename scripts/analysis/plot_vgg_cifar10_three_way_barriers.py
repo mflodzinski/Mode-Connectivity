@@ -24,9 +24,21 @@ METHOD_SPECS = [
     ("test_naive", "No Alignment", "tab:gray"),
     ("test_perm", "Sinkhorn Permutation Only (From Scratch)", "tab:orange"),
     ("test_scale", "Sinkhorn Permutation + Scale (From Scratch)", "tab:purple"),
+    ("perm_then_scale_only", "Permutation Then Scale Finetuning", "tab:green"),
 ]
 
 ARCHITECTURES = ["vgg11", "vgg13", "vgg16", "vgg19"]
+
+PERM_THEN_SCALE_COMPARISON_PATHS = {
+    "vgg11": PROJECT_ROOT
+    / "results/vgg11/cifar10/raw_pth_align_sweep_perm_then_scale_only/steps50_tau1p0_lr0p05_l1p0_lossmidpoint_lam0p001_ftscale_only_fixed_hard/comparison.json",
+    "vgg13": PROJECT_ROOT
+    / "results/vgg13/cifar10/raw_pth_align_sweep_perm_then_scale_only_cor_def/steps50_tau1p0_lr0p02_l1p0_lossmidpoint_lam0p001_ftscale_only_fixed_hard/comparison.json",
+    "vgg16": PROJECT_ROOT
+    / "results/vgg16/cifar10/raw_pth_align_sweep_perm_then_scale_only/steps50_tau1p0_lr0p1_l1p0_lossmidpoint_lam0p001_ftscale_only_fixed_hard/comparison.json",
+    "vgg19": PROJECT_ROOT
+    / "results/vgg19/cifar10/raw_pth_align_sweep_perm_then_scale_only/steps50_tau1p0_lr0p1_l1p0_lossmidpoint_lam0p001_ftscale_only_fixed_hard/comparison.json",
+}
 
 
 def load_curves(architecture: str) -> dict:
@@ -39,6 +51,20 @@ def compute_barrier(losses: list[float], ts: list[float]) -> float:
     return float(compute_paper_loss_barrier(np.asarray(losses, dtype=np.float64), np.asarray(ts, dtype=np.float64)))
 
 
+def load_perm_then_scale_barrier(architecture: str) -> float:
+    path = PERM_THEN_SCALE_COMPARISON_PATHS[architecture]
+    if not path.exists():
+        raise FileNotFoundError(f"Missing comparison.json for {architecture}: {path}")
+    with open(path, "r") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, list):
+        raise ValueError(f"Expected comparison.json to contain a list at {path}")
+    for row in payload:
+        if row.get("variant_key") == "original_sinkhorn_lmc":
+            return float(row["test_loss_barrier_max_endpoint"])
+    raise ValueError(f"comparison.json at {path} does not contain 'original_sinkhorn_lmc'")
+
+
 def main() -> None:
     plot_data: dict[str, list[float]] = {label: [] for _, label, _ in METHOD_SPECS}
     architecture_labels: list[str] = []
@@ -47,19 +73,20 @@ def main() -> None:
         payload = load_curves(architecture)
         architecture_labels.append(str(payload["vgg_name"]))
         curves = payload["curves"]
-        for curve_key, label, _ in METHOD_SPECS:
+        for curve_key, label, _ in METHOD_SPECS[:3]:
             curve = curves[curve_key]
             plot_data[label].append(compute_barrier(curve["losses"], curve["lambdas"]))
+        plot_data["Permutation Then Scale Finetuning"].append(load_perm_then_scale_barrier(architecture))
 
     output_root = PROJECT_ROOT / "results" / "vgg_cifar10_three_way_barriers"
     output_root.mkdir(parents=True, exist_ok=True)
 
     x = np.arange(len(architecture_labels))
-    width = 0.24
+    width = 0.18
 
     fig, ax = plt.subplots(figsize=(10, 6))
     for index, (_, label, color) in enumerate(METHOD_SPECS):
-        offset = (index - 1) * width
+        offset = (index - (len(METHOD_SPECS) - 1) / 2.0) * width
         ax.bar(x + offset, plot_data[label], width=width, label=label, color=color)
 
     ax.set_xticks(x)
