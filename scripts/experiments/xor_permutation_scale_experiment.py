@@ -1110,8 +1110,9 @@ def plot_aggregate_curves(
     output_path: Path,
     metric_key: str,
     ylabel: str,
-    title: str,
+    title: str | None,
     include_std: bool,
+    show_legend: bool = True,
 ) -> None:
     plt.figure()
     colors, labels = get_plot_style()
@@ -1129,8 +1130,10 @@ def plot_aggregate_curves(
             plt.fill_between(t, mean - std, mean + std, color=color, alpha=0.15)
     plt.xlabel("t")
     plt.ylabel(ylabel)
-    plt.title(title)
-    plt.legend()
+    if title:
+        plt.title(title)
+    if show_legend:
+        plt.legend()
     plt.savefig(output_path, dpi=220, bbox_inches="tight")
     plt.close()
 
@@ -1981,8 +1984,9 @@ def main() -> None:
         plots_dir / "aggregate_loss_curves_no_std.png",
         metric_key="loss",
         ylabel="Loss",
-        title="Mean XOR Loss Along Interpolation Across Pairs",
+        title=None,
         include_std=False,
+        show_legend=False,
     )
     plot_aggregate_curves(
         aggregates,

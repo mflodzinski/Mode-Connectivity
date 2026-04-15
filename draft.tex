@@ -12,6 +12,7 @@
 \usepackage{amssymb}
 \usepackage{enumitem}
 \usepackage{float}
+\usepackage{subcaption}
 
 \setstretch{1.15}
 \geometry{a4paper, margin=1in}
@@ -27,10 +28,10 @@
 \maketitle
 
 \section{XOR Experiments}
-Adding scale to a Sinkhorn permutation-finding method is a promising idea, because it enlarges the set of symmetries that can potentially be exploited during alignment. However, even when permutation+scale achieves a lower barrier than permutation alone, that observation is not yet conclusive. It does not by itself show whether scale invariance genuinely unlocks additional symmetry directions and lowers the best attainable barrier, or whether it merely adds more freedom to the optimization and thereby makes the search easier. One possible diagnostic would be to optimize a permutation+scale solution, reset the scales to $1$, and then compare the resulting permutation-only model to a direct permutation baseline. A cleaner alternative is to move to a sufficiently small problem such that exhaustive search over all permutations is feasible. In that setting, the best possible permutation can be identified exactly, and any additional gain from scale can be attributed to scale itself rather than uncertainty about the quality of the permutation search. This is the role of the XOR experiments described below.
+Adding scale to a Sinkhorn permutation-finding method is a promising idea, because it enlarges the set of symmetries that can potentially be exploited during alignment. However, even when permutation+scale achieves a lower barrier than permutation alone, that observation is not yet conclusive. It does not by itself show whether scale invariance genuinely unlocks additional symmetry directions and lowers the best attainable barrier, or whether it merely adds more freedom to the optimization and thereby makes the search easier. One possible diagnostic would be to optimize a permutation+scale solution, reset the scales to $1$, and then compare the resulting permutation-only model to a direct permutation baseline. Another alternative is to move to a sufficiently small problem such that exhaustive search over all permutations is feasible. In that setting, the best possible permutation can be identified exactly, and any additional gain from scale can be attributed to scale itself rather than uncertainty about the quality of the permutation search. This is the role of the XOR experiments described below.
 
 \subsection{Methodology}
-XOR is studied with small ReLU MLPs of architecture $2$-$h$-$1$, where $h \in \{3,5,7\}$. The number of trained networks was not kept fixed across widths: in the wider settings fewer networks, and therefore fewer model pairs, were used in order to keep the total experiment time manageable. All models were trained on the full XOR dataset, and only solutions that achieve $100\%$ training accuracy and sufficiently low endpoint loss are retained. Thus, every endpoint considered in the pairwise analysis is already a perfect XOR classifier. This yields $21$ valid model pairs for $h=3$, $36$ valid pairs for $h=5$, and $10$ valid pairs for $h=7$.
+XOR is studied with small ReLU MLPs of architecture $2$-$h$-$1$, where $h \in \{3,5,7\}$. The number of trained networks was not kept fixed across widths: in the wider settings fewer networks, and therefore fewer model pairs, were used in order to keep the total experiment time manageable. All models were trained on the full XOR dataset, and only solutions that achieve $100\%$ training accuracy and sufficiently low endpoint loss are retained. Thus, every endpoint considered in the pairwise analysis is already a good XOR classifier. This yields $21$ valid model pairs for $h=3$, $36$ valid pairs for $h=5$, and $10$ valid pairs for $h=7$.
 
 For each pair, linear interpolation in parameter space is evaluated under five alignment modes:
 \begin{enumerate}[leftmargin=1.5em]
@@ -90,6 +91,27 @@ Best Exhaustive Permutation + Scale Refinement $\leq$ Sinkhorn Permutation + Sca
 \label{tab:xor_pairwise}
 \end{table}
 
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{3h_xor.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{h5_xor.png}
+    \end{minipage}
+
+    \begin{minipage}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{h7_xor.png}
+    \end{minipage}
+    \caption{Average over different network pairs interpolation comparison for XOR with hidden sizes $h=3$, $h=5$, and $h=7$.}
+    \label{fig:xor_aggregate}
+\end{figure}
+\newpage
 Table~\ref{tab:xor_pairwise} reports how often the main pairwise method comparisons hold across all valid model pairs. The table compares loss barriers so the lower the better. The strongest result is that \emph{Best Exhaustive Permutation + Scale Refinement} is never worse than \emph{Best Exhaustive Permutation}. So scale reliably improves, or at least preserves, the oracle permutation solution.\\
 \newline
 By contrast, the from-scratch Sinkhorn permutation solver exactly matches the exhaustive permutation on only $9/21$ pairs for $h=3$, $7/36$ for $h=5$, and $0/10$ for $h=7$, which shows that the Perm-Only method gets stuck in this minimal xor setting even in the presence of hyperparam search.\\
@@ -98,22 +120,66 @@ The joint Sinkhorn permutation+scale method is often better than exhaustive perm
 \newline
 Overall, the evidence supports the conclusion that permutation symmetry explains a large part of linear mode connectivity, but not all of it. Positive hidden-unit scaling provides a systematic improvement beyond the best permutation alone. Despite that, the joint Sinkhorn Permutation + Scale (From Scratch) method is proven to sometime fail to find those optimal permutations and scales.
 
-\begin{figure}[p]
+\section{Sinkhorn Perm + Scale Experiments on VGGs}
+The VGG experiments serve as the large-scale counterpart to the XOR study. On XOR, exhaustive search makes it possible to separate the effect of permutation from the effect of scale exactly. On CIFAR10 with VGG architectures, exhaustive search is no longer feasible, so the question becomes whether the same qualitative pattern persists in a realistic high-dimensional setting. In particular, the goal is to test whether adding scale to Sinkhorn-based alignment lowers the interpolation barrier relative to permutation-only alignment, and whether an additional improvement is obtained by fixing an already found permutation and optimizing only scale on top of it. VGGs on CIFAR10 were chosen intentionally, since this architecture-dataset combination is among the most studied settings in work on the “one basin modulo permutation” hypothesis.
+
+\subsection{Methodology}
+The experiment compares three alignment settings on CIFAR10 for fixed endpoint pairs of VGG11, VGG13, VGG16, and VGG19:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Sinkhorn Permutation Only}: Sinkhorn permutation parameters are optimized from scratch and then projected to a hard permutation for evaluation.
+    \item \textbf{Sinkhorn Permutation + Scale (Joint)}: the same optimization is performed with positive hidden-channel scaling enabled, so permutation variables and scale variables are trained together. During training, the scale variables are optimized jointly with the soft Sinkhorn permutation, while evaluation is performed after projecting the permutation to a hard matching.
+    \item \textbf{Permutation Then Scale Finetuning}: the permutation found by the permutation-only run is fixed as a hard permutation, and only the scale variables are optimized afterward.
+\end{itemize}
+In all cases, the aligned model is compared to the second endpoint by evaluating test loss along the linear interpolation path in parameter space, and the loss barrier is used as the main comparison metric.
+
+\subsection{Results and Analysis}
+
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\linewidth]{3h_xor.png}
-    \caption{Aggregate interpolation comparison for XOR with hidden size $h=3$.}
-    \label{fig:xor3h}
-    
-    \vspace{0.6cm}
-    
-    \includegraphics[width=0.9\linewidth]{h5_xor.png}
-    \caption{Aggregate interpolation comparison for XOR with hidden size $h=5$.}
-    \label{fig:xor5h}
- \end{figure}
+
+    \includegraphics[width=0.48\linewidth]{vgg11_sin.png}
+    \hfill
+    \includegraphics[width=0.48\linewidth]{vgg13_sin.png}
+
+    \vspace{0.5em}
+
+    \includegraphics[width=0.48\linewidth]{vgg16_sin.png}
+    \hfill
+    \includegraphics[width=0.48\linewidth]{vgg19_sin.png}
+
+    \caption{Sinkhorn-based permutation alignment with scale invariance across VGG architectures (VGG11, VGG13, VGG16, VGG19).}
+    \label{fig:vgg_sinkhorn_scale}
+\end{figure}
+
+Joint Sinkhorn permutation+scale always yields a lower barrier than Sinkhorn permutation-only, indicating that adding scale improves the quality of the connected path beyond what is obtained from permutation search alone. The results do not show a uniform dominance of one scale-based variant over the other. For VGG13 and VGG16, optimizing scale after first fixing the permutation yields a lower barrier than joint permutation+scale optimization, whereas for VGG11 and VGG19 the jointly optimized variant performs better. What is consistent across all four architectures is that adding scale improves over permutation-only alignment. This is also consistent with the XOR results: both scale-based variants improve over Sinkhorn Permutation Only (From Scratch). However, neither of the two scale-based approaches is uniformly better than the other.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{barplot_vggs.png}
+    \caption{Bar plot showing max loss barrier along the interpolation for four different scenarios.}
+    \label{fig:vgg_barriers}
+\end{figure}
+
+
+\subsection{Open Questions}
+
+Several methodological questions remain open.
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Sensitivity to randomness.} The method can remain sensitive to seed-dependent factors such as the train-loader shuffle order. A more rigorous protocol would therefore evaluate each method across repeated runs and report mean and standard deviation rather than a single best outcome.
+    \item \textbf{How to aggregate results.} The paper reports both interpolation plots and average barrier summaries, but it is not clear whether the averaging is taken over random restarts, over different endpoint pairs, or over both. This distinction matters because the interpolation curves show one particular result, whereas Figure~\ref{fig:vgg_barriers} summarizes barriers after averaging. For that reason, the reporting protocol should state explicitly what the averaging is taken over. In the references plot, the interpolation curve barrier is lower than the reported average barrier which suggests that in that plot they included the best found permutation.
+    \item \textbf{Hyperparameter selection.} The current hyperparameter search was refined iteratively by inspecting earlier results and narrowing the search range. Would a cleaner procedure be to define a fixed search space in advance, select hyperparameters by validation performance within that search, and then report the resulting test barriers without further manual retuning.
+    \item \textbf{Additional comparison mode.} A natural fourth variant would start from a permutation-only solution and then continue with joint permutation+scale optimization, rather than fixing the permutation completely before the scale refinement stage - \textit{TODO}
+\end{enumerate}
 
 \begin{figure}
-    \includegraphics[width=0.9\linewidth]{7h_xor.png}
-    \caption{Aggregate interpolation comparison for XOR with hidden size $h=7$.}
-    \label{fig:xor7h}
+    \centering
+    \includegraphics[width=1\linewidth]{apper_image.png}
+    \caption{Plots from the 'Re-basin via implicit Sinkhorn differentiation' paper}
+    \label{fig:paper_plot}
 \end{figure}
+
+\section{References}
+\begin{enumerate}[leftmargin=1.5em]
+    \item Guerrero-Pe\~na, F. A., Medeiros, H. R., Dubail, T., Aminbeidokhti, M., Granger, E., \& Pedersoli, M. (2023). \textit{Re-basin via implicit Sinkhorn differentiation}. In \textit{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)} (pp. 20237--20246). \href{https://doi.org/10.1109/CVPR52729.2023.01938}{doi:10.1109/CVPR52729.2023.01938}.
+\end{enumerate}
 \end{document}
