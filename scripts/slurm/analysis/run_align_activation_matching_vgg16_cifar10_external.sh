@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=03:00:00
+#SBATCH --time=00:30:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=8GB
+#SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_align_activation_matching_vgg16_cifar10_external_%j.out
 #SBATCH --error=slurm_align_activation_matching_vgg16_cifar10_external_%j.err
