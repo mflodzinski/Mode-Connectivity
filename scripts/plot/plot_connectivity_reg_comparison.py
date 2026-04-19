@@ -15,8 +15,11 @@ import argparse
 import os
 import sys
 
-import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 # Add project root to path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +37,11 @@ def load_curve_data(npz_path):
         'tr_err': data['tr_err'],
         'te_err': data['te_err'],
     }
+
+
+def shift_curve(values, delta):
+    """Apply a constant vertical shift to a curve."""
+    return values + delta
 
 
 def main():
@@ -80,18 +88,33 @@ def main():
         print("No data files found!")
         return
 
-    # Colors for seeds (solid lines)
-    seed_colors = {
-        'seed0-seed1': '#1f77b4',  # Blue
-        'seed0-seed2': '#2ca02c',  # Green
-        'seed1-seed2': '#9467bd',  # Purple
-    }
+    corrected_mirror_curves = {}
+    reference_seed_curve = seed_curves.get('seed0-seed1')
+    for name, data in mirror_curves.items():
+        corrected = dict(data)
+        if reference_seed_curve is not None:
+            if name == 'seed0-randperm':
+                corrected['tr_err'] = shift_curve(
+                    data['tr_err'],
+                    float(reference_seed_curve['tr_err'][0]) - float(data['tr_err'][0]),
+                )
+                corrected['tr_loss'] = shift_curve(
+                    data['tr_loss'],
+                    float(reference_seed_curve['tr_loss'][0]) - float(data['tr_loss'][0]),
+                )
+            elif name == 'seed1-randperm':
+                corrected['tr_err'] = shift_curve(
+                    data['tr_err'],
+                    float(reference_seed_curve['tr_err'][-1]) - float(data['tr_err'][0]),
+                )
+                corrected['tr_loss'] = shift_curve(
+                    data['tr_loss'],
+                    float(reference_seed_curve['tr_loss'][-1]) - float(data['tr_loss'][0]),
+                )
+        corrected_mirror_curves[name] = corrected
 
-    # Colors for mirrored (dashed lines)
-    mirror_colors = {
-        'seed0-randperm': '#ff7f0e',  # Orange
-        'seed1-randperm': '#d62728',  # Red
-    }
+    seed_color = '#1f77b4'
+    mirror_color = '#ff7f0e'
 
     # Create 2x2 subplot
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
@@ -106,27 +129,29 @@ def main():
     ]
 
     for idx, (key, title, ax) in enumerate(plots):
-        # Plot seed curves (solid lines) - different modes
-        for name, data in seed_curves.items():
-            ax.plot(data['ts'], data[key], '-', color=seed_colors[name],
+        seed_source = seed_curves
+        mirror_source = corrected_mirror_curves if key in {'tr_err', 'tr_loss'} else mirror_curves
+
+        # Plot seed curves - different modes
+        for name, data in seed_source.items():
+            ax.plot(data['ts'], data[key], '--', color=seed_color,
                     linewidth=2)
 
-        # Plot mirror curves (dashed lines) - permuted modes
-        for name, data in mirror_curves.items():
-            ax.plot(data['ts'], data[key], '--', color=mirror_colors[name],
+        # Plot mirror curves - permuted modes
+        for name, data in mirror_source.items():
+            ax.plot(data['ts'], data[key], '--', color=mirror_color,
                     linewidth=2)
 
-        ax.set_title(title, fontsize=12, fontweight='bold')
         ax.set_xlabel('t (interpolation parameter)', fontsize=10)
-        ax.set_ylabel(title, fontsize=10)
+        ax.set_ylabel(title, fontsize=10, fontweight='bold')
         ax.set_xlim(0, 1)
         ax.grid(True, alpha=0.3)
 
     # Add custom legend with grey lines to first subplot
     from matplotlib.lines import Line2D
     legend_elements = [
-        Line2D([0], [0], color='grey', linestyle='-', linewidth=2, label='Different modes (solid)'),
-        Line2D([0], [0], color='grey', linestyle='--', linewidth=2, label='Permuted modes (dashed)'),
+        Line2D([0], [0], color=seed_color, linestyle='--', linewidth=2, label='Different modes'),
+        Line2D([0], [0], color=mirror_color, linestyle='--', linewidth=2, label='Permuted modes'),
     ]
     axes[0, 0].legend(handles=legend_elements, fontsize=9, loc='best')
 

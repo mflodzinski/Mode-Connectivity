@@ -20,5 +20,34 @@ cd /tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity
 # Add project root to Python path so scripts can import from src/
 export PYTHONPATH=/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity:$PYTHONPATH
 
-# Run the curve training script
+# Create output directories if they don't exist
+mkdir -p results/vgg16/cifar10/curves/standard/seed0-seed1_reg/checkpoints
+mkdir -p results/vgg16/cifar10/curves/standard/seed0-seed1_reg/evaluations
+mkdir -p results/vgg16/cifar10/curves/standard/seed0-seed1_reg/figures
+
+echo ""
+echo "========================================"
+echo "STEP 1: Training Bezier Curve"
+echo "========================================"
 srun python scripts/train/run_garipov_curve.py --config-name vgg16_curve_seed0-seed1_reg
+
+if [ $? -ne 0 ]; then
+    echo "Bezier curve training failed!"
+    exit 1
+fi
+
+echo ""
+echo "========================================"
+echo "STEP 2: Evaluating Bezier Curve"
+echo "========================================"
+srun python scripts/eval/eval_garipov_curve.py --config-name vgg16_curve_seed0-seed1_reg
+
+if [ $? -ne 0 ]; then
+    echo "Bezier curve evaluation failed!"
+    exit 1
+fi
+
+echo ""
+echo "========================================"
+echo "TRAINING AND EVALUATION COMPLETED"
+echo "========================================"

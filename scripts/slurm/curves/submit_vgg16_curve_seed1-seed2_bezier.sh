@@ -25,5 +25,29 @@ mkdir -p results/vgg16/cifar10/curves/standard/seed1-seed2_bezier/checkpoints
 mkdir -p results/vgg16/cifar10/curves/standard/seed1-seed2_bezier/evaluations
 mkdir -p results/vgg16/cifar10/curves/standard/seed1-seed2_bezier/figures
 
-# Run the curve training script
+echo ""
+echo "========================================"
+echo "STEP 1: Training Bezier Curve"
+echo "========================================"
 srun python scripts/train/run_garipov_curve.py --config-name vgg16_curve_seed1-seed2_bezier --config-path ../../configs/garipov/curves
+
+if [ $? -ne 0 ]; then
+    echo "Bezier curve training failed!"
+    exit 1
+fi
+
+echo ""
+echo "========================================"
+echo "STEP 2: Evaluating Bezier Curve"
+echo "========================================"
+srun python scripts/eval/eval_garipov_curve.py --config-name vgg16_curve_seed1-seed2_bezier --config-path ../../configs/garipov/curves
+
+if [ $? -ne 0 ]; then
+    echo "Bezier curve evaluation failed!"
+    exit 1
+fi
+
+echo ""
+echo "========================================"
+echo "TRAINING AND EVALUATION COMPLETED"
+echo "========================================"
