@@ -11,13 +11,77 @@ Modes:
 import argparse
 import numpy as np
 from pathlib import Path
+from collections import OrderedDict
 
 import sys
-sys.path.insert(0, '../lib')
+SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPTS_ROOT = SCRIPT_DIR.parent
+sys.path.insert(0, str(SCRIPTS_ROOT))
 
 from lib.curves import analyzer as curve_analyzer
 from lib.core import checkpoint, output as io
 from lib.evaluation import metrics
+
+
+CONV_KEY_MAP = (
+    ("layer_blocks.0.0", "features.0"),
+    ("layer_blocks.0.1", "features.2"),
+    ("layer_blocks.1.0", "features.5"),
+    ("layer_blocks.1.1", "features.7"),
+    ("layer_blocks.2.0", "features.10"),
+    ("layer_blocks.2.1", "features.12"),
+    ("layer_blocks.2.2", "features.14"),
+    ("layer_blocks.3.0", "features.17"),
+    ("layer_blocks.3.1", "features.19"),
+    ("layer_blocks.3.2", "features.21"),
+    ("layer_blocks.4.0", "features.24"),
+    ("layer_blocks.4.1", "features.26"),
+    ("layer_blocks.4.2", "features.28"),
+)
+
+LINEAR_KEY_MAP = (
+    ("classifier.1", "classifier.1"),
+    ("classifier.4", "classifier.4"),
+    ("classifier.6", "classifier.6"),
+)
+
+
+def normalize_state_dict_keys(state_dict):
+    normalized = OrderedDict()
+    for key, value in state_dict.items():
+        normalized_key = key
+        if normalized_key.startswith("module."):
+            normalized_key = normalized_key[len("module.") :]
+        if normalized_key.startswith("features.module."):
+            normalized_key = "features." + normalized_key[len("features.module.") :]
+        normalized[normalized_key] = value
+    return normalized
+
+
+def has_layer_blocks_layout(state_dict) -> bool:
+    return any(key.startswith("layer_blocks.") for key in state_dict.keys())
+
+
+def has_features_layout(state_dict) -> bool:
+    return any(key.startswith("features.") for key in state_dict.keys())
+
+
+def native_to_external_state_dict(state_dict):
+    translated = OrderedDict()
+    for native_prefix, external_prefix in CONV_KEY_MAP + LINEAR_KEY_MAP:
+        weight_key = f"{native_prefix}.weight"
+        bias_key = f"{native_prefix}.bias"
+        if weight_key in state_dict and bias_key in state_dict:
+            translated[f"{external_prefix}.weight"] = state_dict[weight_key]
+            translated[f"{external_prefix}.bias"] = state_dict[bias_key]
+    return translated
+
+
+def canonicalize_for_distance(state_dict):
+    normalized = normalize_state_dict_keys(state_dict)
+    if has_layer_blocks_layout(normalized):
+        return native_to_external_state_dict(normalized), "layer_blocks->features"
+    return normalized, "normalized"
 
 
 def main():
@@ -323,13 +387,26 @@ def main():
         print(f"Checkpoint 2: {args.checkpoint2}")
 
         # Load checkpoints
-        state1 = checkpoint.load_state_dict(args.checkpoint1)
-        state2 = checkpoint.load_state_dict(args.checkpoint2)
+        state1_raw = checkpoint.load_state_dict(args.checkpoint1)
+        state2_raw = checkpoint.load_state_dict(args.checkpoint2)
+        state1, remap1 = canonicalize_for_distance(state1_raw)
+        state2, remap2 = canonicalize_for_distance(state2_raw)
+
+        common_keys = set(state1.keys()) & set(state2.keys())
+        only1 = set(state1.keys()) - set(state2.keys())
+        only2 = set(state2.keys()) - set(state1.keys())
 
         # Calculate L2 distance
         print(f"\n{'='*70}")
         print("COMPUTING L2 DISTANCE")
         print(f"{'='*70}\n")
+        print(f"Checkpoint 1 key transform: {remap1}")
+        print(f"Checkpoint 2 key transform: {remap2}")
+        print(f"Common parameter tensors:   {len(common_keys)}")
+        if only1 or only2:
+            print(f"Only in checkpoint 1:      {len(only1)}")
+            print(f"Only in checkpoint 2:      {len(only2)}")
+            print("WARNING: Distance is computed only on the common keys after canonicalization.\n")
 
         distance_stats = metrics.l2_distance(
             state1,
@@ -343,7 +420,7 @@ def main():
         print(f"Total parameters:       {distance_stats['total_params']:,}")
 
         # Sort layers by distance
-        sort_key = 'normalized_l2' if args.sort_by == 'normalized' else 'l2'
+        sort_key = 'normalized_l2' if args.sort_by == 'normalized' else 'raw_l2'
         sorted_layers = sorted(
             distance_stats['layer_distances'].items(),
             key=lambda x: x[1][sort_key],
@@ -358,12 +435,12 @@ def main():
         print("-" * 70)
 
         for i, (layer_name, stats) in enumerate(sorted_layers[:args.show_top_k]):
-            print(f"{i+1:<6}{layer_name[:48]:<50}{stats['l2']:<15.6f}{stats['normalized_l2']:<15.6f}")
+            print(f"{i+1:<6}{layer_name[:48]:<50}{stats['raw_l2']:<15.6f}{stats['normalized_l2']:<15.6f}")
 
         # Count zero-distance layers
         zero_dist_layers = [
             name for name, stats in distance_stats['layer_distances'].items()
-            if stats['l2'] < 1e-10
+            if stats['raw_l2'] < 1e-10
         ]
 
         if zero_dist_layers:
@@ -408,9 +485,10 @@ def main():
                 'total_params': distance_stats['total_params'],
                 'layer_distances': {
                     name: {
-                        'l2': stats['l2'],
+                        'l2': stats['raw_l2'],
+                        'raw_l2': stats['raw_l2'],
                         'normalized_l2': stats['normalized_l2'],
-                        'num_params': stats['num_params']
+                        'num_params': stats['n_params']
                     }
                     for name, stats in distance_stats['layer_distances'].items()
                 }

@@ -1,12 +1,12 @@
-"""Permutation alignment for independently trained VGG16 endpoints.
+"""Permutation alignment for independently trained VGG endpoints.
 
 Supports:
 - activation matching (git-rebasin style, via activation correlations)
 - weight matching (git-rebasin iterative algorithm on weights)
 
 The script supports two checkpoint layouts:
-- legacy ``layer_blocks.*`` VGG16 checkpoints from this repo
-- external ``features.*`` VGG16 checkpoints from ``external/pytorch-vgg-cifar10``
+- legacy ``layer_blocks.*`` VGG checkpoints from this repo
+- external ``features.*`` VGG checkpoints from ``external/pytorch-vgg-cifar10``
 
 It saves:
 - aligned checkpoint
@@ -47,6 +47,7 @@ import matplotlib.pyplot as plt
 
 from scripts.lib.alignment.permutation_spec import (
     PermutationSpec,
+    permutation_spec_from_axes_to_perm,
     vgg16_features_permutation_spec,
     vgg16_permutation_spec,
 )
@@ -84,14 +85,26 @@ def extract_state_dict(payload: object) -> OrderedDict[str, torch.Tensor]:
     return OrderedDict((key, value) for key, value in normalize_state_dict_keys(state_dict).items())
 
 
-def infer_vgg16_layout(state_dict: Dict[str, torch.Tensor]) -> str:
+ARCH_BLOCK_CONV_COUNTS = {
+    "VGG11": [1, 1, 2, 2, 2],
+    "VGG13": [2, 2, 2, 2, 2],
+    "VGG16": [2, 2, 3, 3, 3],
+    "VGG19": [2, 2, 4, 4, 4],
+}
+
+CONV_COUNT_TO_VGG_NAME = {
+    sum(block_counts): vgg_name for vgg_name, block_counts in ARCH_BLOCK_CONV_COUNTS.items()
+}
+
+
+def infer_layout(state_dict: Dict[str, torch.Tensor]) -> str:
     keys = set(state_dict.keys())
     if any(key.startswith("layer_blocks.") for key in keys):
         return "layer_blocks"
     if any(key.startswith("features.") for key in keys):
         return "features"
     raise ValueError(
-        "Unable to infer VGG16 checkpoint layout. Expected keys starting with 'layer_blocks.' or 'features.'."
+        "Unable to infer VGG checkpoint layout. Expected keys starting with 'layer_blocks.' or 'features.'."
     )
 
 
@@ -112,19 +125,111 @@ def import_external_vgg_class():
     return vgg_module.VGG
 
 
-def build_external_vgg16_model(device: torch.device | None = None) -> torch.nn.Module:
+def build_external_vgg_model(vgg_name: str, device: torch.device | None = None) -> torch.nn.Module:
     VGGClass = import_external_vgg_class()
-    model = VGGClass("VGG16", in_channels=3, out_features=10, h_in=32, w_in=32)
+    model = VGGClass(vgg_name, in_channels=3, out_features=10, h_in=32, w_in=32)
     if device is not None:
         model = model.to(device)
     return model
 
 
-def vgg16_activation_module_map_layer_blocks() -> Dict[str, str]:
+def infer_external_vgg_name(state_dict: Dict[str, torch.Tensor]) -> str:
+    conv_weight_count = 0
+    for key, value in state_dict.items():
+        if key.startswith("features.") and key.endswith(".weight") and value.ndim == 4:
+            conv_weight_count += 1
+    if conv_weight_count not in CONV_COUNT_TO_VGG_NAME:
+        raise ValueError(
+            f"Unsupported external VGG conv count {conv_weight_count}. "
+            f"Expected one of {sorted(CONV_COUNT_TO_VGG_NAME)}."
+        )
+    return CONV_COUNT_TO_VGG_NAME[conv_weight_count]
+
+
+def infer_layer_blocks_vgg_name(state_dict: Dict[str, torch.Tensor]) -> str:
+    max_block_idx = -1
+    conv_count = 0
+    for key, value in state_dict.items():
+        if key.startswith("layer_blocks.") and key.endswith(".weight") and value.ndim == 4:
+            parts = key.split(".")
+            max_block_idx = max(max_block_idx, int(parts[1]))
+            conv_count += 1
+    if max_block_idx != 4 or conv_count not in CONV_COUNT_TO_VGG_NAME:
+        raise ValueError(
+            f"Unsupported layer_blocks checkpoint with {conv_count} conv layers and max block idx {max_block_idx}."
+        )
+    return CONV_COUNT_TO_VGG_NAME[conv_count]
+
+
+def external_conv_relu_indices(block_conv_counts: list[int]) -> tuple[list[int], list[int]]:
+    conv_indices: list[int] = []
+    relu_indices: list[int] = []
+    current_idx = 0
+    for block_size in block_conv_counts:
+        for _ in range(block_size):
+            conv_indices.append(current_idx)
+            relu_indices.append(current_idx + 1)
+            current_idx += 2
+        current_idx += 1  # MaxPool
+    return conv_indices, relu_indices
+
+
+def build_features_permutation_spec(block_conv_counts: list[int]) -> PermutationSpec:
+    conv_indices, _ = external_conv_relu_indices(block_conv_counts)
+    axes_to_perm = {}
+
+    first_conv = conv_indices[0]
+    axes_to_perm[f"features.{first_conv}.weight"] = ("P_Conv_0", None, None, None)
+    axes_to_perm[f"features.{first_conv}.bias"] = ("P_Conv_0",)
+
+    for i in range(1, len(conv_indices)):
+        curr = conv_indices[i]
+        axes_to_perm[f"features.{curr}.weight"] = (
+            f"P_Conv_{i}",
+            f"P_Conv_{i-1}",
+            None,
+            None,
+        )
+        axes_to_perm[f"features.{curr}.bias"] = (f"P_Conv_{i}",)
+
+    axes_to_perm["classifier.1.weight"] = ("P_Dense_0", "P_Conv_" + str(len(conv_indices) - 1))
+    axes_to_perm["classifier.1.bias"] = ("P_Dense_0",)
+    axes_to_perm["classifier.4.weight"] = ("P_Dense_1", "P_Dense_0")
+    axes_to_perm["classifier.4.bias"] = ("P_Dense_1",)
+    axes_to_perm["classifier.6.weight"] = (None, "P_Dense_1")
+    axes_to_perm["classifier.6.bias"] = (None,)
+    return permutation_spec_from_axes_to_perm(axes_to_perm)
+
+
+def build_layer_blocks_permutation_spec(block_conv_counts: list[int]) -> PermutationSpec:
     mapping: Dict[str, str] = {}
-    convs_per_block = [2, 2, 3, 3, 3]
     conv_idx = 0
-    for block_idx, num_layers in enumerate(convs_per_block):
+    axes_to_perm = {}
+
+    for block_idx, num_layers in enumerate(block_conv_counts):
+        for layer_idx in range(num_layers):
+            weight_key = f"layer_blocks.{block_idx}.{layer_idx}.weight"
+            bias_key = f"layer_blocks.{block_idx}.{layer_idx}.bias"
+            if conv_idx == 0:
+                axes_to_perm[weight_key] = ("P_Conv_0", None, None, None)
+            else:
+                axes_to_perm[weight_key] = (f"P_Conv_{conv_idx}", f"P_Conv_{conv_idx-1}", None, None)
+            axes_to_perm[bias_key] = (f"P_Conv_{conv_idx}",)
+            conv_idx += 1
+
+    axes_to_perm["classifier.1.weight"] = ("P_Dense_0", "P_Conv_" + str(conv_idx - 1))
+    axes_to_perm["classifier.1.bias"] = ("P_Dense_0",)
+    axes_to_perm["classifier.4.weight"] = ("P_Dense_1", "P_Dense_0")
+    axes_to_perm["classifier.4.bias"] = ("P_Dense_1",)
+    axes_to_perm["classifier.6.weight"] = (None, "P_Dense_1")
+    axes_to_perm["classifier.6.bias"] = (None,)
+    return permutation_spec_from_axes_to_perm(axes_to_perm)
+
+
+def build_layer_blocks_activation_module_map(block_conv_counts: list[int]) -> Dict[str, str]:
+    mapping: Dict[str, str] = {}
+    conv_idx = 0
+    for block_idx, num_layers in enumerate(block_conv_counts):
         for layer_idx in range(num_layers):
             mapping[f"P_Conv_{conv_idx}"] = f"activation_blocks.{block_idx}.{layer_idx}"
             conv_idx += 1
@@ -133,8 +238,8 @@ def vgg16_activation_module_map_layer_blocks() -> Dict[str, str]:
     return mapping
 
 
-def vgg16_activation_module_map_features() -> Dict[str, str]:
-    relu_indices = [1, 3, 6, 8, 11, 13, 15, 18, 20, 22, 25, 27, 29]
+def build_features_activation_module_map(block_conv_counts: list[int]) -> Dict[str, str]:
+    _, relu_indices = external_conv_relu_indices(block_conv_counts)
     mapping = {f"P_Conv_{index}": f"features.{relu_index}" for index, relu_index in enumerate(relu_indices)}
     mapping["P_Dense_0"] = "classifier.2"
     mapping["P_Dense_1"] = "classifier.5"
@@ -142,27 +247,41 @@ def vgg16_activation_module_map_features() -> Dict[str, str]:
 
 
 @dataclass
-class VGG16Runtime:
+class VGGExternalRuntime:
     layout: str
+    vgg_name: str
+    block_conv_counts: list[int]
     perm_spec: PermutationSpec
     activation_module_map: Dict[str, str]
     build_model: Callable[[torch.device | None], torch.nn.Module]
 
 
-def build_runtime(layout: str) -> VGG16Runtime:
+def build_runtime(layout: str, state_dict: Dict[str, torch.Tensor]) -> VGGExternalRuntime:
     if layout == "layer_blocks":
-        return VGG16Runtime(
+        vgg_name = infer_layer_blocks_vgg_name(state_dict)
+        block_conv_counts = ARCH_BLOCK_CONV_COUNTS[vgg_name]
+        if vgg_name != "VGG16":
+            raise ValueError(
+                f"layer_blocks layout currently only supports VGG16-compatible checkpoints, got inferred {vgg_name}."
+            )
+        return VGGExternalRuntime(
             layout=layout,
-            perm_spec=vgg16_permutation_spec(),
-            activation_module_map=vgg16_activation_module_map_layer_blocks(),
+            vgg_name=vgg_name,
+            block_conv_counts=block_conv_counts,
+            perm_spec=vgg16_permutation_spec() if block_conv_counts == [2, 2, 3, 3, 3] else build_layer_blocks_permutation_spec(block_conv_counts),
+            activation_module_map=build_layer_blocks_activation_module_map(block_conv_counts),
             build_model=lambda device=None: create_vgg16_model(num_classes=10, device=device),
         )
     if layout == "features":
-        return VGG16Runtime(
+        vgg_name = infer_external_vgg_name(state_dict)
+        block_conv_counts = ARCH_BLOCK_CONV_COUNTS[vgg_name]
+        return VGGExternalRuntime(
             layout=layout,
-            perm_spec=vgg16_features_permutation_spec(),
-            activation_module_map=vgg16_activation_module_map_features(),
-            build_model=build_external_vgg16_model,
+            vgg_name=vgg_name,
+            block_conv_counts=block_conv_counts,
+            perm_spec=vgg16_features_permutation_spec() if block_conv_counts == [2, 2, 3, 3, 3] else build_features_permutation_spec(block_conv_counts),
+            activation_module_map=build_features_activation_module_map(block_conv_counts),
+            build_model=lambda device=None, *, _vgg_name=vgg_name: build_external_vgg_model(_vgg_name, device),
         )
     raise ValueError(f"Unsupported layout={layout!r}")
 
@@ -170,7 +289,7 @@ def build_runtime(layout: str) -> VGG16Runtime:
 def load_model_for_runtime(
     checkpoint_path: str,
     *,
-    runtime: VGG16Runtime,
+    runtime: VGGExternalRuntime,
     device: torch.device,
 ) -> torch.nn.Module:
     if runtime.layout == "layer_blocks":
@@ -542,7 +661,7 @@ def save_json(path: str, payload: Dict[str, object]) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Permutation alignment for VGG16 CIFAR-10 checkpoints.")
+    parser = argparse.ArgumentParser(description="Permutation alignment for VGG CIFAR-10 checkpoints.")
     parser.add_argument("--model-a", type=str, required=True, help="Reference checkpoint path")
     parser.add_argument("--model-b", type=str, required=True, help="Checkpoint path to align")
     parser.add_argument("--output-dir", type=str, required=True, help="Directory to store outputs")
@@ -574,15 +693,16 @@ def main():
     state_a = extract_state_dict(model_a_payload)
     state_b = extract_state_dict(model_b_payload)
 
-    layout_a = infer_vgg16_layout(state_a)
-    layout_b = infer_vgg16_layout(state_b)
+    layout_a = infer_layout(state_a)
+    layout_b = infer_layout(state_b)
     if layout_a != layout_b:
         raise ValueError(f"Checkpoint layouts do not match: model_a={layout_a}, model_b={layout_b}")
 
-    runtime = build_runtime(layout_a)
+    runtime = build_runtime(layout_a, state_a)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     print(f"Detected checkpoint layout: {runtime.layout}")
+    print(f"Detected VGG variant: {runtime.vgg_name}")
     print(f"Loading checkpoints:\n  A={args.model_a}\n  B={args.model_b}")
 
     model_a = load_model_for_runtime(args.model_a, runtime=runtime, device=device)
@@ -719,7 +839,7 @@ def main():
         x=curves_before["t"],
         y_before=curves_before["test_loss"],
         y_after=curves_after["test_loss"],
-        title="VGG16: test loss",
+        title=f"{runtime.vgg_name}: test loss",
         ylabel="Test Loss",
         output_path=os.path.join(args.output_dir, "compare_test_loss.png"),
     )
@@ -727,7 +847,7 @@ def main():
         x=curves_before["t"],
         y_before=curves_before["test_acc"],
         y_after=curves_after["test_acc"],
-        title="VGG16: test accuracy",
+        title=f"{runtime.vgg_name}: test accuracy",
         ylabel="Accuracy (%)",
         output_path=os.path.join(args.output_dir, "compare_test_accuracy.png"),
     )
@@ -735,7 +855,7 @@ def main():
         x=curves_before["t"],
         y_before=curves_before["train_loss"],
         y_after=curves_after["train_loss"],
-        title="VGG16: train loss",
+        title=f"{runtime.vgg_name}: train loss",
         ylabel="Train Loss",
         output_path=os.path.join(args.output_dir, "compare_train_loss.png"),
     )
@@ -743,7 +863,7 @@ def main():
         x=curves_before["t"],
         y_before=curves_before["train_acc"],
         y_after=curves_after["train_acc"],
-        title="VGG16: train accuracy",
+        title=f"{runtime.vgg_name}: train accuracy",
         ylabel="Accuracy (%)",
         output_path=os.path.join(args.output_dir, "compare_train_accuracy.png"),
     )

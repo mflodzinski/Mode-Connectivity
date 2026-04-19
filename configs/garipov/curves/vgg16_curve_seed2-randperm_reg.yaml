@@ -1,0 +1,31 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_curve_seed2-randperm_reg"
+
+output_root: "results/vgg16/cifar10/curves/standard/seed2-randperm_reg/checkpoints"
+
+# Endpoints: seed2 original and its random full-network permuted version
+endpoint0: "results/vgg16/cifar10/endpoints/standard/seed2/checkpoints/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/standard/seed2_randperm/checkpoints/checkpoint-200.pt"
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+
+# Curve parameters
+curve: "Bezier"
+num_bends: 3
+
+# Training
+epochs: 200
+save_intermediate: true
+save_freq: 200
+lr: 0.015
+wd: 5e-4
+seed: 0
+
+use_test: true
+no_train_aug: true
+use_wandb: true
+project_name: "thesis-mode-connectivity"

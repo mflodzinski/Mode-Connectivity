@@ -26,5 +26,6 @@ wd: 5e-4
 seed: 0  # Random seed for reproducibility
 
 use_test: true
+no_train_aug: true
 use_wandb: true
 project_name: "thesis-mode-connectivity"

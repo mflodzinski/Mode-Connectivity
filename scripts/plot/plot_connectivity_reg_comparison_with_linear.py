@@ -53,6 +53,58 @@ def load_linear_data(npz_path):
     }
 
 
+def barrier_tick_label(value, key):
+    """Format inset barrier tick labels."""
+    if key.endswith('err'):
+        return f"{value:.1f}"
+    return f"{value:.3f}"
+
+
+def add_curve_only_inset(ax, key, seed_curves, mirror_curves, seed_colors, mirror_colors):
+    """Add a large inset with only the barrier y-ticks shown."""
+    inset_ax = ax.inset_axes([0.37, 0.20, 0.58, 0.68])
+
+    for name, curve_data in seed_curves.items():
+        inset_ax.plot(
+            curve_data['ts'],
+            curve_data[key],
+            '--',
+            color='#1f77b4',
+            linewidth=1.5,
+        )
+
+    for name, curve_data in mirror_curves.items():
+        inset_ax.plot(
+            curve_data['ts'],
+            curve_data[key],
+            ':',
+            color='#ff7f0e',
+            linewidth=1.5,
+        )
+
+    seed_peak = max(float(np.max(curve_data[key])) for curve_data in seed_curves.values())
+    mirror_peak = max(float(np.max(curve_data[key])) for curve_data in mirror_curves.values())
+    y_min = min(float(np.min(curve_data[key])) for curve_data in list(seed_curves.values()) + list(mirror_curves.values()))
+    y_max = max(seed_peak, mirror_peak)
+    y_pad = max((y_max - y_min) * 0.08, 1e-4)
+
+    inset_ax.set_xlim(0.0, 1.0)
+    inset_ax.set_ylim(y_min - y_pad, y_max + y_pad)
+    inset_ax.set_xticks([])
+    inset_ax.set_yticks(sorted({seed_peak, mirror_peak}))
+    inset_ax.set_yticklabels(
+        [barrier_tick_label(value, key) for value in sorted({seed_peak, mirror_peak})],
+        fontsize=8,
+        fontweight='normal',
+    )
+    inset_ax.tick_params(axis='y', width=1.0, labelsize=8)
+    inset_ax.tick_params(axis='x', width=1.0, labelsize=8)
+    inset_ax.grid(True, alpha=0.18)
+    for spine in inset_ax.spines.values():
+        spine.set_linewidth(0.8)
+        spine.set_alpha(0.8)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Plot connectivity comparison with linear interpolation')
     parser.add_argument('--output', type=str, default='plots/connectivity_reg_comparison_with_linear.png',
@@ -70,10 +122,21 @@ def main():
 
     # Data paths - permuted modes (mirrored) - seed1
     perm1_modes_curve = 'results/vgg16/cifar10/curves/standard/seed1-mirror_reg/evaluations/curve.npz'
-    perm1_modes_linear = 'results/vgg16/cifar10/curves/standard/seed1-mirror_reg/evaluations/linear.npz'
+    perm1_modes_linear = 'results/vgg16/cifar10/endpoints/standard/seed1_mirrored/evaluations/linear.npz'
+    seed_paths = {
+        'seed0-seed1': 'results/vgg16/cifar10/curves/standard/seed0-seed1_reg/evaluations/curve.npz',
+        'seed0-seed2': 'results/vgg16/cifar10/curves/standard/seed0-seed2_bezier/evaluations/curve.npz',
+        'seed1-seed2': 'results/vgg16/cifar10/curves/standard/seed1-seed2_bezier/evaluations/curve.npz',
+    }
+    mirror_paths = {
+        'seed0-mirror': 'results/vgg16/cifar10/curves/standard/seed0-mirror_reg/evaluations/curve.npz',
+        'seed1-mirror': 'results/vgg16/cifar10/curves/standard/seed1-mirror_reg/evaluations/curve.npz',
+    }
 
     # Load data
     data = {}
+    seed_curves = {}
+    mirror_curves = {}
 
     full_path = os.path.join(project_root, diff_modes_curve)
     if os.path.exists(full_path):
@@ -117,6 +180,16 @@ def main():
     else:
         print(f"Warning: {full_path} not found")
 
+    for name, path in seed_paths.items():
+        full_path = os.path.join(project_root, path)
+        if os.path.exists(full_path):
+            seed_curves[name] = load_curve_data(full_path)
+
+    for name, path in mirror_paths.items():
+        full_path = os.path.join(project_root, path)
+        if os.path.exists(full_path):
+            mirror_curves[name] = load_curve_data(full_path)
+
     if not data:
         print("No data files found!")
         return
@@ -125,6 +198,15 @@ def main():
     diff_color = '#1f77b4'  # Blue for different modes
     perm0_color = '#ff7f0e'  # Orange for permuted modes (seed0)
     perm1_color = '#ffbb78'  # Light orange for permuted modes (seed1)
+    seed_colors = {
+        'seed0-seed1': '#1f77b4',
+        'seed0-seed2': '#2ca02c',
+        'seed1-seed2': '#9467bd',
+    }
+    mirror_colors = {
+        'seed0-mirror': '#ff7f0e',
+        'seed1-mirror': '#d62728',
+    }
 
     # Create 2x2 subplot
     fig, axes = plt.subplots(2, 2, figsize=(10, 8))
@@ -153,13 +235,13 @@ def main():
 
         # Plot permuted modes seed0 - curve (dotted)
         if 'perm0_curve' in data:
-            label = 'Permuted modes (curve)' if idx == 0 else None
+            label = 'Mirrored modes (curve)' if idx == 0 else None
             ax.plot(data['perm0_curve']['ts'], data['perm0_curve'][key], ':',
                     color=perm0_color, linewidth=2, label=label)
 
         # Plot permuted modes seed0 - linear (solid)
         if 'perm0_linear' in data:
-            label = 'Permuted modes (linear)' if idx == 0 else None
+            label = 'Mirrored modes (linear)' if idx == 0 else None
             ax.plot(data['perm0_linear']['ts'], data['perm0_linear'][key], '-',
                     color=perm0_color, linewidth=2, label=label)
 
@@ -173,16 +255,22 @@ def main():
             ax.plot(data['perm1_linear']['ts'], data['perm1_linear'][key], '-',
                     color=perm1_color, linewidth=2)
 
-        ax.set_title(title, fontsize=12, fontweight='bold')
-        ax.set_xlabel('t (interpolation parameter)', fontsize=10)
-        ax.set_ylabel(title, fontsize=10)
+        ax.set_xlabel('t (interpolation parameter)', fontsize=11, fontweight='normal')
+        ax.set_ylabel(title, fontsize=11, fontweight='bold')
         ax.set_xlim(0, 1)
+        ax.tick_params(axis='both', labelsize=10)
+        for tick_label in list(ax.get_xticklabels()) + list(ax.get_yticklabels()):
+            tick_label.set_fontweight('normal')
         ax.grid(True, alpha=0.3)
 
-    # Add single legend to first subplot
-    axes[0, 0].legend(fontsize=9, loc='best')
+        if seed_curves and mirror_curves:
+            add_curve_only_inset(ax, key, seed_curves, mirror_curves, seed_colors, mirror_colors)
 
-    plt.tight_layout()
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    if handles:
+        fig.legend(handles, labels, fontsize=8, loc='center', bbox_to_anchor=(0.5, 0.515), ncol=2, frameon=True)
+
+    fig.subplots_adjust(left=0.09, right=0.98, bottom=0.10, top=0.98, wspace=0.18, hspace=0.28)
 
     # Save
     output_path = os.path.join(project_root, args.output)

@@ -23,8 +23,9 @@ save_intermediate: true
 save_freq: 200
 lr: 0.015
 wd: 5e-4
-seed: 1
+seed: 0
 
 use_test: true
+no_train_aug: true
 use_wandb: true
 project_name: "thesis-mode-connectivity"

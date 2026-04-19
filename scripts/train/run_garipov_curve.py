@@ -51,6 +51,7 @@ def main(cfg: DictConfig):
     add_seed_arg(cmd, seed)
     add_save_freq_arg(cmd, cfg)
     add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
+    add_optional_arg(cmd, cfg, 'no_train_aug', '--no_train_aug', is_flag=True)
 
     # Add WandB logging
     run_name = f"garipov_{cfg.model}_curve_{cfg.curve}"
