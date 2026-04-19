@@ -58,6 +58,7 @@ def main(cfg: DictConfig):
     add_optional_arg(cmd, cfg, 'save_freq', '--save_freq', default=50)
     cmd.append("--project_symmetry_plane")  # Enable projection
     add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
+    add_optional_arg(cmd, cfg, 'train_half_only', '--train_half_only', is_flag=True)
 
     # Add WandB logging
     run_name = f"symplane_{cfg.model}_{cfg.experiment_name}"

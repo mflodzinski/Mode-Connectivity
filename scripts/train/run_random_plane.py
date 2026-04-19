@@ -68,6 +68,7 @@ def main(cfg: DictConfig):
         cmd.append("--random_anchor")
 
     add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
+    add_optional_arg(cmd, cfg, 'train_half_only', '--train_half_only', is_flag=True)
 
     # Add WandB logging
     run_name = f"randomplane_{anchor_type}_{cfg.model}_{cfg.get('experiment_name', 'seed0-seed1')}"

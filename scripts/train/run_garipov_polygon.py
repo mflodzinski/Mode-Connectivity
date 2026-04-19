@@ -57,6 +57,8 @@ def main(cfg: DictConfig):
     add_seed_arg(cmd, seed)
     add_optional_arg(cmd, cfg, 'save_freq', '--save_freq', default=50)
     add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
+    add_optional_arg(cmd, cfg, 'no_train_aug', '--no_train_aug', is_flag=True)
+    add_optional_arg(cmd, cfg, 'train_half_only', '--train_half_only', is_flag=True)
 
     # Add WandB logging
     run_name = f"polygon_{cfg.model}_{cfg.experiment_name}"

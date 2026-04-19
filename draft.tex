@@ -298,11 +298,11 @@ These results establish that minima are connected, suggesting the loss landscape
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{enzari.png}
-    \caption{Linear mode connectivity modulo permutation \citep{entezari2021role}. \textbf{Left:} Permuting hidden units of networks B, C, D to B', C', D' may eliminate barriers with A while preserving function. \textbf{Middle:} The hypothesis models independently trained networks as random permutations of the same underlying solution. \textbf{Right:} Barrier distributions between independent networks match those between random permutations of the same network across 3000+ networks. Points in the lower left mostly correspond to lowest barrier found after searching in the space of valid permutations using a Simulated Annealing algorithm.}
+    \caption{\textbf{Left:} Permuting hidden units of networks B, C, D to B', C', D' may eliminate barriers with A while preserving function. \textbf{Middle:} The hypothesis models independently trained networks as random permutations of the same underlying solution. \textbf{Right:} Barrier distributions between independent networks match those between random permutations of the same network across 3000+ networks. Points in the lower left mostly correspond to lowest barrier found after searching in the space of valid permutations using a Simulated Annealing algorithm.}
     \label{fig:entezari}
 \end{figure}
 
-The interpretation: if independently trained networks ``look like'' permuted versions of each other in terms of barrier statistics, they may actually \textit{be} permuted versions of the same underlying solution. This provides the first empirical motivation for the conjecture. However, the evidence is \textit{indirect}---the authors did not find permutations that actually achieve low barriers; they only showed that barrier distributions match. THe evidence is insufficient, rather unmatching distributions of barrier would be a more convincing evidence of the incorrectness of the hypothesis. The hypothesis remained unverified: could such permutations actually be found?
+The interpretation: if independently trained networks ``look like'' permuted versions of each other in terms of barrier statistics, they may actually \textit{be} permuted versions of the same underlying solution. This provides the first empirical motivation for the conjecture. However, the evidence is \textit{indirect}---the authors did not find permutations that actually achieve low barriers; they only showed that barrier distributions match. The evidence is insufficient, rather unmatching distributions of barrier would be a more convincing evidence of the incorrectness of the hypothesis. The hypothesis remained unverified: could such permutations actually be found?
 
 
 
@@ -352,36 +352,20 @@ We evaluate the following methods:
 
 \section{Mode Connectivity via Curved Paths}
 
-First, we compare low-loss nonlinear connectivity in two settings that are central to the one-basin modulo permutation hypothesis. We consider pairs of independently trained models initialized from different random seeds. Second, we consider a model together with a permuted version of itself. This mirrors the comparison made by \citep{entezari2021role}, who studied barrier distributions for independently trained networks and for networks matched by permutation. Here, instead of focusing only on linear interpolation, we ask whether the same two scenarios also exhibit similarly low barriers along learned nonlinear paths. If they do not, that would suggest that the two cases may not be geometrically equivalent, despite the permutation-based hypothesis.
+First, we compare low-loss nonlinear connectivity in two settings that are central to the \textit{one-basin modulo permutation} hypothesis. We consider pairs of independently trained models initialized from different random seeds. Second, we consider a model together with a permuted version of itself. This mirrors the comparison made by \citep{entezari2021role} in Figure~\ref{fig:entezari}, who studied barrier distributions for independently trained networks and for networks matched by permutation. Here, instead of focusing only on linear interpolation, we ask whether the same two scenarios also exhibit similarly low barriers along learned nonlinear paths. If they do not, that would suggest that the two cases may not be geometrically equivalent, despite the permutation-based hypothesis.
 
-To test this, we train Bézier curves in two settings: (1) between independently initialized models (`seed0--seed1`), and (2) between a model and a permuted version of itself (`seed0--mirror`). Since low-loss curved paths are already known to exist between independently trained models \citep{garipov2018loss}, one would expect such paths to exist at least as readily between a model and a permuted copy, because the two endpoints implement the same function and differ only by a hidden-unit permutation. In the mirror construction, the permuted model is obtained by reversing the order of neurons within each layer, rather than leaving the ordering unchanged as under the identity permutation.
+To test this, we train Bézier curves in two settings: (1) between independently initialized models (`seed0--seed1`), and (2) between a model and a permuted version of itself (`seed0--mirror`). Since low-loss curved paths are already known to exist between independently trained models \citep{garipov2018loss}, one would expect such paths to exist at least as readily between a model and a permuted copy, because the two endpoints implement the same function and differ only by a hidden-unit permutation. 
 
-For a hidden layer of width $n_\ell$, let $P_\ell^{\mathrm{mir}} \in \mathbb{R}^{n_\ell \times n_\ell}$ denote the mirror permutation matrix defined by
+In the mirror construction, the permuted model is obtained by reversing the order of neurons within each hidden layer:
 \[
-\bigl(P_\ell^{\mathrm{mir}}\bigr)_{ij} =
+\bigl(P_\ell^{\mathrm{mirror}}\bigr)_{ij} =
 \begin{cases}
 1, & j = n_\ell + 1 - i, \\
-0, & \text{otherwise}.
+0, & \text{otherwise},
 \end{cases}
 \]
-Equivalently, $P_\ell^{\mathrm{mir}} e_i = e_{n_\ell+1-i}$, so the first hidden unit is swapped with the last, the second with the second-to-last, and so on. For two consecutive fully connected layers, the mirrored parameters are therefore
-\[
-\widetilde{W}_1 = P_1^{\mathrm{mir}} W_1,
-\qquad
-\widetilde{W}_\ell = P_\ell^{\mathrm{mir}} W_\ell \bigl(P_{\ell-1}^{\mathrm{mir}}\bigr)^\top \ \text{for hidden layers},
-\qquad
-\widetilde{W}_L = W_L \bigl(P_{L-1}^{\mathrm{mir}}\bigr)^\top.
-\]
+Here, $n_\ell$ is the number of hidden units in layer $\ell$, while $i$ and $j$ index the rows and columns of the permutation matrix. The rule $j = n_\ell + 1 - i$ simply encodes reversal of the hidden-unit ordering. The same construction applies to convolutional layers, where it reverses the order of output channels.
 
-For convolutional layers, the same mirror permutation acts on channels rather than scalar neurons. If
-\[
-W_\ell \in \mathbb{R}^{C_\ell^{\mathrm{out}} \times C_\ell^{\mathrm{in}} \times k \times k},
-\]
-then the mirrored convolutional weights are obtained by reversing the output-channel dimension and compensating in the next layer by reversing the corresponding input-channel dimension:
-\[
-\widetilde{W}_\ell = P_\ell^{\mathrm{mir}} W_\ell \bigl(P_{\ell-1}^{\mathrm{mir}}\bigr)^\top.
-\]
-Thus, the mirror operation is simply a specific fixed choice of permutation at every hidden layer or channel dimension, as opposed to the identity ordering which leaves all units unchanged.
 
 % \subsection{Methodology}
 
@@ -403,12 +387,12 @@ Thus, the mirror operation is simply a specific fixed choice of permutation at e
 % \]
 % For convolutional layers, the same transformation is applied along the channel dimensions. This operation preserves the represented function exactly, so the original and mirrored endpoints are functionally identical and differ only by a structured hidden-unit permutation.
 
-
+\newpage
 \subsection{Results}
 
-The main panels of Figure~\ref{fig:combined_connectivity} show that both settings admit low-loss curved paths, with barriers below roughly $2.5\%$ test error and below $0.06$ test loss which confirms that curved mode connectivity is present in our setup. At the same time, the insets reveal a systematic difference: the barriers for mirror-permuted pairs are consistently higher than those for independently trained pairs. This is notable because the mirror endpoints are functionally identical, whereas independently trained models need not be. To test whether this effect is specific to the mirror construction or reflects a more general property of permutation-related pairs, we next repeat the experiment with random permutations instead of deterministic mirroring.
+The main panels of Figure~\ref{fig:combined_connectivity} show that both settings admit low-loss curved paths, with barriers below roughly $2.5\%$ test error and below $0.06$ test loss. This confirms that curved mode connectivity is present in our setup, since such barrier values still correspond to functional models along the path. At the same time, the insets reveal a systematic difference: the barriers for mirror-permuted pairs are consistently higher than those for independently trained pairs. This is notable because the mirror endpoints are functionally identical, whereas independently trained models need not be. To test whether this effect is specific to the mirror construction or reflects a more general property of permutation-related pairs, we next repeat the experiment with random permutations instead of deterministic mirroring.
 
-\begin{figure}
+\begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{combined_connectivity.png}
     \caption{Linear and curve-based connectivity for VGG16 on CIFAR10. The main panels show loss and error along the full interpolation path. The insets show the corresponding curve-only trajectories, that is, the same quantities without linear interpolation, in order to make the differences between seed-seed and seed-mirror pairs more visible in the low-barrier regime.}
@@ -418,18 +402,32 @@ The main panels of Figure~\ref{fig:combined_connectivity} show that both setting
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.95\linewidth]{randpermute.png}
+\includegraphics[width=1\linewidth]{randpermute.png}
 \caption{Mode connectivity between three independently trained networks and between the same networks and their random permutations (without linear interpolation for clarity).}
 \label{fig:baseline-bezier-nointerpolation_randpermute}
 \end{figure}
 
-As shown in Figure~\ref{fig:baseline-bezier-nointerpolation_randpermute}, random permutations yield low-loss curves that are virtually indistinguishable from those obtained between independently trained models. The loss profiles along the optimized Bézier paths exhibit no pronounced peak and closely match both the shape and magnitude observed in the independent-seed setting. This demonstrates that the elevated barrier observed for mirror permutations is not a generic consequence of permutation symmetry. Rather, it arises from the particular structure of the mirror operation. Overall, these results confirm that curved low-loss paths are robust both between independent solutions and across permutation symmetries.
+
+As shown in Figure~\ref{fig:baseline-bezier-nointerpolation_randpermute}, random permutations yield low-loss curves that are virtually indistinguishable from those obtained between independently trained models. The loss profiles along the optimized Bézier paths exhibit no pronounced peak and closely match both the shape and magnitude observed in the independent-seed setting. This shows that the elevated barrier observed for mirror permutations is not a generic consequence of permutation symmetry, but rather a feature of that particular construction. Why the mirror permutation behaves differently from a random permutation is not clear, but resolving that question is not important for the present thesis. What matters here is that curved low-loss paths remain robust both between independent solutions and across random permutation symmetries.
 
 \section{Hyperplane-Constrained Path Finding}
 
-Having established that curved low-loss paths exist between modes, we investigated the geometry of these paths. Specifically, we asked: how constrained is the path-finding problem? If low-loss paths are abundant, this suggests the loss landscape is highly connected; if paths are rare and fragile, the landscape may be more structured.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\linewidth]{canvaxd_v2.png}
+    \caption{Schematic of path optimization under a hyperplane constraint. The midpoint between two solutions is initialized on the linear interpolation and restricted to move along the perpendicular symmetry hyperplane. A low-loss path is obtained by connecting the endpoints through the optimized midpoint.}
+    \label{fig:placeholder}
+\end{figure}
 
-The perpendicular bisector between two endpoints $w_0$ and $w_1$ is a natural hyperplane to study: every point on it is equidistant from both endpoints. We constrained the middle bend of a polygon chain to lie on this symmetry plane by projecting it after each gradient step. The constraint was verified using the normalized distance $d_{\text{norm}} = \frac{|(\theta - \mathbf{m}) \cdot \mathbf{n}|}{\|\mathbf{n}\| \cdot \sqrt{N}}$, achieving machine-precision satisfaction ($d_{\text{norm}} \approx 7.2 \times 10^{-8}$).
+Having established that curved low-loss paths exist between modes, we next asked whether the permutation symmetries discussed earlier could be turned into a direct geometric path-finding principle. If permuting neurons or channels can produce a functionally identical network, then the loss landscape should contain some corresponding symmetry. A natural idealization is that there exists a symmetry hyperplane that splits the landscape into two equivalent parts. If such a plane can be identified, then one could search for a low-loss path only from one endpoint to that plane, and obtain the second half of the path by reflecting or copying the construction across it.
+
+This idea suggests a concrete candidate. For two endpoints $w_0$ and $w_1$, consider the line segment joining them, take its midpoint $\mathbf{m} = \tfrac{1}{2}(w_0 + w_1)$, and then define the hyperplane perpendicular to the interpolation direction $\mathbf{n} = w_1 - w_0$ and passing through $\mathbf{m}$. This is the perpendicular bisector of the two endpoints, so every point on it is equidistant from $w_0$ and $w_1$. If the two endpoints are related by an exact symmetry, this plane is the most natural first guess for the corresponding symmetry plane.
+
+In practice, this construction becomes almost identical to the Polygon Chain method of \citep{garipov2018loss}, but with one extra constraint. We use a single trainable midpoint $\theta$ between the two fixed endpoints and, after every gradient step, project $\theta$ back onto the candidate symmetry plane. Thus the optimization is free to search for a low-loss midpoint, but only within that hyperplane. The constraint was verified using the normalized distance
+\[
+d_{\mathrm{norm}} = \frac{|(\theta - \mathbf{m}) \cdot \mathbf{n}|}{\|\mathbf{n}\| \cdot \sqrt{N}},
+\]
+which remained at machine precision ($d_{\mathrm{norm}} \approx 7.2 \times 10^{-8}$).
 
 \begin{figure}[H]
     \centering
@@ -437,7 +435,11 @@ The perpendicular bisector between two endpoints $w_0$ and $w_1$ is a natural hy
     \label{fig:placeholder}
 \end{figure}
 
-Surprisingly, the constraint did not degrade connectivity. To test whether the symmetry plane is geometrically special, we repeated the experiment with random hyperplanes (random normal vectors, random anchor points). All hyperplane constraints yielded nearly identical performance repeated across many seeds. Each hyperplane constraint removes exactly one direction from $\sim$15 million dimensional parameter space. In such high-dimensional spaces, this is an extremely weak constraint---low-loss paths exist within any $(N-1)$-dimensional subspace. This means that curved paths are abundant, not rare. The loss landscape contains a huge manifold of low-loss solutions, consistent with the view that minima form a connected structure rather than isolated points. While codimension-1 constraints have negligible effect, it remains an open question at what dimensionality connectivity begins to degrade. Systematically reducing the subspace dimension would characterize the effective thickness of the low-loss manifold.
+The outcome was not what this symmetry-plane intuition initially suggested. Constraining the midpoint to the perpendicular bisector did not noticeably degrade connectivity, but neither did it reveal anything unique about that particular plane. To test whether the candidate symmetry plane was geometrically special, we repeated the same procedure with random hyperplanes, using random normal vectors and random anchor points. Their performance was nearly identical across many seeds.
+
+This indicates that the success of the constrained path search is not evidence that the chosen bisector is a true symmetry plane of the loss landscape. Rather, the experiment shows that a codimension-1 constraint is simply too weak in such a high-dimensional space. Each hyperplane removes only one direction from a parameter space of roughly $15$ million dimensions, so low-loss paths can still be found almost as easily in an arbitrary $(N-1)$-dimensional subspace. The conclusion is therefore not that we identified a special symmetry plane, but that low-loss connectivity is highly abundant. The low-loss set appears thick enough that restricting the path search to a single hyperplane has little practical effect.
+
+This, in turn, suggests a broader geometric picture: the relevant minima are not isolated points connected only by delicate corridors, but lie inside a much larger low-loss manifold. An open question is at what codimension this ceases to hold. Systematically constraining the path search to lower-dimensional subspaces could reveal the effective thickness of that manifold and clarify how much freedom is actually needed for curved connectivity to persist.
     
 
 
