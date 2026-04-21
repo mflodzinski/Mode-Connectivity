@@ -15,6 +15,8 @@ dataset: "CIFAR10"
 data_path: "./data"
 transform: "VGG"
 use_test: true
+no_train_aug: false
+train_half_only: false
 
 # Training hyperparameters
 epochs: 150
