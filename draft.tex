@@ -13,7 +13,12 @@
 \usepackage[utf8]{inputenc}
 \setstretch{1.15}
 \usepackage{natbib} 
+\usepackage{tikz}
 \usepackage{subcaption}
+\newcommand{\bluecircle}{\tikz[baseline=-0.7ex]\draw[fill=blue!70, draw=blue!70] (0,0) circle (0.75ex);}
+\newcommand{\greencircle}{\tikz[baseline=-0.7ex]\draw[fill=green!60!black, draw=green!60!black] (0,0) circle (0.75ex);}
+
+
 \titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
 \titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
 \title{Linear and Nonlinear Connectivity in Neural Network Loss Landscapes\\[0.3cm]
@@ -50,7 +55,7 @@ This question has practical implications. If solutions lie in the same basin, th
 
 \section{Problem Statement}
 
-\citep{entezari2021role} conjectured that most SGD solutions can be permuted so that there is no barrier on the linear interpolation between them---the \textbf{one-basin modulo permutation hypothesis}. Formally:
+\citep{entezari2021role} conjectured that most SGD solutions can be permuted so that there is no barrier on the linear interpolation between them---the \textit{one-basin modulo permutation hypothesis}. Formally:
 
 \begin{quote}
 \textit{For most pairs of SGD solutions $\theta_A$ and $\theta_B$, there exists a permutation $P$ such that the loss barrier on the linear path between $\theta_A$ and $P(\theta_B)$ is approximately zero.}
@@ -66,7 +71,7 @@ The central question this thesis addresses is:
 
 \section{Limitations of Existing Evidence}
 
-Current empirical tests of the one-basin modulo permutation hypothesis face several limitations. 
+Current empirical tests of the \textit{one-basin modulo permutation hypothesi} face several limitations. 
 First, successful demonstrations of linear mode connectivity have been restricted 
 to specific architecture–dataset combinations. When alignment methods are applied 
 to more challenging architectures such as VGG16 on CIFAR-10, they fail to achieve 
@@ -84,7 +89,7 @@ non-convex, and exhibit symmetries due to parameter permutations and
 scaling invariances. As a result, rigorous global statements about basin structure 
 are notoriously challenging to establish.
 
-To conclusively prove or disprove the one-basin modulo permutation hypothesis, 
+To conclusively prove or disprove the \textit{one-basin modulo permutation hypothesis}, 
 one would need to either:
 
 \begin{itemize}
@@ -98,7 +103,7 @@ one would need to either:
 
 \section{Research Questions}
 
-This thesis investigates the validity of the one-basin modulo permutation hypothesis through the following research questions:
+This thesis investigates the validity of the \textit[one-basin modulo permutation hypothesis} through the following research questions:
 
 \begin{enumerate}  
     \item[\textbf{RQ1}] \textbf{(Hypothesis Validity)} Do any two independently trained neural networks lie in the same basin modulo permutation?
@@ -126,7 +131,7 @@ This thesis makes the following contributions:
 %==============================================================================
 \chapter{Background and Literature Review}
 
-This chapter provides the theoretical foundations necessary to understand the one-basin modulo permutation hypothesis and surveys the existing literature on mode connectivity. Section~\ref{sec:definitions} introduces the key definitions: loss landscapes, barriers, mode connectivity, and permutation symmetry. Section~\ref{sec:literature} reviews the evidence for and against the hypothesis, tracing the development from early mode connectivity results through modern permutation-finding algorithms.
+This chapter provides the theoretical foundations necessary to understand the \textit{one-basin modulo permutation hypothesis} and surveys the existing literature on mode connectivity. Section~\ref{sec:definitions} introduces the key definitions: loss landscapes, barriers, mode connectivity, and permutation symmetry. Section~\ref{sec:literature} reviews the evidence for and against the hypothesis, tracing the development from early mode connectivity results through modern permutation-finding algorithms.
 
 %==============================================================================
 \section{Definitions and Theoretical Foundations}
@@ -253,7 +258,7 @@ This accounts for the fact that $\theta_B$ and $P(\theta_B)$ compute the same fu
     \end{tabular}
 \end{table}
 
-The one-basin modulo permutation hypothesis corresponds to ``LMC modulo permutation''---stronger than general mode connectivity but weaker than claiming raw linear connectivity.
+The \textit{one-basin modulo permutation hypothesis} corresponds to ``LMC modulo permutation''---stronger than general mode connectivity but weaker than claiming raw linear connectivity.
 
 
 %==============================================================================
@@ -261,7 +266,7 @@ The one-basin modulo permutation hypothesis corresponds to ``LMC modulo permutat
 \label{sec:literature}
 %==============================================================================
 
-This section traces the development of mode connectivity research, from early results establishing curved-path connectivity through modern permutation-finding algorithms. Each result is contextualized by its contribution to understanding the one-basin modulo permutation hypothesis.
+This section traces the development of mode connectivity research, from early results establishing curved-path connectivity through modern permutation-finding algorithms. Each result is contextualized by its contribution to understanding the \textit{one-basin modulo permutation hypothesis}.
 
 \subsection{Mode Connectivity via Curved Paths}
 
@@ -293,7 +298,7 @@ These results establish that minima are connected, suggesting the loss landscape
 
 \subsection{The Entezari Conjecture and Statistical Evidence}
 
-\citep{entezari2021role} proposed the one-basin modulo permutation hypothesis and provided indirect statistical evidence. Their key observation: the distribution of barriers between independently trained networks is statistically indistinguishable from the distribution of barriers between random permutations of the \textit{same} network.
+\citep{entezari2021role} proposed the \textit{one-basin modulo permutation hypothesis} and provided indirect statistical evidence. Their key observation: the distribution of barriers between independently trained networks is statistically indistinguishable from the distribution of barriers between random permutations of the \textit{same} network.
 
 \begin{figure}[H]
     \centering
@@ -419,7 +424,7 @@ As shown in Figure~\ref{fig:baseline-bezier-nointerpolation_randpermute}, random
     \label{fig:placeholder}
 \end{figure}
 
-Having established that curved low-loss paths exist between modes, we next asked whether the permutation symmetries discussed earlier could be turned into a direct geometric path-finding principle. If permuting neurons or channels can produce a functionally identical network, then the loss landscape should contain some corresponding symmetry. A natural idealization is that there exists a symmetry hyperplane that splits the landscape into two equivalent parts. If such a plane can be identified, then one could search for a low-loss path only from one endpoint to that plane, and obtain the second half of the path by reflecting or copying the construction across it.
+Having established that curved low-loss paths exist both between independently trained models and between models related by permutation, we next asked whether the underlying symmetry could be converted into a direct geometric principle for constructing such paths. If permuting neurons or channels can produce a functionally identical network and if they in fact (correct) , then the loss landscape should contain some corresponding symmetry hyperplanes taht splits the landscape into  identical parts. If such a plane can be identified, then one could search for a low-loss path only from one endpoint to that plane, and obtain the second half of the path by reflecting or copying the construction across it.
 
 This idea suggests a concrete candidate. For two endpoints $w_0$ and $w_1$, consider the line segment joining them, take its midpoint $\mathbf{m} = \tfrac{1}{2}(w_0 + w_1)$, and then define the hyperplane perpendicular to the interpolation direction $\mathbf{n} = w_1 - w_0$ and passing through $\mathbf{m}$. This is the perpendicular bisector of the two endpoints, so every point on it is equidistant from $w_0$ and $w_1$. If the two endpoints are related by an exact symmetry, this plane is the most natural first guess for the corresponding symmetry plane.
 
@@ -444,14 +449,25 @@ This, in turn, suggests a broader geometric picture: the relevant minima are not
 
 
 \section{Controlled Permutation Benchmark}
-In contrast to the Bézier experiments above, which test the existence of curved low-loss paths (mode connectivity), the following experiment evaluates linear mode connectivity (LMC) via straight-line interpolation. LMC is a strictly stronger geometric condition than curved connectivity: failure of LMC does not imply disconnection, but rather linear separation.
+In contrast to the Bézier experiments above, which test the existence of curved low-loss paths (mode connectivity), the following experiment focuses on linear mode connectivity (LMC) via straight-line interpolation. LMC is a strictly stronger geometric condition than curved connectivity: failure of LMC does not imply disconnection, but rather linear separation.
 
 The goal of this experiment is to evaluate whether permutation-finding methods succeed when ground truth is available. Prior work has not evaluated alignment methods against known ground-truth permutations. Existing evaluations typically measure only the final barrier after alignment; if the barrier remains high, it is unclear whether (a) the method failed to recover a good permutation that exists, or (b) no such permutation exists, meaning the networks genuinely lie in different basins.
 
 Importantly, prior work \citep{entezari2021role} focuses on aligning a model with a permuted version of itself—i.e., recovering the exact symmetry that makes two networks functionally identical. In that setting, successful alignment reduces one network to the other up to permutation. Our objective is different: we seek a permutation that aligns two \emph{distinct trained modes} so that they become linearly mode connected, not necessarily identical. The task is therefore not to reconstruct an exact symmetry transformation, but to find a permutation that reduces the LMC barrier between genuinely different solutions.
 
-To create a controlled benchmark, we apply a known permutation $P^*$ to one network in a pair that is already LMC-connected, and test whether the alignment method can recover connectivity. Because a correct permutation is guaranteed to exist, success validates the method’s ability to recover meaningful alignments. Conversely, failure on this controlled task would indicate that the method is too weak to draw conclusions about the hypothesis from its performance. We adopted the shared initialization with split training approach from \citep{frankle2020linear}:
+To create a controlled benchmark, we apply a known permutation $P^*$ to one network in a pair that is already LMC-connected, and test whether the alignment method can recover connectivity. Because a correct permutation is guaranteed to exist, success validates the method’s ability to recover meaningful alignments. Conversely, failure on this controlled task would indicate that the method is too weak to draw conclusions about the hypothesis from its performance. We adopted the shared initialization with split training approach from \citep{frankle2020linear} to construct these network pairs and Weight Matching as a permutation finding method:
 
+
+We fix $N = 200$ total epochs (the number required for this model to converge) and vary $x$ (the split point) to control the distance between $w_0$ and $w_1$. Longer shared training (larger $x$) produces closer networks while shorter shared training makes them more distant.
+
+\begin{enumerate}
+    \item Train a model for $x$ epochs with a fixed batch ordering, producing a shared checkpoint $w_{\mathrm{shared}}$.
+    \item Create two copies of $w_{\mathrm{shared}}$ and continue training them independently for $N-x$ epochs using different batch orderings. This produces two related endpoints, $w_0$ and $w_1$. \bluecircle{}
+    \item Apply a known random permutation $P^\ast$ to one endpoint, giving $w_1' = P^\ast(w_1)$.
+    \item Run weight matching between $w_0$ and the permuted endpoint $w_1'$ to recover an estimated alignment $P$.
+    \item Test whether the recovered alignment removes the artificial permutation by comparing the original $\operatorname{barrier}(w_0, w_1)$ with the aligned $\operatorname{barrier}\bigl(w_0, P(w_1')\bigr)$. \greencircle{}
+\end{enumerate}
+\subsection{Results}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\linewidth]{train_accuracy.png}
@@ -459,31 +475,16 @@ To create a controlled benchmark, we apply a known permutation $P^*$ to one netw
     \label{fig:barrier-vs-distance}
 \end{figure}
 
-We fix $N = 200$ total epochs (the number required for this model to converge) and vary $x$ (the split point) to control the distance between $w_0$ and $w_1$. Longer shared training (larger $x$) produces closer networks while shorter shared training makes them more distant.
+In every case the recovered $\text{barrier}(w_0, P(w_1'))$ is lower than the original $\text{barrier}(w_0, w_1)$, suggesting the alignment method finds permutations that happen to improve connectivity beyond the ground truth. This confirms that the method works correctly, at least when a good permutation exists.
 
-\begin{enumerate}
-    \item Train a model for $x$ epochs with fixed batch ordering $\to w_{\text{shared}}$
-    \item Split into two copies and continue training each with different batch order for $N - x$ epochs, producing $w_0$ and $w_1$
-    \item Verify: $\text{barrier}(w_0, w_1)$ is low (LMC by construction)
-    \item Apply a known random permutation $P^*$ to $w_1$: $w_1' = P^*(w_1)$
-    \item Test: Can alignment methods find $P$ such that $\text{barrier}(w_0, P(w_1')) \approx \text{barrier}(w_0, w_1)$?
-\end{enumerate}
+The important observation is that weight matching is always applied to the pair $(w_0,w_1')$, where $w_1' = P^\ast(w_1)$ is obtained by applying a random permutation to $w_1$. Because of this artificial permutation, the apparent parameter-space mismatch between $w_0$ and $w_1'$ is large in all split settings, and is comparable to the mismatch between independently initialized models. Nevertheless, the quality of the recovered alignment depends strongly on how the underlying pair $(w_0,w_1)$ was created. When the two models share most of their training trajectory, alignment recovers a low-barrier connection. When the split occurs earlier and the models train independently for longer, the post-alignment barrier remains much larger. Thus, even though weight matching sees a similarly difficult-looking permuted pair in all cases, it succeeds only when the underlying unpermuted endpoints are already close.
 
-At small distances (networks that shared most of their training), weight matching achieves near-perfect barrier recovery. As distance increases---corresponding to earlier split points and weaker initial LMC---the alignment task becomes harder. Notably, in every case the recovered barrier $\text{barrier}(w_0, P(w_1'))$ is \textit{lower} than the original $\text{barrier}(w_0, w_1)$, suggesting the alignment method finds permutations that happen to improve connectivity beyond the ground truth. This confirms that the method works correctly when a good permutation exists, validating our implementation.
+This is precisely why the controlled benchmark is useful. For each shared-training split, we know that the artificial permutation can be undone: applying $(P^\ast)^{-1}$ to $w_1'$ recovers the original endpoint $w_1$. Therefore, each run comes with a guaranteed reference barrier, namely the barrier of the constructed pair $(w_0,w_1)$ before the random permutation was applied. The five runs differ only in how far apart the underlying endpoints are, controlled by the amount of shared training. After the artificial permutation, however, all runs present weight matching with the same kind of task: align $w_0$ to a randomly permuted version of another trained model. If permutation symmetry were sufficient to recover LMC between arbitrary modes, one might expect these controlled cases to yield comparable results after alignment, since each contains, in theory, a permutation that cancels out the permutation responsible for breaking LMC. Instead, weight matching succeeds only in cases where we know such an optimal permutation exists by construction, but not in cases where this is unknown; this raises the question of whether such permutations exist in the latter setting at all.
 
+Moreover, we found that at distance $\approx 35$ corresponding to the $8/192$ split, the models are only weakly LMC-connected, with barriers of around 20\% accuracy error. Thus, even for shared-initialization pairs linear mode connectivity degrades substantially at large parameter distances. This reflects an intrinsic limitation of LMC at large separations in parameter space. In other words, LMC after permutation does not hold because the recovered permutation leaves the aligned models too far apart. If an optimal permutation truly places two modes within the same linear basin, one would expect their post-alignment distance to be small, at least for a weight-matching method. The persistence of large distances after alignment therefore still suggests either that no such permutation exists, or that current alignment methods fail to recover it. This raises a natural question: if LMC already becomes fragile at this scale, can we reasonably expect permutation alignment to achieve LMC for independently initialized networks whose post-alignment distance is comparable, if we cannot even construct modes with this distance mismatch and no barrier between them?
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\linewidth]{l2 distastance recovery after permutation alignment.png}
-    \caption{L2 distance recovery after permutation alignment across different divergence settings. The x-axis shows distance before alignment; the y-axis shows distance after alignment.}
-    \label{fig:l2-recovery}
-\end{figure}
+The analysis above leaves a few possible interpretations. One is that the \textit{one-basin modulo permutation hypothesis} is too strong: permutation symmetry alone may not be sufficient to make independently trained modes linearly connected, since the alignment method fails to find suitable permutations for them but succeeds when such a permutation is guaranteed to exist. Another possibility is that the constructed shared-training models with later splits are easier for weight matching to align in some implicit, non-obvious way.
 
-To better understand the distance-barrier relationship, we examined how alignment affects the L2 distance between networks directly. Figure~\ref{fig:l2-recovery} shows that for networks initially close in parameter space, alignment brings them even closer. As the initial distance increases, the post-alignment distance also increases, but alignment consistently reduces the gap. This reveals that the alignment quality degrades smoothly with distance.
-
-This observation led us to a critical question: how do independently trained networks compare to our controlled pairs? For independently trained models (red diamonds in Figure~\ref{fig:barrier-vs-distance}), the L2 distance after alignment is approximately 36. To enable a fair comparison, we constructed shared-initialization pairs whose L2 distance matches that of independently trained networks after alignment. Because these pairs originate from a common initialization and should be LMC by design, a correct permutation is guaranteed to exist to at least that constructed point. This allows us to isolate the effect of distance: if LMC fails even in this controlled setting, then large parameter separation alone may preclude linear connectivity, independent of permutation-finding errors.
-
-We found that at distance $\approx 35$, the models are only weakly LMC-connected, with barriers of around 20\%. Thus, even for shared-initialization pairs—where a correct permutation is guaranteed to exist—linear mode connectivity degrades substantially at large parameter distances. This raises a natural question: if LMC already becomes fragile at this scale, can we reasonably expect permutation alignment to achieve LMC for independently initialized networks whose post-alignment distance is comparable? This reflects an intrinsic limitation of LMC at large separations in parameter space. In other words, LMC after permutation does not hold because the recovered permutation leaves the aligned models too far apart. If an optimal permutation truly places two modes within the same linear basin, one would expect their post-alignment distance to be small. The persistence of large distances after alignment therefore still suggests either that no such permutation exists, or that current alignment methods fail to recover it.
 
 
 \section{XOR Experiment: Validating Alignment on a Minimal Problem}
@@ -545,7 +546,7 @@ Similar decision boundaries do not guarantee alignment. Seeds 9→12 learned vis
 
 Different decision boundaries made alignment not possible in this case. Seeds 11→14 learned genuinely different decision boundaries (both achieving 100\% on XOR, but disagreeing elsewhere). These networks are not functionally equivalent, and neither permutation alligned them i.e. different initializations converge to genuinely different solutions that cannot be aligned by permutation.
 
-These results suggest that for minimal-width networks, the one-basin modulo permutation hypothesis does not hold: networks trained from different initializations can converge to genuinely different basins that no permutation can bridge. Successful alignment occurs only in the degenerate case where networks happen to learn nearly identical weights. This motivates testing with wider hidden layers, where overparameterization may allow different initializations to find good permutations.
+These results suggest that for minimal-width networks, the \textit{one-basin modulo permutation hypothesis} does not hold: networks trained from different initializations can converge to genuinely different basins that no permutation can bridge. Successful alignment occurs only in the degenerate case where networks happen to learn nearly identical weights. This motivates testing with wider hidden layers, where overparameterization may allow different initializations to find good permutations.
 
 \subsubsection{Effect of Hidden Layer Width}
 
@@ -952,7 +953,7 @@ Taken together, the XOR and VGG results suggest a coherent picture. Permutation 
 
 \section{Implications for the One-Basin Modulo Permutation Hypothesis}
 
-The experiments in this chapter also refine the interpretation of the original hypothesis. The one-basin modulo permutation hypothesis asks whether independently trained networks become linearly connected after accounting for permutation symmetry. The present results suggest that this formulation may be too restrictive. In practice, two networks may fail to exhibit LMC not because they lie in genuinely different basins, but because permutation alone does not account for all function-preserving transformations that matter for interpolation geometry.
+The experiments in this chapter also refine the interpretation of the original hypothesis. The \textit{one-basin modulo permutation hypothesis} asks whether independently trained networks become linearly connected after accounting for permutation symmetry. The present results suggest that this formulation may be too restrictive. In practice, two networks may fail to exhibit LMC not because they lie in genuinely different basins, but because permutation alone does not account for all function-preserving transformations that matter for interpolation geometry.
 
 A more general view suggested by these results is that linear connectivity should perhaps be studied modulo a broader symmetry group that includes both permutation and scaling. Under this interpretation, the relevant question becomes not whether SGD solutions are linearly connected after permutation, but whether they are linearly connected after choosing appropriate representatives within their full symmetry class.
 
@@ -971,7 +972,7 @@ These observations strengthen the conclusion of RQ2: when alignment methods fail
 \appendix
 
 \textbf{Excluded Experiments}\\
-The following experiments were conducted during the research but excluded from the main thesis as they did not directly contribute to testing the one-basin modulo permutation hypothesis. They are documented here for completeness.
+The following experiments were conducted during the research but excluded from the main thesis as they did not directly contribute to testing the \textit{one-basin modulo permutation hypothesis}. They are documented here for completeness.
 
 \textbf{Initialization Strategy Robustness}
 
