@@ -79,7 +79,8 @@ def draw(output_path: Path) -> None:
         linewidths=0.6,
     )
     cbar = fig.colorbar(filled, ax=ax, pad=0.02)
-    cbar.set_ticks(np.linspace(0.0, 5.0, 6))
+    cbar.set_ticks([0.0, 5.0])
+    cbar.set_ticklabels(["Low", "High"])
 
     ax.plot(path_a[:, 0], path_a[:, 1], color="#f4c430", lw=2.5)
     ax.plot(path_c[:, 0], path_c[:, 1], color="#ff8c00", lw=2.5)
@@ -124,6 +125,8 @@ def draw(output_path: Path) -> None:
     ax.set_ylabel(r"$\theta_2$")
     ax.set_xlim(-4.5, 4.5)
     ax.set_ylim(-4.5, 4.5)
+    ax.set_xticks([])
+    ax.set_yticks([])
     ax.grid(alpha=0.15)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
