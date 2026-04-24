@@ -8,6 +8,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import re
 import sys
 
 # Add lib to path
@@ -19,6 +20,15 @@ from lib.analysis import plotting
 from lib.utils.args import ArgumentParserBuilder
 
 
+def infer_midpoint_label(path, index):
+    match = re.search(r'codim(\d+)', path)
+    if match:
+        return f'Random Plane (midpoint, codim={match.group(1)})'
+    if 'random_plane_midpoint' in path:
+        return 'Random Plane (midpoint, codim=1)'
+    return f'Random Plane (midpoint {index + 1})'
+
+
 def plot_comparison(args):
     """Create comparison plot for different plane constraints."""
 
@@ -26,17 +36,25 @@ def plot_comparison(args):
     print("Loading evaluation data...")
     polygon_data = np.load(args.polygon_file) if args.polygon_file else None
     symplane_data = np.load(args.symplane_file) if args.symplane_file else None
-    random_midpoint_data = np.load(args.random_midpoint_file) if args.random_midpoint_file else None
+    random_midpoint_files = args.random_midpoint_file or []
+    random_midpoint_curves = [
+        {
+            'key': f'random_midpoint_{i}',
+            'label': infer_midpoint_label(path, i),
+            'path': path,
+            'data': np.load(path),
+        }
+        for i, path in enumerate(random_midpoint_files)
+    ]
     random_random_data = np.load(args.random_random_file) if args.random_random_file else None
 
     # Check that at least one curve is provided
-    if not any([polygon_data is not None, symplane_data is not None, random_midpoint_data is not None, random_random_data is not None]):
+    if not any([polygon_data is not None, symplane_data is not None, random_midpoint_curves, random_random_data is not None]):
         raise ValueError("At least one curve file must be provided!")
 
     # Extract t values
     t_polygon = polygon_data['ts'] if polygon_data is not None else None
     t_symplane = symplane_data['ts'] if symplane_data is not None else None
-    t_random_midpoint = random_midpoint_data['ts'] if random_midpoint_data is not None else None
     t_random_random = random_random_data['ts'] if random_random_data is not None else None
 
     # Build title based on what's being plotted
@@ -45,7 +63,7 @@ def plot_comparison(args):
         curves_plotted.append("Polygon")
     if symplane_data is not None:
         curves_plotted.append("Symmetry Plane")
-    if random_midpoint_data is not None:
+    if random_midpoint_curves:
         curves_plotted.append("Random Plane (Midpoint)")
     if random_random_data is not None:
         curves_plotted.append("Random Plane (Random)")
@@ -61,11 +79,15 @@ def plot_comparison(args):
                     'alpha': 0.9, 'linewidth': 2.5, 'marker': 'o', 'markersize': 3, 'markevery': 5},
         'symplane': {'color': '#1f77b4', 'linestyle': '-', 'label': 'Symmetry Plane (perpendicular bisector)',
                      'alpha': 0.9, 'linewidth': 2.5, 'marker': '^', 'markersize': 4, 'markevery': 5},
-        'random_midpoint': {'color': '#2ca02c', 'linestyle': '-', 'label': 'Random Plane (through midpoint)',
-                    'alpha': 0.9, 'linewidth': 2.5, 'marker': 's', 'markersize': 3, 'markevery': 5},
         'random_random': {'color': '#ff7f0e', 'linestyle': '-', 'label': 'Random Plane (random anchor)',
                    'alpha': 0.9, 'linewidth': 2.5, 'marker': 'D', 'markersize': 3, 'markevery': 5},
     }
+    midpoint_style_cycle = [
+        {'color': '#2ca02c', 'linestyle': '-', 'alpha': 0.9, 'linewidth': 2.5, 'marker': 's', 'markersize': 3, 'markevery': 5},
+        {'color': '#d62728', 'linestyle': '--', 'alpha': 0.9, 'linewidth': 2.5, 'marker': 'o', 'markersize': 3, 'markevery': 5},
+        {'color': '#17becf', 'linestyle': '-.', 'alpha': 0.9, 'linewidth': 2.5, 'marker': 'P', 'markersize': 3, 'markevery': 5},
+        {'color': '#8c564b', 'linestyle': ':', 'alpha': 0.9, 'linewidth': 2.5, 'marker': 'X', 'markersize': 3, 'markevery': 5},
+    ]
 
     # Panel 1: Test Error
     ax = axes[0, 0]
@@ -73,8 +95,10 @@ def plot_comparison(args):
         ax.plot(t_polygon, polygon_data['te_err'], **styles['polygon'])
     if symplane_data is not None:
         ax.plot(t_symplane, symplane_data['te_err'], **styles['symplane'])
-    if random_midpoint_data is not None:
-        ax.plot(t_random_midpoint, random_midpoint_data['te_err'], **styles['random_midpoint'])
+    for i, curve in enumerate(random_midpoint_curves):
+        style = midpoint_style_cycle[i % len(midpoint_style_cycle)].copy()
+        style['label'] = curve['label']
+        ax.plot(curve['data']['ts'], curve['data']['te_err'], **style)
     if random_random_data is not None:
         ax.plot(t_random_random, random_random_data['te_err'], **styles['random_random'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
@@ -90,8 +114,10 @@ def plot_comparison(args):
         ax.plot(t_polygon, polygon_data['te_loss'], **styles['polygon'])
     if symplane_data is not None:
         ax.plot(t_symplane, symplane_data['te_loss'], **styles['symplane'])
-    if random_midpoint_data is not None:
-        ax.plot(t_random_midpoint, random_midpoint_data['te_loss'], **styles['random_midpoint'])
+    for i, curve in enumerate(random_midpoint_curves):
+        style = midpoint_style_cycle[i % len(midpoint_style_cycle)].copy()
+        style['label'] = curve['label']
+        ax.plot(curve['data']['ts'], curve['data']['te_loss'], **style)
     if random_random_data is not None:
         ax.plot(t_random_random, random_random_data['te_loss'], **styles['random_random'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
@@ -107,8 +133,10 @@ def plot_comparison(args):
         ax.plot(t_polygon, polygon_data['tr_err'], **styles['polygon'])
     if symplane_data is not None:
         ax.plot(t_symplane, symplane_data['tr_err'], **styles['symplane'])
-    if random_midpoint_data is not None:
-        ax.plot(t_random_midpoint, random_midpoint_data['tr_err'], **styles['random_midpoint'])
+    for i, curve in enumerate(random_midpoint_curves):
+        style = midpoint_style_cycle[i % len(midpoint_style_cycle)].copy()
+        style['label'] = curve['label']
+        ax.plot(curve['data']['ts'], curve['data']['tr_err'], **style)
     if random_random_data is not None:
         ax.plot(t_random_random, random_random_data['tr_err'], **styles['random_random'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
@@ -124,8 +152,10 @@ def plot_comparison(args):
         ax.plot(t_polygon, polygon_data['tr_loss'], **styles['polygon'])
     if symplane_data is not None:
         ax.plot(t_symplane, symplane_data['tr_loss'], **styles['symplane'])
-    if random_midpoint_data is not None:
-        ax.plot(t_random_midpoint, random_midpoint_data['tr_loss'], **styles['random_midpoint'])
+    for i, curve in enumerate(random_midpoint_curves):
+        style = midpoint_style_cycle[i % len(midpoint_style_cycle)].copy()
+        style['label'] = curve['label']
+        ax.plot(curve['data']['ts'], curve['data']['tr_loss'], **style)
     if random_random_data is not None:
         ax.plot(t_random_random, random_random_data['tr_loss'], **styles['random_random'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
@@ -158,11 +188,17 @@ def plot_comparison(args):
         symplane_barrier = symplane_max_err - symplane_endpoint_err
         metrics['symplane'] = {'max_err': symplane_max_err, 'barrier': symplane_barrier, 't': t_symplane}
 
-    if random_midpoint_data is not None:
-        random_midpoint_max_err = np.max(random_midpoint_data['te_err'])
-        random_midpoint_endpoint_err = (random_midpoint_data['te_err'][0] + random_midpoint_data['te_err'][-1]) / 2
+    for curve in random_midpoint_curves:
+        data = curve['data']
+        random_midpoint_max_err = np.max(data['te_err'])
+        random_midpoint_endpoint_err = (data['te_err'][0] + data['te_err'][-1]) / 2
         random_midpoint_barrier = random_midpoint_max_err - random_midpoint_endpoint_err
-        metrics['random_midpoint'] = {'max_err': random_midpoint_max_err, 'barrier': random_midpoint_barrier, 't': t_random_midpoint}
+        metrics[curve['key']] = {
+            'label': curve['label'],
+            'max_err': random_midpoint_max_err,
+            'barrier': random_midpoint_barrier,
+            't': data['ts'],
+        }
 
     if random_random_data is not None:
         random_random_max_err = np.max(random_random_data['te_err'])
@@ -175,8 +211,9 @@ def plot_comparison(args):
         print(f"  Polygon Chain:               {metrics['polygon']['max_err']:.2f}%")
     if 'symplane' in metrics:
         print(f"  Symmetry Plane:              {metrics['symplane']['max_err']:.2f}%")
-    if 'random_midpoint' in metrics:
-        print(f"  Random Plane (midpoint):     {metrics['random_midpoint']['max_err']:.2f}%")
+    for curve in random_midpoint_curves:
+        metric = metrics[curve['key']]
+        print(f"  {metric['label']:<30} {metric['max_err']:.2f}%")
     if 'random_random' in metrics:
         print(f"  Random Plane (random):       {metrics['random_random']['max_err']:.2f}%")
 
@@ -185,22 +222,21 @@ def plot_comparison(args):
         print(f"  Polygon Chain:               {metrics['polygon']['barrier']:.2f}%")
     if 'symplane' in metrics:
         print(f"  Symmetry Plane:              {metrics['symplane']['barrier']:.2f}%")
-    if 'random_midpoint' in metrics:
-        print(f"  Random Plane (midpoint):     {metrics['random_midpoint']['barrier']:.2f}%")
+    for curve in random_midpoint_curves:
+        metric = metrics[curve['key']]
+        print(f"  {metric['label']:<30} {metric['barrier']:.2f}%")
     if 'random_random' in metrics:
         print(f"  Random Plane (random):       {metrics['random_random']['barrier']:.2f}%")
 
     # Comparison stats
-    if 'symplane' in metrics and 'random_midpoint' in metrics:
-        print("\nDifference (Random Midpoint - Symmetry Plane):")
-        err_diff = metrics['random_midpoint']['max_err'] - metrics['symplane']['max_err']
-        barrier_diff = metrics['random_midpoint']['barrier'] - metrics['symplane']['barrier']
-        print(f"  Max Test Error: {err_diff:+.3f}%")
-        print(f"  Barrier Height: {barrier_diff:+.3f}%")
-
-        if abs(barrier_diff) < 0.5:
-            print("\n✓ Random plane (midpoint) performs similarly to symmetry plane!")
-            print(f"  Difference is only {abs(barrier_diff):.3f}% (negligible)")
+    if 'symplane' in metrics:
+        for curve in random_midpoint_curves:
+            metric = metrics[curve['key']]
+            print(f"\nDifference ({metric['label']} - Symmetry Plane):")
+            err_diff = metric['max_err'] - metrics['symplane']['max_err']
+            barrier_diff = metric['barrier'] - metrics['symplane']['barrier']
+            print(f"  Max Test Error: {err_diff:+.3f}%")
+            print(f"  Barrier Height: {barrier_diff:+.3f}%")
 
     if 'symplane' in metrics and 'random_random' in metrics:
         print("\nDifference (Random Random - Symmetry Plane):")
@@ -213,12 +249,15 @@ def plot_comparison(args):
             print("\n✓ Random plane (random anchor) performs similarly to symmetry plane!")
             print(f"  Difference is only {abs(barrier_diff):.3f}% (negligible)")
 
-    if 'random_midpoint' in metrics and 'random_random' in metrics:
-        print("\nDifference (Random Random - Random Midpoint):")
-        err_diff = metrics['random_random']['max_err'] - metrics['random_midpoint']['max_err']
-        barrier_diff = metrics['random_random']['barrier'] - metrics['random_midpoint']['barrier']
-        print(f"  Max Test Error: {err_diff:+.3f}%")
-        print(f"  Barrier Height: {barrier_diff:+.3f}%")
+    if len(random_midpoint_curves) >= 2:
+        for i in range(1, len(random_midpoint_curves)):
+            prev_metric = metrics[random_midpoint_curves[i - 1]['key']]
+            curr_metric = metrics[random_midpoint_curves[i]['key']]
+            print(f"\nDifference ({curr_metric['label']} - {prev_metric['label']}):")
+            err_diff = curr_metric['max_err'] - prev_metric['max_err']
+            barrier_diff = curr_metric['barrier'] - prev_metric['barrier']
+            print(f"  Max Test Error: {err_diff:+.3f}%")
+            print(f"  Barrier Height: {barrier_diff:+.3f}%")
 
     print("=" * 80)
 
@@ -230,7 +269,7 @@ def plot_comparison(args):
         output_path = args.output
     else:
         # Find first available file to use its directory
-        first_file = args.polygon_file or args.symplane_file or args.random_midpoint_file or args.random_random_file
+        first_file = args.polygon_file or args.symplane_file or (random_midpoint_files[0] if random_midpoint_files else None) or args.random_random_file
         output_path = os.path.join(
             os.path.dirname(os.path.dirname(first_file)), 'figures/random_planes_comparison.png'
         )
@@ -251,8 +290,9 @@ def plot_comparison(args):
         summary_lines.append(f"  Polygon Chain:               {metrics['polygon']['max_err']:.2f}%")
     if 'symplane' in metrics:
         summary_lines.append(f"  Symmetry Plane:              {metrics['symplane']['max_err']:.2f}%")
-    if 'random_midpoint' in metrics:
-        summary_lines.append(f"  Random Plane (midpoint):     {metrics['random_midpoint']['max_err']:.2f}%")
+    for curve in random_midpoint_curves:
+        metric = metrics[curve['key']]
+        summary_lines.append(f"  {metric['label']:<30} {metric['max_err']:.2f}%")
     if 'random_random' in metrics:
         summary_lines.append(f"  Random Plane (random):       {metrics['random_random']['max_err']:.2f}%")
     summary_lines.append("")
@@ -262,24 +302,30 @@ def plot_comparison(args):
         summary_lines.append(f"  Polygon Chain:               {metrics['polygon']['barrier']:.2f}%")
     if 'symplane' in metrics:
         summary_lines.append(f"  Symmetry Plane:              {metrics['symplane']['barrier']:.2f}%")
-    if 'random_midpoint' in metrics:
-        summary_lines.append(f"  Random Plane (midpoint):     {metrics['random_midpoint']['barrier']:.2f}%")
+    for curve in random_midpoint_curves:
+        metric = metrics[curve['key']]
+        summary_lines.append(f"  {metric['label']:<30} {metric['barrier']:.2f}%")
     if 'random_random' in metrics:
         summary_lines.append(f"  Random Plane (random):       {metrics['random_random']['barrier']:.2f}%")
     summary_lines.append("")
 
     # Write comparison stats
-    if 'symplane' in metrics and 'random_midpoint' in metrics:
-        barrier_diff = metrics['random_midpoint']['barrier'] - metrics['symplane']['barrier']
-        summary_lines.append(f"Difference (Random Midpoint - Symmetry): {barrier_diff:+.3f}%")
+    if 'symplane' in metrics:
+        for curve in random_midpoint_curves:
+            metric = metrics[curve['key']]
+            barrier_diff = metric['barrier'] - metrics['symplane']['barrier']
+            summary_lines.append(f"Difference ({metric['label']} - Symmetry): {barrier_diff:+.3f}%")
 
     if 'symplane' in metrics and 'random_random' in metrics:
         barrier_diff = metrics['random_random']['barrier'] - metrics['symplane']['barrier']
         summary_lines.append(f"Difference (Random Random - Symmetry): {barrier_diff:+.3f}%")
 
-    if 'random_midpoint' in metrics and 'random_random' in metrics:
-        barrier_diff = metrics['random_random']['barrier'] - metrics['random_midpoint']['barrier']
-        summary_lines.append(f"Difference (Random Random - Random Midpoint): {barrier_diff:+.3f}%")
+    if len(random_midpoint_curves) >= 2:
+        for i in range(1, len(random_midpoint_curves)):
+            prev_metric = metrics[random_midpoint_curves[i - 1]['key']]
+            curr_metric = metrics[random_midpoint_curves[i]['key']]
+            barrier_diff = curr_metric['barrier'] - prev_metric['barrier']
+            summary_lines.append(f"Difference ({curr_metric['label']} - {prev_metric['label']}): {barrier_diff:+.3f}%")
 
     summary_lines.append("")
     summary_lines.append("=" * 80)
@@ -301,8 +347,8 @@ if __name__ == '__main__':
                        help='Path to unconstrained polygon curve.npz file (optional)')
     parser.add_argument('--symplane-file', type=str, default=None,
                        help='Path to symmetry plane curve.npz file (optional)')
-    parser.add_argument('--random-midpoint-file', type=str, default=None,
-                       help='Path to random plane (midpoint) curve.npz file (optional)')
+    parser.add_argument('--random-midpoint-file', type=str, action='append', default=None,
+                       help='Path to random plane (midpoint) curve.npz file (optional, can be passed multiple times)')
     parser.add_argument('--random-random-file', type=str, default=None,
                        help='Path to random plane (random anchor) curve.npz file (optional)')
 

@@ -17,6 +17,7 @@ PROJECT_ROOT="${PROJECT_ROOT:-/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/ml
 CONFIG_NAME="${CONFIG_NAME:-vgg16_randomplane_midpoint_seed0-seed1}"
 CODIM="${CODIM:?Set CODIM, e.g. 5 or 10}"
 EPOCHS="${EPOCHS:-100}"
+TRAIN_HALF_ONLY="${TRAIN_HALF_ONLY:-true}"
 OUTPUT_DIR="${OUTPUT_DIR:?Set OUTPUT_DIR for this run}"
 
 source "$HOME/venvs/mode-connectivity/bin/activate" || . "$HOME/venvs/mode-connectivity/bin/activate"
@@ -28,11 +29,12 @@ mkdir -p "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR/evaluations"
 
 echo "========================================"
-echo "Random-Plane Codimension Half-Path No-Aug Run"
+echo "Random-Plane Codimension No-Aug Run"
 echo "========================================"
 echo "CONFIG_NAME: $CONFIG_NAME"
 echo "CODIM: $CODIM"
 echo "EPOCHS: $EPOCHS"
+echo "TRAIN_HALF_ONLY: $TRAIN_HALF_ONLY"
 echo "OUTPUT_DIR: $OUTPUT_DIR"
 echo "========================================"
 
@@ -41,7 +43,7 @@ srun python scripts/train/run_random_plane.py \
   --config-name "$CONFIG_NAME" \
   ++random_plane_codim="$CODIM" \
   ++no_train_aug=true \
-  ++train_half_only=true \
+  ++train_half_only="$TRAIN_HALF_ONLY" \
   epochs="$EPOCHS" \
   output_dir="$OUTPUT_DIR"
 
