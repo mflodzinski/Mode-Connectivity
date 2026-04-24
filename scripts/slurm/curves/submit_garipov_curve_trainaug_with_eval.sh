@@ -20,7 +20,7 @@ OUTPUT_ROOT="${OUTPUT_ROOT:?Set OUTPUT_ROOT, e.g. results/vgg16/cifar10/curves/s
 source "$HOME/venvs/mode-connectivity/bin/activate" || . "$HOME/venvs/mode-connectivity/bin/activate"
 
 cd "$PROJECT_ROOT"
-export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
+export PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 
 mkdir -p "$OUTPUT_ROOT"
 mkdir -p "${OUTPUT_ROOT/checkpoints/evaluations}"

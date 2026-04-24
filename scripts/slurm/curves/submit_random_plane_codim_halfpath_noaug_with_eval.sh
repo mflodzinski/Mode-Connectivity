@@ -22,7 +22,7 @@ OUTPUT_DIR="${OUTPUT_DIR:?Set OUTPUT_DIR for this run}"
 source "$HOME/venvs/mode-connectivity/bin/activate" || . "$HOME/venvs/mode-connectivity/bin/activate"
 
 cd "$PROJECT_ROOT"
-export PYTHONPATH="$PROJECT_ROOT:$PROJECT_ROOT/external/dnn-mode-connectivity:$PYTHONPATH"
+export PYTHONPATH="$PROJECT_ROOT:$PROJECT_ROOT/external/dnn-mode-connectivity${PYTHONPATH:+:$PYTHONPATH}"
 
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR/evaluations"

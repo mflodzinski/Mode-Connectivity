@@ -631,8 +631,7 @@ The failure of direct optimization in this case indicates that low-loss paths in
 
 
 
-Overall, these results demonstrate a sharp transition in connectivity behavior between width $m=2$ and $m=3$. Minimal-width XOR solutions appear genuinely disconnected in parameter space (except for trivial cases), whereas adding a single hidden neuron introduces sufficient redundancy to render the solution set connected under curved paths.
-
+Overall, these results demonstrate a sharp transition in connectivity behavior between width $m=2$ and $m=3$. Minimal-width XOR solutions appear genuinely disconnected in parameter space (except for trivial cases), whereas adding a single hidden neuron provides enough redundancy for the solutions to become connected by curved low-loss paths.
 
 
 %==============================================================================
@@ -640,34 +639,28 @@ Overall, these results demonstrate a sharp transition in connectivity behavior b
 \label{chap:symmetry-aware}
 %==============================================================================
 
-The previous chapters showed that the central difficulty is not the existence of low-loss connections in general, but the much stronger requirement of linear mode connectivity. Curved low-loss paths were easy to find, even under substantial geometric constraints, which suggests that the loss landscape contains a broad connected low-loss manifold. However, the linear path between two solutions is much more restrictive. In the controlled permutation benchmark, we showed that permutation alignment works when a good permutation is guaranteed to exist, but that its quality degrades as the distance between solutions grows. In the XOR setting, we further observed that even the best possible permutation does not always eliminate the barrier completely.
+The previous chapters showed that low-loss connectivity and linear mode connectivity are different problems. Curved paths were often easy to find, even when the path search was geometrically constrained, suggesting that trained solutions can belong to a broad connected low-loss region. Linear mode connectivity is stricter: it asks whether two endpoints can be connected by the straight line between their parameters. The controlled permutation benchmark showed that permutation alignment works when a good permutation is guaranteed to exist, but its performance degrades as the underlying modes move farther apart. The XOR experiments sharpened this point further: because all permutations could be checked exhaustively, we saw that even the best possible permutation does not always remove the interpolation barrier. This suggests that permutation symmetry may not capture all structure relevant for low-barrier interpolation. 
 
-These results suggest that failure of permutation-based alignment may not be explained solely by shortcomings of the optimization algorithm. Another possibility is that permutation invariance does not capture the full symmetry structure relevant for low-barrier interpolation. Neural networks with positively homogeneous activations such as ReLU possess an additional layerwise scaling symmetry: hidden units can be rescaled by positive constants provided the adjacent layer compensates appropriately, leaving the represented function unchanged. This motivates the next question of the thesis:
+Another possibility is that permutation invariance does not capture the full symmetry structure relevant for low-barrier interpolation. Neural networks with positively homogeneous activations such as ReLU possess an additional layerwise scaling symmetry: hidden units can be rescaled by positive constants provided the adjacent layer compensates appropriately, leaving the represented function unchanged. Thus, two networks may represent similar computations while differing not only in the ordering of hidden units, but also in the internal scale assigned to those units. This motivates the main question of this chapter:
 
 \begin{quote}
-Can linear mode connectivity be improved by aligning networks modulo a larger symmetry class that includes both permutation and positive scaling?
+\textit{Can linear mode connectivity be improved by aligning networks modulo a larger symmetry class that includes both permutation and positive scaling?}
 \end{quote}
 
-The goal is not merely to make two networks appear closer in parameter space. Rather, the objective is to find a symmetry-transformed representative of one network such that the linear interpolation to the other network has lower loss barrier. This chapter therefore extends the permutation-only perspective of the previous chapters into a broader symmetry-aware framework.
+The XOR results make this question particularly concrete. Exhaustive permutation search gave an oracle permutation baseline: for each pair, we knew the best barrier achievable by permutation alone. Whenever a nonzero barrier remained after that oracle alignment, the cause could not be a failure of permutation search. A natural next hypothesis is that part of the remaining barrier comes from scale mismatch between corresponding hidden units.  The present chapter investigates this possibility in two steps:
 
-\section{Why Go Beyond Permutation?}
-
-Permutation symmetry explains why two networks that compute similar features may nevertheless appear far apart in parameter space: corresponding hidden units may simply be ordered differently. However, even after a good correspondence has been found, the internal magnitude assigned to each hidden unit may still differ substantially across the two networks. For ReLU networks this magnitude is not uniquely identifiable, because one may multiply the outgoing activation of a hidden unit by a positive constant and divide the corresponding incoming weights of the next layer by the same constant without changing the function.
-
-This observation is especially relevant in light of the XOR experiments from the previous chapter. There, exhaustive search over all permutations made it possible to identify the best achievable permutation exactly. Yet even after this oracle permutation was applied, a nonzero interpolation barrier often remained. This suggests that permutation symmetry alone may be insufficient: some of the residual barrier may come from mismatched internal scalings rather than mismatched neuron identities.
-
-The present chapter investigates this possibility using a scale-augmented version of Sinkhorn re-basin. The chapter has two goals:
 \begin{enumerate}
-    \item to test whether adding positive scaling reduces the interpolation barrier relative to permutation-only alignment, and
-    \item to determine whether any observed gain from scaling reflects a genuinely richer symmetry class rather than merely an easier optimization procedure.
+    \item We first introduce a scale-aware extension of permutation alignment, in which positive scaling is added to the permutation-finding procedure.
+    \item We then test this extension on both minimal XOR networks, where exhaustive search provides a permutation-only oracle baseline, and larger networks, where scale-aware alignment is evaluated as a practical re-basing method.
 \end{enumerate}
 
-\section{Why Sinkhorn is the Best Base Method for Scale Augmentation}
 
-Among the main re-basin families, Sinkhorn is the most natural method to extend with scaling. The reason is not that other methods are impossible to modify, but that their optimization structure makes a minimal scale-aware extension much less clean.
+\section{Choosing a Base Method for Scale-Aware Alignment}
 
-\paragraph{Compared with activation matching.}
-Activation matching is formulated as a linear assignment problem (LAP). For activations \(Z^{(A)}, Z^{(B)} \in \mathbb{R}^{d \times n}\) at layer \(\ell\), the permutation is chosen by
+Before introducing a scale-aware alignment method, we first compare the main re-basin methods to determine which one is best suited for jointly incorporating scale-invariance optimization into permutation finding. The goal is not to show that scaling is impossible to add to other methods, but to identify which framework admits the cleanest minimal modification. The key criterion is whether scale variables can be incorporated without substantially changing the method's original optimization structure.
+
+\subsection{Activation Matching}
+Activation matching is data-dependent: the activation matrices are obtained by running a set of inputs through both networks and recording the hidden-layer activations. It then solves a linear assignment problem using these activations. For activations \(Z^{(A)}, Z^{(B)} \in \mathbb{R}^{d \times n}\), the layer permutation is chosen as
 \[
 P_\ell
 =
@@ -677,154 +670,123 @@ P_\ell
 \arg\max_{P \in S_d}
 \langle P, Z^{(A)}(Z^{(B)})^\top \rangle_F.
 \]
-If scale variables are added, the activation statistics themselves change under scaling, so the similarity matrix is no longer fixed independently of the scale parameters. This makes the extension conceptually less direct.
+Here \(\langle A,B\rangle_F=\sum_{i,j}A_{ij}B_{ij}\) denotes the Frobenius inner product. Since the objective is linear in the entries of the permutation matrix \(P\), this optimization is a standard linear assignment problem (LAP), for which efficient solvers are available.
+This works cleanly when the activation similarity matrix is fixed before solving the assignment problem. Adding scale makes the activations themselves depend on the scale variables, so the similarity matrix is no longer independent of the transformation being learned. A scale-aware version is not impossible, but it no longer has the same simple LAP structure.
 
-\paragraph{Compared with weight matching.}
-Weight matching is formulated as a coupled optimization over layerwise permutations:
+
+\subsection{Weight Matching}
+
+Weight matching optimizes layerwise permutations by maximizing weight-space similarity:
 \[
-\arg\min_{\pi} \|\mathrm{vec}(\Theta^A) - \mathrm{vec}(\pi(\Theta^B))\|^2
+\arg\min_{\pi} \|\mathrm{vec}(\Theta^A)-\mathrm{vec}(\pi(\Theta^B))\|^2
 =
-\arg\max_{\pi} \mathrm{vec}(\Theta^A)\cdot \mathrm{vec}(\pi(\Theta^B)).
+\arg\max_{\pi}\mathrm{vec}(\Theta^A)\cdot\mathrm{vec}(\pi(\Theta^B)).
 \]
-Written in terms of the weights, this becomes
+Written layerwise, this gives the sum-of-bilinear-assignments problem
 \[
 \arg\max_{\pi=\{P_i\}}
-\langle W_1^{(A)}, P_1 W_1^{(B)} \rangle_F
-+
-\langle W_2^{(A)}, P_2 W_2^{(B)} P_1^\top \rangle_F
-+ \cdots +
-\langle W_L^{(A)}, W_L^{(B)} P_{L-1}^\top \rangle_F.
+\langle W_1^{(A)},P_1W_1^{(B)}\rangle_F
++\langle W_2^{(A)},P_2W_2^{(B)}P_1^\top\rangle_F
++\cdots+
+\langle W_L^{(A)},W_L^{(B)}P_{L-1}^\top\rangle_F.
 \]
-This is the sum of bilinear assignments problem (SOBLAP). If one augments each permutation by a diagonal scaling matrix, the transformed weights become coupled through both scaling factors and their inverses in adjacent layers. The resulting objective is no longer a clean sequence of assignment subproblems, so the scale-aware extension becomes structurally much more invasive.
+Similarly to activation matching, adding scale changes the structure of the optimization. If each permutation is augmented with a diagonal scale matrix, adjacent layers become coupled through both scales and inverse scales. The resulting objective is no longer a clean sequence of assignment updates, making a minimal scale-aware extension structurally invasive.
 
-\paragraph{Compared with STE-based methods.}
-The straight-through estimator (STE) variant of Git Re-Basin directly optimizes an interpolation-related loss:
+
+\subsection{STE-Based Methods}
+
+The straight-through estimator (STE) variant of Git Re-Basin optimizes an interpolation-related loss while projecting relaxed variables back to hard permutations:
 \[
 \min_{\widetilde{\Theta}_B}
-\mathcal{L}\!\left(
-\frac{1}{2}
-\left(
-\Theta^A + \mathrm{proj}(\widetilde{\Theta}_B)
-\right)
-\right),
+\mathcal{L}\!\left(\frac{1}{2}(\Theta^A+\mathrm{proj}(\widetilde{\Theta}_B))\right),
 \qquad
 \mathrm{proj}(\Theta)
 =
 \arg\max_{\pi}
-\mathrm{vec}(\Theta)\cdot \mathrm{vec}(\pi(\Theta^B)).
+\mathrm{vec}(\Theta)\cdot\mathrm{vec}(\pi(\Theta^B)).
 \]
-To incorporate scale, one would replace the permutation action by a mixed discrete-continuous transformation
+
+Here \(\widetilde{\Theta}_B\) is an unconstrained set of parameters that approximates some permuted version \(\pi(\Theta^B)\), allowing the permutation to be optimized implicitly. The difficulty is that the projection \(\mathrm{proj}(\cdot)\) is non-differentiable. The STE handles this by using the projected, valid permutation in the forward pass when evaluating the loss, but passing gradients backward as if the unconstrained parameters \(\widetilde{\Theta}_B\) had been used directly. This keeps the evaluated model on the permutation-constrained set while still providing usable gradients for optimization.
+Incorporating scale would require replacing the permutation action by a mixed discrete-continuous transformation. This is possible in principle, but it combines straight-through discrete optimization with continuous scale variables and inverse transformations across layers.
+
+\subsection{Sinkhorn Re-Basin}
+
+Sinkhorn re-basin replaces hard layerwise permutations with differentiable soft permutations. For each hidden layer \(\ell\), it learns a matrix of logits \(Z_\ell \in \mathbb{R}^{n_\ell \times n_\ell}\), where \(n_\ell\) is the width of the layer. The entries of \(Z_\ell\) are unconstrained real-valued scores: a large value of \((Z_\ell)_{ij}\) indicates that unit \(i\) in one model is currently considered a strong candidate to match unit \(j\) in the other model. Thus, \(Z_\ell\) is not itself a permutation matrix, but a learnable score matrix from which a soft alignment is constructed.
+
+From these logits, the method computes
 \[
-M_\ell = P_\ell D_\ell,
+S_\ell=\mathrm{Sinkhorn}(Z_\ell/\tau),
+\]
+where \(\tau>0\) is the temperature parameter. Mathematically, given a score matrix \(A\), the Sinkhorn operator first exponentiates the scores and then repeatedly normalizes rows and columns:
+\[
+K=\exp(A),\qquad
+K^{(t+\frac{1}{2})}_{ij}
+=
+\frac{K^{(t)}_{ij}}{\sum_j K^{(t)}_{ij}},
 \qquad
-D_\ell = \mathrm{diag}(e^{u_\ell}),
+K^{(t+1)}_{ij}
+=
+\frac{K^{(t+\frac{1}{2})}_{ij}}{\sum_i K^{(t+\frac{1}{2})}_{ij}}.
 \]
-and define transformed weights through
-\[
-W_\ell' = M_\ell W_\ell^B M_{\ell-1}^{-1}.
-\]
-This is possible in principle, but it mixes straight-through discrete optimization with continuous scale variables and inverse transformations across layers. As a first scale-aware extension, this is less clean than Sinkhorn.
+After several iterations, \(K^{(t)}\) is approximately doubly stochastic and is used as \(S_\ell\). Thus, the Sinkhorn operator converts the unconstrained scores into a nonnegative matrix whose rows and columns each sum to one. This can be interpreted as a relaxed one-to-one matching between hidden units. When \(\tau\) is small, \(S_\ell\) becomes sharper and closer to a hard permutation; when \(\tau\) is larger, the alignment remains more diffuse. This relaxes the discrete permutation search into continuous optimization over the Birkhoff polytope.
 
-\section{Why Sinkhorn is a Natural Starting Point}
-
-Sinkhorn re-basin already replaces hard layerwise permutations with differentiable soft permutations. For each hidden layer \(\ell\), it learns a matrix of logits \(Z_\ell \in \mathbb{R}^{n_\ell \times n_\ell}\), where \(n_\ell\) is the width of the layer. The entries of \(Z_\ell\) are unconstrained scores indicating which units are likely to correspond across the two networks.
-
-From \(Z_\ell\), the method computes a doubly stochastic matrix
-\[
-S_\ell = \mathrm{Sinkhorn}(Z_\ell / \tau),
-\]
-where \(\tau > 0\) is the temperature parameter. The Sinkhorn operator converts the score matrix into a soft permutation matrix: a nonnegative matrix whose rows and columns each sum to one. When \(\tau\) is small, the matrix becomes sharper and approaches a hard permutation; when \(\tau\) is larger, the alignment remains diffuse. This relaxes the original discrete search over permutations into a continuous optimization over the Birkhoff polytope.
-
-The original Sinkhorn procedure therefore consists of:
+The original Sinkhorn re-basin procedure is therefore:
 \begin{enumerate}
-    \item initializing layerwise logits \(Z_\ell\),
-    \item computing soft alignments \(S_\ell = \mathrm{Sinkhorn}(Z_\ell / \tau)\),
-    \item inserting these alignments consistently across adjacent layers,
-    \item interpolating between model \(A\) and the transformed version of model \(B\),
-    \item evaluating an interpolation-related objective, such as midpoint loss, and
-    \item updating \(Z_\ell\) by gradient descent.
+    \item Initialize layerwise alignment logits \(Z_\ell\),
+    \item Compute soft permutation matrices \(S_\ell=\mathrm{Sinkhorn}(Z_\ell/\tau)\),
+    \item Insert the \(S_\ell\) across adjacent layers so that hidden coordinates are aligned,
+    \item Interpolate between model \(A\) and the transformed version of model \(B\),
+    \item Evaluate an interpolation-related objective, such as midpoint loss, on real data, and
+    \item Backpropagate through the soft alignments and update \(Z_\ell\) by gradient descent.
 \end{enumerate}
 
-Its main advantage in the present context is that the alignment variables are already optimized in a differentiable way under the actual quantity of interest, namely interpolation loss. This makes Sinkhorn the most natural base method for adding a second continuous symmetry: scaling.
+Its main advantage for the present chapter is that the alignment variables are already optimized in a differentiable way under the actual quantity of interest, namely interpolation loss, rather than only under a surrogate matching score. This makes Sinkhorn the cleanest base method for adding scale: positive scale variables can be optimized jointly with the soft permutation variables in the same gradient-based loop.
 
-\section{Scale-Aware Extension of Sinkhorn Re-Basin}
+\section{Scale-Aware Sinkhorn Re-basin Formulation}
 
-The proposed extension is intentionally minimal. Instead of using only a soft permutation matrix \(S_\ell\), each hidden layer is augmented with a positive diagonal scaling matrix
+The proposed extension is intentionally minimal. For each hidden layer, the soft permutation matrix is augmented with a positive diagonal scale matrix:
 \[
-D_\ell = \mathrm{diag}(e^{u_\ell}),
-\]
-where \(u_\ell \in \mathbb{R}^{n_\ell}\) are learnable log-scale parameters and the exponential ensures positivity. The layerwise alignment transformation becomes
-\[
-M_\ell = S_\ell D_\ell.
-\]
-
-The important point is that this leaves the overall Sinkhorn framework essentially unchanged. Both components,
-the permutation structure \(Z_\ell \mapsto S_\ell\) and the scale structure \(u_\ell \mapsto D_\ell\), are continuous and can therefore be optimized jointly in the same gradient-based loop and under the same interpolation-loss objective. In this sense, the extension is a clean ablation of the original method:
-\[
-S_\ell
-\quad \longrightarrow \quad
-M_\ell = S_\ell D_\ell.
-\]
-
-This directly tests the following question:
-\begin{quote}
-Does adding scaling symmetry to Sinkhorn re-basin reduce interpolation barrier relative to permutation-only Sinkhorn?
-\end{quote}
-
-\section{Mathematical Formulation}
-
-Let \(A\) and \(B\) be two networks with the same architecture. For each hidden layer \(\ell\), define
-\[
-S_\ell = \mathrm{Sinkhorn}(Z_\ell / \tau),
+S_\ell=\mathrm{Sinkhorn}(Z_\ell/\tau),
 \qquad
-D_\ell = \mathrm{diag}(e^{u_\ell}),
+D_\ell=\mathrm{diag}(e^{u_\ell}),
 \qquad
-M_\ell = S_\ell D_\ell.
+M_\ell=S_\ell D_\ell.
 \]
+Here \(Z_\ell\) are the Sinkhorn logits, \(u_\ell\in\mathbb{R}^{n_\ell}\) are learnable log-scale parameters, and the exponential ensures positive scaling. The original Sinkhorn transformation \(S_\ell\) is therefore replaced by \(M_\ell=S_\ell D_\ell\).
 
-The transformed version of model \(B\) is constructed by applying the hidden-coordinate change consistently across adjacent layers:
+The transformed version of model \(B\) is constructed by applying this hidden-coordinate change consistently across adjacent layers:
 \[
-W_1' = M_1 W_1^B,
+W_1'=M_1W_1^B,\qquad
+W_\ell'=M_\ell W_\ell^B M_{\ell-1}^{-1}\;(\ell=2,\dots,L-1),
+\qquad
+W_L'=W_L^B M_{L-1}^{-1},
 \]
 \[
-W_\ell' = M_\ell W_\ell^B M_{\ell-1}^{-1},
-\qquad \ell = 2, \dots, L-1,
+b_\ell'=M_\ell b_\ell^B.
 \]
-\[
-W_L' = W_L^B M_{L-1}^{-1}.
-\]
-For hidden biases,
-\[
-b_\ell' = M_\ell b_\ell^B.
-\]
+The inverse terms compensate for the scale change in the previous layer, so the transformation represents the same scale symmetry as in ReLU networks.
 
-Given the transformed model \(B'\), define an interpolation grid
+Given the transformed model \(B'\), interpolation is evaluated on a small grid
 \[
-\mathcal{A} = \{0.25, 0.5, 0.75\},
+\mathcal{A}=\{0.25,0.5,0.75\},
+\qquad
+\theta_\alpha=(1-\alpha)\theta^A+\alpha\theta^{B'}.
 \]
-and interpolated parameters
+The barrier objective is approximated by the average loss on this grid, with a small penalty that keeps scales close to identity:
 \[
-\theta_\alpha = (1-\alpha)\theta^A + \alpha \theta^{B'}.
-\]
-
-The barrier objective is approximated by the average interpolation loss
-\[
-J_{\mathrm{bar}} =
+J_{\mathrm{bar}}
+=
 \frac{1}{|\mathcal{A}|}
-\sum_{\alpha \in \mathcal{A}}
-\mathcal{L}(\theta_\alpha).
+\sum_{\alpha\in\mathcal{A}}
+\mathcal{L}(\theta_\alpha),
+\qquad
+J_{\mathrm{scale}}
+=
+\sum_{\ell}\|u_\ell\|_2^2,
+\qquad
+J=J_{\mathrm{bar}}+\lambda_{\mathrm{scale}}J_{\mathrm{scale}}.
 \]
-
-To keep the learned scales close to the identity unless the data support otherwise, we add a small penalty on the log-scales:
-\[
-J_{\mathrm{scale}} =
-\sum_{\ell} \|u_\ell\|_2^2.
-\]
-
-The total objective is therefore
-\[
-J = J_{\mathrm{bar}} + \lambda_{\mathrm{scale}} J_{\mathrm{scale}}.
-\]
+This formulation directly tests whether adding positive scaling to Sinkhorn re-basin reduces the interpolation barrier relative to permutation-only Sinkhorn.
 
 \section{Experimental Modes}
 
@@ -842,15 +804,7 @@ First optimize permutation only. Then continue optimization with both permutatio
 \paragraph{perm\_then\_scale\_only}
 First optimize permutation only. Then freeze the permutation and optimize only the scale variables. This isolates the \emph{marginal value of scale} after correspondence has already been fixed.
 
-\subsection{Why These Four Modes Are Useful}
 
-These four modes disentangle several distinct questions:
-\begin{itemize}
-    \item \textbf{permutation\_only vs joint\_scale}: is scale helpful at all when allowed from the start?
-    \item \textbf{permutation\_only vs perm\_then\_scale\_only}: can scale improve a fixed permutation?
-    \item \textbf{joint\_scale vs perm\_then\_joint\_scale}: is staged optimization more stable than joint-from-scratch optimization?
-    \item \textbf{perm\_then\_joint\_scale vs perm\_then\_scale\_only}: after warm start, does permutation still need to move, or is scale refinement alone sufficient?
-\end{itemize}
 
 \section{XOR Experiments}
 The XOR experiments serve as the minimal testbed for separating \emph{symmetry} from \emph{search}. In the previous chapter, XOR already showed that permutation-only alignment is limited in narrow networks and improves with width. However, on those experiments alone it is unclear whether adding scale would help because it genuinely captures an additional symmetry, or simply because it makes optimization easier. XOR provides a setting where this distinction can be tested exactly, since exhaustive search over all permutations is feasible.
