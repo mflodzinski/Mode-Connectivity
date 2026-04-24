@@ -15,6 +15,8 @@ dataset: "CIFAR10"
 data_path: "./data"
 transform: "VGG"
 use_test: true
+no_train_aug: false
+train_half_only: false
 
 # Training hyperparameters
 epochs: 150
@@ -41,4 +43,5 @@ fix_end: true
 # Totally random plane projection
 project_random_plane: true
 random_plane_seed: 42
+random_plane_codim: 1
 random_anchor: true  # Random anchor point

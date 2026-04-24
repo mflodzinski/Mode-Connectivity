@@ -64,10 +64,12 @@ def main(cfg: DictConfig):
     # Enable random plane projection
     cmd.append("--project_random_plane")
     cmd.extend(["--random_plane_seed", str(cfg.random_plane_seed)])
+    cmd.extend(["--random_plane_codim", str(cfg.get('random_plane_codim', 1))])
     if cfg.get('random_anchor', False):
         cmd.append("--random_anchor")
 
     add_optional_arg(cmd, cfg, 'use_test', '--use_test', is_flag=True)
+    add_optional_arg(cmd, cfg, 'no_train_aug', '--no_train_aug', is_flag=True)
     add_optional_arg(cmd, cfg, 'train_half_only', '--train_half_only', is_flag=True)
 
     # Add WandB logging

@@ -62,6 +62,7 @@ def main():
     mirror_paths = {
         'seed0-randperm': 'results/vgg16/cifar10/curves/standard/seed0-randperm_reg/evaluations/curve.npz',
         'seed1-randperm': 'results/vgg16/cifar10/curves/standard/seed1-randperm_reg/evaluations/curve.npz',
+        'seed2-randperm': 'results/vgg16/cifar10/curves/standard/seed2-randperm_reg/evaluations/curve.npz',
     }
 
     # Load seed data
