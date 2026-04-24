@@ -17,6 +17,7 @@ PROJECT_ROOT="${PROJECT_ROOT:-/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/ml
 CONFIG_NAME="${CONFIG_NAME:-vgg16_randomplane_midpoint_seed0-seed1}"
 CODIM="${CODIM:?Set CODIM, e.g. 5 or 10}"
 EPOCHS="${EPOCHS:-100}"
+NO_TRAIN_AUG="${NO_TRAIN_AUG:-true}"
 TRAIN_HALF_ONLY="${TRAIN_HALF_ONLY:-true}"
 OUTPUT_DIR="${OUTPUT_DIR:?Set OUTPUT_DIR for this run}"
 
@@ -34,6 +35,7 @@ echo "========================================"
 echo "CONFIG_NAME: $CONFIG_NAME"
 echo "CODIM: $CODIM"
 echo "EPOCHS: $EPOCHS"
+echo "NO_TRAIN_AUG: $NO_TRAIN_AUG"
 echo "TRAIN_HALF_ONLY: $TRAIN_HALF_ONLY"
 echo "OUTPUT_DIR: $OUTPUT_DIR"
 echo "========================================"
@@ -42,7 +44,7 @@ echo "STEP 1: Training"
 srun python scripts/train/run_random_plane.py \
   --config-name "$CONFIG_NAME" \
   ++random_plane_codim="$CODIM" \
-  ++no_train_aug=true \
+  ++no_train_aug="$NO_TRAIN_AUG" \
   ++train_half_only="$TRAIN_HALF_ONLY" \
   epochs="$EPOCHS" \
   output_dir="$OUTPUT_DIR"
