@@ -83,10 +83,33 @@ def parse_args() -> argparse.Namespace:
         help="Which quantity to plot on the y-axis",
     )
     parser.add_argument(
+        "--metrics",
+        type=str,
+        nargs="+",
+        default=None,
+        choices=[
+            "test_loss_barrier",
+            "train_loss_barrier",
+            "test_loss_barrier_rel",
+            "train_loss_barrier_rel",
+            "test_acc_barrier_rel",
+            "train_acc_barrier_rel",
+            "min_test_acc",
+            "min_train_acc",
+        ],
+        help="Optional list of metrics to plot in one pass. If set, overrides --metric.",
+    )
+    parser.add_argument(
         "--output",
         type=str,
         default="plots/lmc_iter_noaug_barrier_vs_distance.png",
         help="Output plot path",
+    )
+    parser.add_argument(
+        "--output-prefix",
+        type=str,
+        default="plots/lmc_iter_noaug",
+        help="Prefix for multi-metric plot outputs when using --metrics",
     )
     parser.add_argument(
         "--csv-output",
@@ -142,6 +165,34 @@ def y_label(metric: str) -> str:
         "min_test_acc": "Minimum Test Accuracy (%)",
         "min_train_acc": "Minimum Train Accuracy (%)",
     }[metric]
+
+
+def save_plot(rows: list[dict], metric: str, output_path: Path) -> None:
+    fig, ax = plt.subplots(figsize=(8, 5.5))
+    xs = [row["l2_distance"] for row in rows]
+    ys = [y_value(row, metric) for row in rows]
+
+    ax.plot(xs, ys, color="#1f77b4", alpha=0.65, lw=1.5)
+    ax.scatter(xs, ys, color="#1f77b4", s=80, zorder=5)
+
+    for row, x, y in zip(rows, xs, ys):
+        ax.annotate(
+            str(row["split_iter"]),
+            (x, y),
+            textcoords="offset points",
+            xytext=(4, 5),
+            fontsize=8,
+        )
+
+    ax.set_xlabel("L2 Distance", fontsize=12)
+    ax.set_ylabel(y_label(metric), fontsize=12)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved plot to {output_path}")
 
 
 def endpoint_avg(values):
@@ -246,32 +297,16 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
 
-    fig, ax = plt.subplots(figsize=(8, 5.5))
-    xs = [row["l2_distance"] for row in rows]
-    ys = [y_value(row, args.metric) for row in rows]
-
-    ax.plot(xs, ys, color="#1f77b4", alpha=0.65, lw=1.5)
-    ax.scatter(xs, ys, color="#1f77b4", s=80, zorder=5)
-
-    for row, x, y in zip(rows, xs, ys):
-        ax.annotate(
-            str(row["split_iter"]),
-            (x, y),
-            textcoords="offset points",
-            xytext=(4, 5),
-            fontsize=8,
-        )
-
-    ax.set_xlabel("L2 Distance", fontsize=12)
-    ax.set_ylabel(y_label(args.metric), fontsize=12)
-    ax.grid(True, alpha=0.3)
-    plt.tight_layout()
-
-    output_path = PROJECT_ROOT / args.output
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, dpi=300, bbox_inches="tight")
-    print(f"Saved plot to {output_path}")
     print(f"Saved CSV to {csv_path}")
+
+    metrics_to_plot = args.metrics if args.metrics else [args.metric]
+    if args.metrics:
+        for metric in metrics_to_plot:
+            output_path = PROJECT_ROOT / f"{args.output_prefix}_{metric}_vs_distance.png"
+            save_plot(rows, metric, output_path)
+    else:
+        output_path = PROJECT_ROOT / args.output
+        save_plot(rows, args.metric, output_path)
 
     print("\n" + "=" * 95)
     print("ITER-SPLIT LMC SUMMARY")
@@ -294,7 +329,7 @@ def main() -> None:
             f"{row['train_acc_barrier_rel']:>14.6f}"
         )
 
-    if args.show:
+    if args.show and not args.metrics:
         plt.show()
 
 

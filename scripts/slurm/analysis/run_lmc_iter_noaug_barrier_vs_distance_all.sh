@@ -21,28 +21,18 @@ export PYTHONPATH="${PROJECT_ROOT}:${PROJECT_ROOT}/scripts:${PYTHONPATH:-}"
 export MPLCONFIGDIR="/tmp/mpl-${USER}"
 mkdir -p "${MPLCONFIGDIR}"
 
-METRICS=(
-  test_loss_barrier_rel
-  train_loss_barrier_rel
-  test_acc_barrier_rel
-  train_acc_barrier_rel
-)
-
 echo "========================================"
 echo "Iteration-split barrier vs distance plots"
 echo "========================================"
-echo "Metrics: ${METRICS[*]}"
+echo "Metrics: test_loss_barrier_rel train_loss_barrier_rel test_acc_barrier_rel train_acc_barrier_rel"
 echo ""
 
-for METRIC in "${METRICS[@]}"; do
-  echo "Running metric: ${METRIC}"
-  srun --exclusive -N1 -n1 python scripts/plot/plot_iter_split_barrier_vs_distance.py \
-      --endpoints-root results/vgg16/cifar10/endpoints/lmc_connected_iter_noaug \
-      --splits 0 25 100 1000 5000 \
-      --metric "${METRIC}" \
-      --output "plots/lmc_iter_noaug_${METRIC}_vs_distance.png" \
-      --csv-output "plots/lmc_iter_noaug_barrier_vs_distance.csv"
-done
+srun python scripts/plot/plot_iter_split_barrier_vs_distance.py \
+    --endpoints-root results/vgg16/cifar10/endpoints/lmc_connected_iter_noaug \
+    --splits 0 25 100 1000 5000 \
+    --metrics test_loss_barrier_rel train_loss_barrier_rel test_acc_barrier_rel train_acc_barrier_rel \
+    --output-prefix plots/lmc_iter_noaug \
+    --csv-output plots/lmc_iter_noaug_barrier_vs_distance.csv
 
 echo ""
 echo "Done. Outputs written to plots/."
