@@ -22,30 +22,82 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from collections import OrderedDict
+from typing import Dict, Tuple
 
 # Add project paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(script_dir))
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, 'external/dnn-mode-connectivity'))
+sys.path.insert(0, os.path.join(project_root, 'external/pytorch-vgg-cifar10'))
 
 import models
 import data
 import utils
+import vgg as pytorch_vgg
 
 from scripts.lib.transform.random_permutation import VGG16RandomPermutation
-from scripts.lib.alignment.permutation_spec import vgg16_permutation_spec
+from scripts.lib.alignment.permutation_spec import (
+    vgg16_features_permutation_spec,
+    vgg16_permutation_spec,
+)
 from scripts.lib.alignment.weight_matching import (
     weight_matching, apply_permutation, compare_permutations
 )
 
 
-def load_model(checkpoint_path: str, num_classes: int = 10):
-    """Load VGG16 model from checkpoint."""
-    model = models.VGG16.base(num_classes=num_classes)
+def canonicalize_state_dict_keys(state_dict):
+    """Strip DataParallel ``features.module.`` prefix when present."""
+    out = OrderedDict()
+    for key, value in state_dict.items():
+        if key.startswith('features.module.'):
+            out['features.' + key[len('features.module.'):]] = value
+        else:
+            out[key] = value
+    return out
+
+
+def detect_checkpoint_format(state_dict: Dict[str, torch.Tensor]) -> str:
+    keys = list(state_dict.keys())
+    if any(k.startswith('layer_blocks.') for k in keys):
+        return 'dnn_mode_connectivity'
+    if any(k.startswith('features.') or k.startswith('features.module.') for k in keys):
+        return 'pytorch_vgg_cifar10'
+    raise ValueError('Unsupported VGG16 checkpoint format')
+
+
+def load_checkpoint_state(checkpoint_path: str) -> Tuple[OrderedDict, str]:
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
-    model.load_state_dict(checkpoint['model_state'])
+
+    if isinstance(checkpoint, dict) and 'model_state' in checkpoint:
+        state_dict = checkpoint['model_state']
+    elif isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+        state_dict = checkpoint['state_dict']
+    else:
+        state_dict = checkpoint
+
+    state_dict = canonicalize_state_dict_keys(state_dict)
+    checkpoint_format = detect_checkpoint_format(state_dict)
+    return state_dict, checkpoint_format
+
+
+def build_model_from_state_dict(state_dict: Dict[str, torch.Tensor], checkpoint_format: str, num_classes: int = 10):
+    if checkpoint_format == 'dnn_mode_connectivity':
+        model = models.VGG16.base(num_classes=num_classes)
+    elif checkpoint_format == 'pytorch_vgg_cifar10':
+        model = pytorch_vgg.vgg16()
+    else:
+        raise ValueError(f'Unsupported checkpoint format: {checkpoint_format}')
+
+    model.load_state_dict(state_dict)
     return model
+
+
+def load_model(checkpoint_path: str, num_classes: int = 10):
+    """Load VGG16 model from checkpoint and detect its format."""
+    state_dict, checkpoint_format = load_checkpoint_state(checkpoint_path)
+    model = build_model_from_state_dict(state_dict, checkpoint_format, num_classes=num_classes)
+    return model, state_dict, checkpoint_format
 
 
 def evaluate_barrier(
@@ -194,10 +246,14 @@ def main():
     print("\n" + "=" * 70)
     print("Loading models...")
     print("=" * 70)
-    model_w0 = load_model(args.w0)
-    model_w1 = load_model(args.w1)
+    model_w0, state_w0, format_w0 = load_model(args.w0)
+    model_w1, state_w1, format_w1 = load_model(args.w1)
+    if format_w0 != format_w1:
+        raise ValueError(f"Checkpoint format mismatch: {format_w0} vs {format_w1}")
+    checkpoint_format = format_w0
     print(f"w_0: {args.w0}")
     print(f"w_1: {args.w1}")
+    print(f"Checkpoint format: {checkpoint_format}")
 
     # Load data
     print("\nLoading data...")
@@ -217,7 +273,7 @@ def main():
     print("=" * 70)
 
     # Compute L2 distance between w_0 and w_1
-    dist_w0_w1 = compute_l2_distance(model_w0.state_dict(), model_w1.state_dict())
+    dist_w0_w1 = compute_l2_distance(state_w0, state_w1)
     print(f"L2 distance (w_0 <-> w_1): {dist_w0_w1['l2_distance']:.4f}")
     print(f"RMS difference: {dist_w0_w1['rms_difference']:.6f}")
     print(f"Total parameters: {dist_w0_w1['num_params']:,}")
@@ -234,7 +290,12 @@ def main():
     perm_gen = VGG16RandomPermutation()
     P_star = perm_gen.generate(seed=args.perm_seed)
     P_star_inv = perm_gen.invert(P_star)
-    ps = vgg16_permutation_spec()
+    if checkpoint_format == 'dnn_mode_connectivity':
+        ps = vgg16_permutation_spec()
+    elif checkpoint_format == 'pytorch_vgg_cifar10':
+        ps = vgg16_features_permutation_spec()
+    else:
+        raise ValueError(f"Unsupported checkpoint format: {checkpoint_format}")
 
     def convert_perm_to_apply_format(P_found):
         """Convert P_found keys from 'P_Conv_0' to 'conv_0' format."""
@@ -262,21 +323,33 @@ def main():
             converted[new_key] = val
         return converted
 
+    def convert_perm_to_spec_format(perm):
+        converted = {}
+        for key, val in perm.items():
+            if key.startswith('conv_'):
+                new_key = f"P_Conv_{key[5:]}"
+            elif key.startswith('fc_'):
+                new_key = f"P_Dense_{key[3:]}"
+            else:
+                new_key = key
+            converted[new_key] = val
+        return converted
+
     # Step 3: Apply permutation to w_1
     print("\n" + "=" * 70)
     print("Step 3: Applying permutation to w_1 -> w_1'")
     print("=" * 70)
-    w1_prime_state = perm_gen.apply_to_state_dict(model_w1.state_dict(), P_star)
-    model_w1_prime = models.VGG16.base(num_classes=10)
-    model_w1_prime.load_state_dict(w1_prime_state)
+    P_star_spec = convert_perm_to_spec_format(P_star)
+    w1_prime_state = apply_permutation(ps, P_star_spec, state_w1)
+    model_w1_prime = build_model_from_state_dict(w1_prime_state, checkpoint_format, num_classes=10)
 
     # Compute L2 distance between w_0 and w_1' (should be similar to independently trained models)
-    dist_w0_w1_prime = compute_l2_distance(model_w0.state_dict(), w1_prime_state)
+    dist_w0_w1_prime = compute_l2_distance(state_w0, w1_prime_state)
     print(f"L2 distance (w_0 <-> w_1'): {dist_w0_w1_prime['l2_distance']:.4f}")
     print(f"RMS difference: {dist_w0_w1_prime['rms_difference']:.6f}")
 
     # Also show distance between w_1 and w_1' (should be large due to permutation)
-    dist_w1_w1_prime = compute_l2_distance(model_w1.state_dict(), w1_prime_state)
+    dist_w1_w1_prime = compute_l2_distance(state_w1, w1_prime_state)
     print(f"L2 distance (w_1 <-> w_1'): {dist_w1_w1_prime['l2_distance']:.4f}")
     print(f"RMS difference: {dist_w1_w1_prime['rms_difference']:.6f}")
 
@@ -295,7 +368,7 @@ def main():
     print("=" * 70)
     print(f"Weight matching seed: {args.wm_seed}")
 
-    params_w0 = state_dict_to_flat_params(model_w0.state_dict(), ps)
+    params_w0 = state_dict_to_flat_params(state_w0, ps)
     params_w1_prime = state_dict_to_flat_params(w1_prime_state, ps)
 
     P_found = weight_matching(
@@ -312,24 +385,21 @@ def main():
     print("Step 6: Applying found permutation to w_1' -> w_1_recovered")
     print("=" * 70)
 
-    P_found_converted = convert_perm_to_apply_format(P_found)
-    w1_recovered_state = perm_gen.apply_to_state_dict(w1_prime_state, P_found_converted)
-    model_w1_recovered = models.VGG16.base(num_classes=10)
-    model_w1_recovered.load_state_dict(w1_recovered_state)
+    w1_recovered_state = apply_permutation(ps, P_found, w1_prime_state)
+    model_w1_recovered = build_model_from_state_dict(w1_recovered_state, checkpoint_format, num_classes=10)
 
     # Compute distances for recovered model
-    dist_w0_w1_rec = compute_l2_distance(model_w0.state_dict(), w1_recovered_state)
+    dist_w0_w1_rec = compute_l2_distance(state_w0, w1_recovered_state)
     print(f"L2 distance (w_0 <-> w_1_rec): {dist_w0_w1_rec['l2_distance']:.4f}")
 
-    dist_w1_w1_rec = compute_l2_distance(model_w1.state_dict(), w1_recovered_state)
+    dist_w1_w1_rec = compute_l2_distance(state_w1, w1_recovered_state)
     print(f"L2 distance (w_1 <-> w_1_rec): {dist_w1_w1_rec['l2_distance']:.4f}")
 
     # Sanity check: verify w_1_rec == w_1 if P_found == P*^{-1}
     # This confirms: P_found(P*(w_1)) == w_1, meaning P_found == P*^{-1}
-    w1_state = model_w1.state_dict()
     max_diff = 0.0
-    for key in w1_state:
-        diff = torch.abs(w1_state[key] - w1_recovered_state[key]).max().item()
+    for key in state_w1:
+        diff = torch.abs(state_w1[key] - w1_recovered_state[key]).max().item()
         max_diff = max(max_diff, diff)
 
     print(f"Max element-wise diff (w_1 vs w_1_rec): {max_diff:.2e}")
@@ -361,7 +431,7 @@ def main():
     print("Step 8: Comparing P_found with P*^{-1}")
     print("=" * 70)
 
-    P_star_inv_converted = convert_perm_to_compare_format(P_star_inv)
+    P_star_inv_converted = convert_perm_to_spec_format(P_star_inv)
     perm_comparison = compare_permutations(P_found, P_star_inv_converted)
     print(f"Overall permutation accuracy: {perm_comparison['overall_accuracy']:.2%}")
     print("\nPer-layer accuracy:")
