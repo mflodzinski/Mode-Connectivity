@@ -1,14 +1,14 @@
 """
-Plot relative train-accuracy barrier: original vs recovered after alignment.
+Plot relative test-loss barrier: original vs recovered after alignment.
 
 Compares the relative barrier
 
-    (endpoint_avg - min(accs)) / (endpoint_avg + eps)
+    (max(losses) - endpoint_avg) / (endpoint_avg + eps)
 
 along the interpolation path before and after permutation alignment for
 different split configurations.
 
-V2: Includes starting point for the seed0-seed1 experiment.
+V2: Includes starting point for seed0-seed1 experiment.
 """
 
 import argparse
@@ -32,17 +32,17 @@ def load_benchmark_data(json_path):
         return json.load(f)
 
 
-def relative_barrier(accs, eps=EPS):
-    endpoint_avg = 0.5 * (accs[0] + accs[-1])
-    return (endpoint_avg - min(accs)) / (endpoint_avg + eps)
+def relative_barrier(losses, eps=EPS):
+    endpoint_avg = 0.5 * (losses[0] + losses[-1])
+    return (max(losses) - endpoint_avg) / (endpoint_avg + eps)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Plot relative train-accuracy barrier: original vs recovered")
+    parser = argparse.ArgumentParser(description="Plot relative test-loss barrier: original vs recovered")
     parser.add_argument(
         "--output",
         type=str,
-        default="plots/alignment_train_accuracy_v2.png",
+        default="plots/alignment_test_loss_relative_v2.png",
         help="Output file path",
     )
     parser.add_argument("--show", action="store_true", help="Show plot interactively")
@@ -57,9 +57,27 @@ def main():
     }
     seed_file = "results/analysis/alignment_independent/seed0_seed1_results.json"
 
+    hardcoded_data = {
+        "0/200": {
+            "w0_w1": 43.19,
+            "w0_w1_recovered": 36.46,
+            "org_test_loss_max": 2.4292150623321533,
+            "rec_test_loss_max": 1.4984863691329957,
+            "is_independent": False,
+        }
+    }
+
     experiments = []
 
     for name, path in data_files.items():
+        if name in hardcoded_data:
+            full_path = os.path.join(project_root, path)
+            if not os.path.exists(full_path):
+                experiments.append(hardcoded_data[name])
+                experiments[-1]["name"] = name
+                print(f"Using hardcoded data for {name}")
+                continue
+
         full_path = os.path.join(project_root, path)
         if os.path.exists(full_path):
             data = load_benchmark_data(full_path)
@@ -68,8 +86,8 @@ def main():
                     "name": name,
                     "w0_w1": data["distances"]["w0_w1"]["l2_distance"],
                     "w0_w1_recovered": data["distances"]["w0_w1_recovered"]["l2_distance"],
-                    "org_rel_barrier": relative_barrier(data["original_barrier"]["train_acc"]),
-                    "rec_rel_barrier": relative_barrier(data["recovered_barrier_to_w0"]["train_acc"]),
+                    "org_rel_barrier": relative_barrier(data["original_barrier"]["test_loss"]),
+                    "rec_rel_barrier": relative_barrier(data["recovered_barrier_to_w0"]["test_loss"]),
                     "is_independent": False,
                 }
             )
@@ -84,9 +102,10 @@ def main():
                 "name": "seed0-seed1",
                 "w0_w1": data["before_alignment"]["distance"]["l2_distance"],
                 "w0_w1_recovered": data["after_alignment"]["distance"]["l2_distance"],
-                "org_rel_barrier": relative_barrier(data["before_alignment"]["barrier"]["train_acc"]),
-                "rec_rel_barrier": relative_barrier(data["after_alignment"]["barrier"]["train_acc"]),
+                "org_rel_barrier": relative_barrier(data["before_alignment"]["barrier"]["test_loss"]),
+                "rec_rel_barrier": relative_barrier(data["after_alignment"]["barrier"]["test_loss"]),
                 "is_independent": True,
+                "is_same_init": False,
                 "show_original": True,
             }
         )
@@ -172,7 +191,7 @@ def main():
             )
 
     ax.set_xlabel("L2 Distance", fontsize=12)
-    ax.set_ylabel("Relative Train-Accuracy Barrier", fontsize=12)
+    ax.set_ylabel("Relative Test-Loss Barrier", fontsize=12)
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=9, loc="upper left")
 
@@ -186,21 +205,21 @@ def main():
     if args.show:
         plt.show()
 
-    print("\n" + "=" * 88)
-    print("RELATIVE TRAIN-ACCURACY BARRIER SUMMARY")
-    print("=" * 88)
+    print("\n" + "=" * 80)
+    print("RELATIVE TEST-LOSS BARRIER SUMMARY")
+    print("=" * 80)
     print(
-        f"{'Experiment':<15} {'w0_w1':>10} {'Org Rel':>12} {'w0_w1_rec':>10} {'Rec Rel':>12} {'Δ Rel':>12}"
+        f"{'Experiment':<15} {'w0_w1':>10} {'Org Rel':>12} {'w0_w1_rec':>10} {'Rec Rel':>12} {'Δ Rel':>10}"
     )
-    print("-" * 88)
+    print("-" * 80)
     for e in experiments:
         marker = " *" if e.get("is_independent", False) else ""
         delta = e["rec_rel_barrier"] - e["org_rel_barrier"]
         print(
             f"{e['name']:<15} {e['w0_w1']:>10.2f} {e['org_rel_barrier']:>12.6f} "
-            f"{e['w0_w1_recovered']:>10.2f} {e['rec_rel_barrier']:>12.6f} {delta:>+11.6f}{marker}"
+            f"{e['w0_w1_recovered']:>10.2f} {e['rec_rel_barrier']:>12.6f} {delta:>+9.6f}{marker}"
         )
-    print("-" * 88)
+    print("-" * 80)
     print("* = independent (different random init)")
 
 

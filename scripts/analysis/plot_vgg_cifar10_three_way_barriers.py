@@ -82,7 +82,7 @@ def main() -> None:
     output_root.mkdir(parents=True, exist_ok=True)
 
     x = np.arange(len(architecture_labels))
-    width = 0.18
+    width = 0.14
 
     fig, ax = plt.subplots(figsize=(10, 6))
     for index, (_, label, color) in enumerate(METHOD_SPECS):
@@ -92,8 +92,7 @@ def main() -> None:
     ax.set_xticks(x)
     ax.set_xticklabels(architecture_labels)
     ax.set_xlabel("Architecture")
-    ax.set_ylabel("Test Loss Barrier")
-    ax.set_title("CIFAR10 Test Loss Barriers Across VGG Architectures")
+    ax.set_ylabel("Test Loss Barrier", fontweight="bold")
     ax.grid(True, which="major", axis="both", linestyle="--", linewidth=0.7, alpha=0.5)
     ax.set_axisbelow(True)
     ax.legend()
