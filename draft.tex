@@ -24,7 +24,7 @@
 \title{Linear and Nonlinear Connectivity in Neural Network Loss Landscapes\\[0.3cm]
 \large The Role of Permutation and Scaling Symmetries}\\[0.3cm]
 \author{Maciej Lodzinski\\[0.2cm]
-\small Supervisors: Dr. Jing Sun, Dr. David Tax\\
+\small Supervisors: Dr. David Tax, Dr. Jing Sun\\
 \small Delft University of Technology}
 \date{April 2026}
 
@@ -210,7 +210,13 @@ W_2 \sigma(W_1 x)
 =
 f(x).
 \]
-Thus, reordering hidden neurons and undoing the same reordering in the next layer leaves the network invariant.
+Thus, reordering hidden neurons and undoing the same reordering in the next layer leaves the network invariant. The same idea extends directly to deeper fully connected networks. If a network has weight matrices \(W_1,\dots,W_L\), and if each hidden layer \(\ell\) is permuted by a permutation matrix \(P_\ell\), then the transformed weights are
+\[
+W_1' = P_1 W_1,\qquad
+W_\ell' = P_\ell W_\ell P_{\ell-1}^{\top}\;(\ell=2,\dots,L-1),\qquad
+W_L' = W_L P_{L-1}^{\top}.
+\]
+Here, left multiplication by \(P_\ell\) permutes the output coordinates of layer \(\ell\), while right multiplication by \(P_{\ell-1}^{\top}\) compensates for the permutation of the previous hidden layer on the input side. The first layer has no preceding hidden layer, so only left multiplication appears, while the output layer has no following hidden layer, so only the right-side compensation remains.
 
 \paragraph{Convolutional layers.}
 The same argument holds for convolutional channels. Let the first convolution produce hidden feature maps
@@ -229,7 +235,7 @@ and the next convolution can compensate by permuting its input-channel dimension
 =
 W_2 * h.
 \]
-Therefore, permuting the channels of one convolutional layer and applying the inverse permutation to the input channels of the next layer does not change the network function.
+Therefore, permuting the channels of one convolutional layer and applying the inverse permutation to the input channels of the next layer does not change the network function. This extends in the same way to deeper convolutional networks, with exactly the same algebraic form as above. The only difference is how the multiplications are interpreted: for convolutional kernels, the left multiplication acts on the output-channel axis and the right multiplication acts on the input-channel axis. The reason the same formula applies is that a convolution is still linear in its channel coordinates: reordering the output channels of one layer simply reorders the feature maps passed to the next layer, so the next layer can undo this exactly by applying the inverse permutation on its input-channel dimension.
 
 In both cases, permutations can be chosen independently at each hidden layer or hidden channel dimension. This creates a large family of parameter vectors that are functionally identical, even though they may be far apart in Euclidean parameter space.
 
@@ -314,43 +320,6 @@ The interpretation: if independently trained networks ``look like'' permuted ver
 
 
 %==============================================================================
-\chapter{Methodology}
-%==============================================================================
-\label{chap:methodology}
-\section{Architectures and Datasets}
-
-\begin{enumerate}
-    \item \textbf{Standard benchmarks:} VGG16 ($\sim$15M parameters) on CIFAR-10. These replicate prior work and validate our implementation. Three independently trained models (seed0, seed1, seed2) serve as endpoints.
-    
-    \item \textbf{Controlled synthetic:} Small MLPs (e.g., 2-H-1) with varying H on XOR. These enable direct hypothesis testing.
-\end{enumerate}
-
-
-\subsection{Evaluation Protocol}
-
-All interpolation paths are evaluated at 61 uniformly spaced points $\lambda \in [0, 1]$. At each point:
-
-\begin{enumerate}
-    \item Compute interpolated weights: $\theta_\lambda = (1-\lambda)\theta_A + \lambda\theta_B$
-    \item Recalculate batch normalization statistics on training set
-    \item Record training loss, test loss, training accuracy, test accuracy
-\end{enumerate}
-
-\subsection{Path-Finding Methods (Baseline)}
-
-To establish that mode connectivity (curved paths) holds for our models, we use Bézier curve and Polygon chain with one trainable midpoint. These methods confirm that curved low-loss paths exist, consistent with prior work. The thesis then focuses on whether linear connectivity holds after permutation alignment.
-
-\subsection{Permutation Alignment Methods}
-
-We evaluate the following methods:
-
-\begin{enumerate}
-    \item \textbf{Weight Matching} \citep{ainsworth2023git}: Match neurons by weight similarity, solved as a Linear Assignment Problem (LAP) using the Hungarian algorithm.    \item \textbf{Activation Matching} \citep{ainsworth2023git}: Match neurons by activation correlation.
-    \item \textbf{REPAIR} \citep{jordan2023repair}: Post-hoc activation rescaling.
-\end{enumerate}
-
-%==============================================================================
-%==============================================================================
 \chapter{Experiments}
 
 %==============================================================================
@@ -362,7 +331,11 @@ First, we compare low-loss nonlinear connectivity in two settings that are centr
 
 To test this, we train Bézier curves in two settings: (1) between independently initialized models (`seed0--seed1`), and (2) between a model and a permuted version of itself (`seed0--mirror`). Since low-loss curved paths are already known to exist between independently trained models \citep{garipov2018loss}, one would expect such paths to exist at least as readily between a model and a permuted copy, because the two endpoints implement the same function and differ only by a hidden-unit permutation. 
 
-In the mirror construction, the permuted model is obtained by reversing the order of neurons within each hidden layer:
+\subsection{Methodology}
+
+Quadratic Bézier curves are trained with fixed endpoints and a single trainable interior bend, corresponding to the parameterization in equation~\eqref{eq:bezier}. Across the compared settings, the curve-training setup is kept the same so that any difference in the resulting path quality is attributable to the relation between the endpoints rather than to a different optimization schedule. Full hyperparameter details are reported in Appendix~\ref{app:curved_path_repro}.
+
+For the mirror setting, the second endpoint is constructed by reversing the order of hidden units within each hidden layer:
 \[
 \bigl(P_\ell^{\mathrm{mirror}}\bigr)_{ij} =
 \begin{cases}
@@ -370,33 +343,10 @@ In the mirror construction, the permuted model is obtained by reversing the orde
 0, & \text{otherwise},
 \end{cases}
 \]
-Here, $n_\ell$ is the number of hidden units in layer $\ell$, while $i$ and $j$ index the rows and columns of the permutation matrix. The rule $j = n_\ell + 1 - i$ simply encodes reversal of the hidden-unit ordering. The same construction applies to convolutional layers, where it reverses the order of output channels.
+where $n_\ell$ is the width of hidden layer $\ell$. Thus, unit \(i\) is mapped to position \(n_\ell+1-i\). The same construction applies to convolutional layers, where it reverses the order of output channels. For the random-permutation setting, the second endpoint is obtained instead by applying a full-network random permutation, while keeping the represented function unchanged.
 
-
-% \subsection{Methodology}
-
-% The endpoint models were trained using the \texttt{pytorch-vgg-cifar10} repository \citep{fu_pytorch_vgg_cifar10}. Curve training tries to then find a low-loss path between these endpoints using the \texttt{dnn-mode-connectivity} repository \citep{garipov_dnn_mode_connectivity}.
-
-% We use a quadratic Bézier parameterization with $\texttt{num\_bends}=3$, which means that the two endpoints are fixed and there is exactly one trainable interior point. The curve is therefore parameterized as in equation~\eqref{eq:bezier}.
-
-% The curves are trained for $200$ epochs with learning rate $0.015$, weight decay $5e-4$, and random seed $0$. Thus, the optimization hyperparameters are kept fixed across the compared settings, so that the main difference is the geometric relation between the endpoints rather than the training procedure of the curve itself.
-
-% For the mirror condition, the second endpoint is obtained by applying a deterministic reversal permutation within every hidden layer. Let $P_\ell$ denote the permutation matrix that reverses the neuron or channel order in layer $\ell$, i.e.
-% \[
-% P_\ell e_i = e_{n_\ell + 1 - i},
-% \]
-% where $n_\ell$ is the width of the layer. In matrix form, the mirrored network is obtained by permuting the output channels of one layer and the corresponding input channels of the next layer:
-% \[
-% \widetilde{W}_1 = P_1 W_1,\qquad
-% \widetilde{W}_\ell = P_\ell W_\ell P_{\ell-1}^{\top}\ \text{for hidden layers},\qquad
-% \widetilde{W}_L = W_L P_{L-1}^{\top}.
-% \]
-% For convolutional layers, the same transformation is applied along the channel dimensions. This operation preserves the represented function exactly, so the original and mirrored endpoints are functionally identical and differ only by a structured hidden-unit permutation.
-
-\newpage
 \subsection{Results}
 
-The main panels of Figure~\ref{fig:combined_connectivity} show that both settings admit low-loss curved paths, with barriers below roughly $2.5\%$ test error and below $0.06$ test loss. This confirms that curved mode connectivity is present in our setup, since such barrier values still correspond to functional models along the path. At the same time, the insets reveal a systematic difference: the barriers for mirror-permuted pairs are consistently higher than those for independently trained pairs. This is notable because the mirror endpoints are functionally identical, whereas independently trained models need not be. To test whether this effect is specific to the mirror construction or reflects a more general property of permutation-related pairs, we next repeat the experiment with random permutations instead of deterministic mirroring.
 
 \begin{figure}[H]
     \centering
@@ -404,7 +354,7 @@ The main panels of Figure~\ref{fig:combined_connectivity} show that both setting
     \caption{Linear and curve-based connectivity for VGG16 on CIFAR10. The main panels show loss and error along the full interpolation path. The insets show the corresponding curve-only trajectories, that is, the same quantities without linear interpolation, in order to make the differences between seed-seed and seed-mirror pairs more visible in the low-barrier regime.}
     \label{fig:combined_connectivity}
 \end{figure}
-
+The main panels of Figure~\ref{fig:combined_connectivity} show that both settings admit low-loss curved paths, with barriers below roughly $2.5\%$ test error and below $0.06$ test loss. This confirms that curved mode connectivity is present in our setup, since such barrier values still correspond to functional models along the path. At the same time, the insets reveal a systematic difference: the barriers for mirror-permuted pairs are consistently higher than those for independently trained pairs. This is notable because the mirror endpoints are functionally identical, whereas independently trained models need not be. To test whether this effect is specific to the mirror construction or reflects a more general property of permutation-related pairs, we next repeat the experiment with random permutations instead of deterministic mirroring.
 
 \begin{figure}[H]
 \centering
@@ -414,99 +364,122 @@ The main panels of Figure~\ref{fig:combined_connectivity} show that both setting
 \end{figure}
 
 
+
 As shown in Figure~\ref{fig:baseline-bezier-nointerpolation_randpermute}, random permutations yield low-loss curves that are virtually indistinguishable from those obtained between independently trained models. The loss profiles along the optimized Bézier paths exhibit no pronounced peak and closely match both the shape and magnitude observed in the independent-seed setting. This shows that the elevated barrier observed for mirror permutations is not a generic consequence of permutation symmetry, but rather a feature of that particular construction. Why the mirror permutation behaves differently from a random permutation is not clear, but resolving that question is not important for the present thesis. What matters here is that curved low-loss paths remain robust both between independent solutions and across random permutation symmetries.
 
 \section{Hyperplane-Constrained Path Finding}
+The Bézier experiments above show that low-loss curved paths can be found both between independently trained models and between models related by permutation. This raises a more geometric question: how much freedom is actually needed to find such paths? If low-loss paths are rare and occupy only narrow corridors in parameter space, then even a simple geometric constraint should make path optimization much harder. Conversely, if low-loss paths are abundant, then imposing a weak constraint should have little effect. To test this, we constrained the trainable midpoint parameter vector of a three-bend polygonal chain to lie in random affine subspaces that pass through the midpoint of the linear interpolation. Importantly, the codimension constraint is applied only to this trainable point, not to the entire path.
 
 \begin{figure}
     \centering
     \includegraphics[width=0.75\linewidth]{canvaxd_v2.png}
-    \caption{Schematic of path optimization under a hyperplane constraint. The midpoint between two solutions is initialized on the linear interpolation and restricted to move inside a fixed hyperplane. A path is then obtained by connecting the endpoints through the optimized midpoint.}
+    \caption{Schematic of path optimization under a hyperplane constraint. The midpoint between two solutions is initialized on the linear interpolation and restricted to move inside a fixed hyperplane. A path is then obtained by connecting the endpoints through the optimized midpoint. The constraining hyperplane is not assumed to be the perpendicular bisector of the linear interpolation between the endpoints.}
     \label{fig:hyperplane_constraint_schematic}
 \end{figure}
 
+\subsection{Methodology}
 
-
-The Bézier experiments above show that low-loss curved paths can be found both between independently trained models and between models related by permutation. This raises a more geometric question: how much freedom is actually needed to find such paths? If low-loss paths are rare and occupy only narrow corridors in parameter space, then even a simple geometric constraint should make path optimization much harder. Conversely, if low-loss paths are abundant, then imposing a weak constraint should have little effect.
-
-To test this, we constrained the midpoint of a three-bend polygonal chain. For two endpoints $w_0$ and $w_1$, the unconstrained polygonal path has one trainable midpoint $\theta$, and the path is obtained by connecting $w_0$ to $\theta$ and then $\theta$ to $w_1$. We modify this procedure by requiring $\theta$ to lie in a fixed hyperplane. After each gradient step, the midpoint is projected back onto the hyperplane, so optimization can still search for a low-loss path, but only within the allowed subspace.
-
-As a first choice, we use the perpendicular bisector of the two endpoints. Let
+For two endpoints $w_0$ and $w_1$, let
 \[
-\mathbf{m} = \frac{1}{2}(w_0+w_1),
-\qquad
-\mathbf{n} = w_1-w_0.
+\mathbf{m}=\frac{1}{2}(w_0+w_1).
 \]
-The constrained midpoint is required to satisfy
+The polygonal path is then defined by connecting $w_0$ to a trainable midpoint $\theta$ and $\theta$ to $w_1$, while requiring only this midpoint $\theta$ to remain inside a randomly chosen subspace through $\mathbf{m}$. The two line segments joining $w_0$ to $\theta$ and $\theta$ to $w_1$ are not themselves separately constrained. In the implementation, the midpoint is flattened into a single parameter vector, and the constraint is written as
 \[
-(\theta-\mathbf{m})\cdot \mathbf{n}=0.
+N^\top(\theta-\mathbf{m})=0,
 \]
-This hyperplane is a natural geometric baseline because it passes through the midpoint of the interpolation and contains all points equidistant from the two endpoints. Importantly, we do not assume that it is a true symmetry plane of the loss landscape; it is simply a simple, structured codimension-1 constraint.
+where \(N=[n_1,\dots,n_k]\) contains \(k\) orthonormal random directions in the full parameter space, and \(k\) is the codimension, so the feasible set is the intersection of the \(k\) random hyperplanes
+\[
+n_i^\top(\theta-\mathbf{m})=0,\qquad i=1,\dots,k.
+\]
+The random directions are sampled from a standard Gaussian distribution and orthonormalized by Gram--Schmidt. After each gradient step, the trainable midpoint is projected back onto this intersection by removing its components along the constrained directions:
+\[
+\theta_{\mathrm{proj}}
+=
+\theta-\sum_{i=1}^k \bigl((\theta-\mathbf{m})^\top n_i\bigr)n_i.
+\]
+Thus, optimization is free to move inside the \((N-k)\)-dimensional affine subspace orthogonal to the sampled directions, but not along those directions themselves. We varied the codimension \(k\), using \(k\in\{1,5,10,30\}\).
 
-The constraint was verified using the normalized distance
-\[
-d_{\mathrm{norm}} =
-\frac{|(\theta - \mathbf{m}) \cdot \mathbf{n}|}
-{\|\mathbf{n}\| \cdot \sqrt{N}},
-\]
-which remained at machine precision ($d_{\mathrm{norm}} \approx 7.2 \times 10^{-8}$).
+
+
+\subsection{Results}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{random_planes-comp.png}
-    \caption{Comparison of polygonal path optimization with different midpoint constraints. The midpoint is either unconstrained, constrained to the perpendicular bisector, or constrained to random hyperplanes.}
+    \includegraphics[width=1\linewidth]{random_plane_midpoint_codim1_5_10_30_seed0-seed1.png}
+    \caption{Comparison of polygonal path optimization when the trainable midpoint is constrained to random subspaces through the interpolation midpoint, for codimensions $1$, $5$, $10$, and $30$.}
     \label{fig:random_planes_comparison}
 \end{figure}
 
 
+The result is that all tested codimensions yield virtually identical low-loss paths: across this range of codimensions, the differences are negligible. At the same time, the optimized trainable midpoints found by the constrained searches are different, showing that multiple distinct constrained solutions can yield similarly good low-loss connections.
 
-The result is that constraining the midpoint to a hyperplane does not substantially change the ability to find low-loss paths when the full path is optimized. Moreover, the perpendicular bisector behaves similarly to random hyperplanes, including random planes through the midpoint and random planes with random anchors. This suggests that the perpendicular bisector is not special for path finding in this setting.
+\begin{table}[H]
+    \centering
+    \label{tab:random_plane_codim_results}
+    \begin{tabular}{ccc}
+        \toprule
+        \textbf{Codimension} & \textbf{Max Test Error} & \textbf{Barrier Height} \\
+        \midrule
+        1 & 8.19\% & 1.23\% \\
+        5 & 8.24\% & 1.27\% \\
+        10 & 8.11\% & 1.15\% \\
+        30 & 8.03\% & 1.07\% \\
+        \bottomrule
+    \end{tabular}
+    \caption{Path quality under random hyperplane constraints of different codimensions.}
+\end{table}
 
-The interpretation is that a codimension-1 constraint is very weak in a parameter space with roughly $15$ million dimensions. Removing one direction still leaves an enormous search space, so the optimizer can find low-loss paths almost as easily inside an arbitrary $(N-1)$-dimensional subspace. Thus, the main conclusion is not that a particular hyperplane has special geometric meaning, but that low-loss curved paths are highly abundant.
+The interpretation is that constraining a single trainable point by these codimension conditions remains extremely weak relative to the ambient parameter dimension of roughly $15$ million. Even after removing up to $30$ directions from the admissible location of the midpoint, the optimizer still has enough freedom to find essentially the same quality of low-loss connection. The important point is therefore not that a particular constrained subspace is special, but that the low-loss region is broad enough to admit many different constrained connecting points.
 
-This supports a broader picture in which trained solutions are not connected only by delicate, low-dimensional corridors. Instead, the low-loss region appears thick enough that even constrained path searches retain enough freedom to succeed. A natural next question is how far this can be pushed: at what codimension does connectivity begin to degrade? Systematically reducing the dimension of the allowed subspace would provide a more direct way to estimate the effective thickness of the low-loss manifold.
+This supports a broader picture in which trained solutions are not connected only by delicate, low-dimensional corridors. Instead, the low-loss region appears thick enough that even constrained path searches can reach different trainable points while retaining essentially the same path quality. A natural next question is how far this can be pushed: at what codimension does connectivity begin to degrade? Systematically increasing the codimension would provide a more direct way to estimate the effective thickness of the low-loss region.
 
     
 
 
 \section{Controlled LMC Benchmark with Known Permutations}
+\label{sec:controlled_benchmark}
+
 In contrast to the Bézier experiments above, which test the existence of curved low-loss paths (mode connectivity), the following experiment focuses on linear mode connectivity (LMC) via straight-line interpolation. LMC is a strictly stronger geometric condition than curved connectivity: failure of LMC does not imply disconnection, but rather linear separation.
 
 The goal of this experiment is to evaluate whether permutation-finding methods succeed when ground truth is available. Prior work has not evaluated alignment methods against known ground-truth permutations. Existing evaluations typically measure only the final barrier after alignment; if the barrier remains high, it is unclear whether (a) the method failed to recover a good permutation that exists, or (b) no such permutation exists, meaning the networks genuinely lie in different basins.
 
 Importantly, prior work \citep{entezari2021role} focuses on aligning a model with a permuted version of itself—i.e., recovering the exact symmetry that makes two networks functionally identical. In that setting, successful alignment reduces one network to the other up to permutation. Our objective is different: we seek a permutation that aligns two \emph{distinct trained modes} so that they become linearly mode connected, not necessarily identical. The task is therefore not to reconstruct an exact symmetry transformation, but to find a permutation that reduces the LMC barrier between genuinely different solutions.
 
-To create a controlled benchmark, we apply a known permutation $P^*$ to one network in a pair that is already LMC-connected, and test whether the alignment method can recover connectivity. Because a correct permutation is guaranteed to exist, success validates the method’s ability to recover meaningful alignments. Conversely, failure on this controlled task would indicate that the method is too weak to draw conclusions about the hypothesis from its performance. We adopted the shared initialization with split training approach from \citep{frankle2020linear} to construct these network pairs and weight matching \citep{ainsworth2023git} as a permutation finding method:
-
-
-We fix $N = 200$ total epochs (the number required for this model to converge) and vary $x$ (the split point) to control the distance between $w_0$ and $w_1$. Longer shared training (larger $x$) produces closer networks while shorter shared training makes them more distant.
-
-\begin{enumerate}
-    \item Train a model for $x$ epochs with a fixed batch ordering, producing a shared checkpoint $w_{\mathrm{shared}}$.
-    \item Create two copies of $w_{\mathrm{shared}}$ and continue training them independently for $N-x$ epochs using different batch orderings. This produces two related endpoints, $w_0$ and $w_1$. \bluecircle{}
-    \item Apply a known random permutation $P^\ast$ to one endpoint, giving $w_1' = P^\ast(w_1)$.
-    \item Run weight matching between $w_0$ and the permuted endpoint $w_1'$ to recover an estimated alignment $P$.
-    \item Test whether the recovered alignment removes the artificial permutation by comparing the original $\operatorname{barrier}(w_0, w_1)$ with the aligned $\operatorname{barrier}\bigl(w_0, P(w_1')\bigr)$. \greencircle{}
-\end{enumerate}
-
-\begin{figure}
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.95\linewidth]{construction.png}
     \caption{Starting from a shared initialization $x_{\mathrm{init}}$, training splits at $x_{\mathrm{split}}$ to produce two related modes $x_0$ and $x_1$. A known permutation maps $x_1 \to x_1'$, and weight matching attempts to recover $P(x_1')$. The blue and green dotted lines indicate the distances between modes, as referred to in the later part of the experiment.}
     \label{fig:placeholder}
 \end{figure}
 
+To create a controlled benchmark, we apply a known permutation $P^*$ to one network in a pair that is already LMC-connected, and test whether the alignment method can recover connectivity. Because a correct permutation is guaranteed to exist, success validates the method’s ability to recover meaningful alignments. Conversely, failure on this controlled task would indicate that the method is too weak to draw conclusions about the hypothesis from its performance. We adopted the shared initialization with split training approach from \citep{frankle2020linear} to construct these network pairs and weight matching \citep{ainsworth2023git} as a permutation finding method.
+
+\subsection{Methodology}
+
+We fix $N = 200$ total epochs (the number required for this model to converge) and vary $n$ (the split point) to control the distance between $w_0$ and $w_1$. Longer shared training (larger $n$) produces closer networks while shorter shared training makes them more distant.
+
+\begin{enumerate}
+    \item Train a model for $n$ epochs with a fixed batch ordering, producing a shared checkpoint $w_{\mathrm{shared}}$.
+    \item Create two copies of $w_{\mathrm{shared}}$ and continue training them independently for $N-n$ epochs using different batch orderings. This produces two related endpoints, $w_0$ and $w_1$. \bluecircle{}
+    \item Apply a known random permutation $P^\ast$ to one endpoint, giving $w_1' = P^\ast(w_1)$.
+    \item Run weight matching between $w_0$ and the permuted endpoint $w_1'$ to recover alignment $P$.
+    \item Test whether the recovered alignment removes the artificial permutation by comparing the original $\operatorname{barrier}(w_0, w_1)$ with the aligned $\operatorname{barrier}\bigl(w_0, P(w_1')\bigr)$. \greencircle{}
+\end{enumerate}
+Full training and evaluation details are reported in Appendix~\ref{app:controlled_xor_repro}.
+
+
 
 \subsection{Results}
+In every case the recovered $\text{barrier}(w_0, P(w_1'))$ is lower than the original $\text{barrier}(w_0, w_1)$, suggesting the alignment method finds permutations that improves connectivity beyond the ground truth. This confirms that the method works correctly and manages to find an optimal permutation, at least when one exists.
+
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\linewidth]{train_accuracy.png}
+    \includegraphics[width=1\linewidth]{train_accuracy.png}
     \caption{
     Train barrier as a function of $\ell_2$ distance between weight vectors, before and after permutation alignment. Blue and green circles correspond to distances and barriers between $x_0$ and $x_1$, and between $x_0$ and $P(x_1')$, respectively; red diamonds denote independently trained networks.}
     \label{fig:barrier-vs-distance}
 \end{figure}
 
-In every case the recovered $\text{barrier}(w_0, P(w_1'))$ is lower than the original $\text{barrier}(w_0, w_1)$, suggesting the alignment method finds permutations that improves connectivity beyond the ground truth. This confirms that the method works correctly and manages to find an optimal permutation, at least when one exists.
 
 The important observation is that weight matching is always applied to the pair $(w_0,w_1')$, where $w_1' = P^\ast(w_1)$ is obtained by applying a random permutation to $w_1$. Because of this artificial permutation, the apparent parameter-space mismatch between $w_0$ and $w_1'$ is large in all split settings, and is comparable to the mismatch between independently initialized models. Nevertheless, the quality of the recovered alignment depends strongly on how the underlying pair $(w_0,w_1)$ was created. When the two models share most of their training trajectory, alignment recovers a low-barrier connection. When the split occurs earlier and the models train independently for longer, the post-alignment barrier remains much larger. Thus, even though weight matching sees a similarly difficult-looking permuted pair in all cases, it succeeds only when the underlying unpermuted endpoints are already close.
 
@@ -525,33 +498,36 @@ The experiment above shows that alignment performance depends strongly on the un
 
 Additionally, XOR is interesting because multiple distinct decision boundaries can achieve 100\% classification accuracy. Networks may learn different weight configurations while computing functions that agree on the four training points but differ elsewhere. This allows us to test alignment between networks with both similar and different decision boundaries.
 
+\subsection{Methodology}
 
-We use the 4-point XOR problem centered at the origin ($\{(\pm 1, \pm 1)\}$) with a 2-2-1 MLP using ReLU activations and biases trained with SGD. Multiple networks are trained from independent random initializations until they achieve 100\% accuracy and near-zero loss. Up to 10 networks were trained which resulted in 45 pairs.
+We use the 4-point XOR problem with inputs \(\{(0,0),(0,1),(1,0),(1,1)\}\) and binary labels \(\{0,1,1,0\}\), together with a 2-2-1 MLP using ReLU activations and a single logit output. Independently initialized networks are trained until they solve the task, yielding a collection of endpoint pairs.
+
+For each pair, both hidden-unit permutations are checked exhaustively: the identity and the swap. The better permutation is selected by requiring \(100\%\) interpolation accuracy and then minimizing interpolation loss. This makes the alignment search exact in the minimal-width XOR setting. Full training details are given in Appendix~\ref{app:controlled_xor_repro}.
 
 \subsection{Results}
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.32\textwidth}
+    \begin{subfigure}[b]{0.48\textwidth}
         \includegraphics[width=\textwidth]{2-4_interpolation.png}
-        \caption{Seeds 2→4}
         \label{fig:xor-interp-success}
     \end{subfigure}
     \hfill
-    \begin{subfigure}[b]{0.32\textwidth}
+    \begin{subfigure}[b]{0.48\textwidth}
         \includegraphics[width=\textwidth]{9-12_interpolation.png}
-        \caption{Seeds 9→12}
         \label{fig:xor-interp-fail-same}
     \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.32\textwidth}
+
+    \vspace{-20pt}
+
+    \begin{subfigure}[b]{0.48\textwidth}
         \includegraphics[width=\textwidth]{11-14_interpolation.png}
-        \caption{Seeds 11→14}
         \label{fig:xor-interp-fail-diff}
     \end{subfigure}
     \caption{Loss interpolation curves for the three network pairs. Only the successfully aligned pair (a) yields a flat loss curve; failed alignments (b, c) show significant barriers.}
     \label{fig:xor-interpolations}
 \end{figure}
+
 
 \begin{figure}[H]
     \centering
@@ -560,6 +536,7 @@ We use the 4-point XOR problem centered at the origin ($\{(\pm 1, \pm 1)\}$) wit
     \label{fig:xor-success}
 \end{figure}
 
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{unsuccesfull_same_boundary.png}
@@ -567,13 +544,14 @@ We use the 4-point XOR problem centered at the origin ($\{(\pm 1, \pm 1)\}$) wit
     \label{fig:xor-fail-same}
 \end{figure}
 
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{unsuccesgul_diff_boundary.png}
     \caption{Failed alignment (seeds 11→14): networks with different decision boundaries.}
     \label{fig:xor-fail-diff}
 \end{figure}
-\newpage
+
 Alignment succeeds only when weights are nearly identical up to permutation. In the successful case shown in Figure~\ref{fig:xor-success} (seeds 2$\to$4), the networks had virtually identical weights and biases, differing only by a neuron swap. After applying the permutation, the networks were essentially the same ($\|w_A - P(w_B)\| \approx 0$), trivially yielding LMC.
 
 Similar decision boundaries do not guarantee alignment. As shown in Figure~\ref{fig:xor-fail-same}, seeds 9$\to$12 learned visually identical decision boundaries but with different internal weight configurations. Despite computing the same values on the whole possible input space, their weights were not related by permutation, and alignment failed.
@@ -584,15 +562,17 @@ Different decision boundaries made alignment impossible in this case. Figure~\re
 These results suggest that for minimal-width networks, the \textit{one-basin modulo permutation hypothesis} does not hold: networks trained from different initializations can converge to genuinely different basins that no permutation can bridge. Successful alignment occurs only in cases where networks happen to learn nearly identical weights. This motivates testing with wider hidden layers, where overparameterization may allow different initializations to find good permutations.
 
 \subsubsection{Effect of Hidden Layer Width}
+\label{subsubsec:effect_hidden_width}
 
 Given the failure of alignment on the minimal 2-2-1 architecture, we investigated whether increasing the hidden layer width enables connectivity. We trained networks with $n \in \{2, 3, 4, 5\}$ hidden neurons and exhaustively searched all $n!$ permutations, selecting the best permutation by prioritizing accuracy (100\% required) and then minimizing loss.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{2-5_successful.png}
-    \caption{Example of successful alignment on a 2-5-1 architecture (seeds 2→5).}
+    \includegraphics[width=1\linewidth]{2-4_successful.png}
+    \caption{Example of successful alignment on a 2-5-1 architecture (seeds 2→4).}
     \label{fig:xor-2-4-success}
 \end{figure}
+
 
 \begin{figure}[H]
     \centering
@@ -602,15 +582,29 @@ Given the failure of alignment on the minimal 2-2-1 architecture, we investigate
 \end{figure}
 
 
+
 The results show that width enables connectivity. As the hidden layer width increased from $n=2$ to $n=5$, interpolation barriers decreased and the number of successful LMC alignments increased gradually. At $n=2$, most network pairs could not be aligned, whereas by $n=5$, all pairs achieved $100\%$ accuracy throughout the interpolation. This agrees with \citep{ainsworth2023git}, who empirically observed that wider models exhibit better linear mode connectivity and are easier to align using permutation-finding methods. However, even when accuracy stayed perfect, the midpoint loss was rarely zero: it remained slightly higher than at the trained endpoints, indicating that the interpolated networks classified the XOR points correctly but with lower confidence. Even in this minimal setting, overparameterization provides the redundancy needed for permutation alignment to succeed.
 
-This suggests that failures of alignment methods on narrow architectures may reflect genuine multi-basin structure rather than only algorithmic weakness. The \textit{one-basin modulo permutation hypothesis} may therefore hold only once the network is sufficiently overparameterized.dadsac
+This suggests that failures of alignment methods on narrow architectures may reflect genuine multi-basin structure rather than only algorithmic weakness. The \textit{one-basin modulo permutation hypothesis} may therefore hold only once the network is sufficiently overparameterized.
 
 \section{XOR Experiment: Validating Mode Connectivity on a Minimal Problem}
 
 The permutation-alignment experiment above showed that LMC fails after permutation allignment for most pairs in the minimal 2–2–1 XOR architecture. However, failure of linear mode connectivity does not imply the absence of curved connectivity. To determine whether the observed failures reflect genuine structural disconnection or simply the absence of LMC after permutation alignment, we next directly investigate curved mode connectivity in the same minimal setting. We attempted to find low-loss curved paths between independently trained XOR solutions using both Bézier curves and polygonal chains. Initially, we used a single trainable midpoint. When this failed to produce low-loss connections, we progressively increased the number of trainable points (up to 10), greatly increasing the flexibility of the path parameterization.
 
-Despite this, low-loss paths were found only between models that were virtually identical in their weights (i.e., trivial connections). For non-trivial pairs, no method succeeded in discovering a low-loss curved path. This held even for models whose decision boundaries appeared visually identical. Thus, in the minimal-width 2-2-1 architecture, two independently trained solutions cannot in general be connected, even nonlinearly, unless they are already nearly identical in parameter space.
+\subsection{Methodology}
+
+The XOR dataset, model class, and endpoint-training setup are the same as in the previous XOR alignment experiment. The difference is the object being optimized: instead of searching over permutations, we directly optimize curved connecting paths between independently trained endpoints. We evaluate both Bézier curves and polygonal chains, beginning with a single trainable midpoint and then increasing the number of trainable points up to 10 when necessary to test whether additional path flexibility is sufficient to recover a low-loss connection. Full optimization details are summarized in Appendix~\ref{app:controlled_xor_repro}.
+
+\subsection{Results}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{unsuccesful_10-14_bezier_3bend.png}
+    \caption{No low-loss path found (seeds 10→14): networks with different decision boudaries.}
+    \label{fig:placeholder}
+\end{figure}
+
+Despite this, low-loss paths were found only between models that were virtually identical in their weights. For non-trivial pairs, no method succeeded in discovering a low-loss curved path. This held even for models whose decision boundaries appeared visually identical. Thus, in the minimal-width 2-2-1 architecture, two independently trained solutions cannot in general be connected, even nonlinearly, unless they are already nearly identical in parameter space.
 
 These results mirror our earlier permutation-alignment experiment on the minimal XOR architecture: alignment succeeded only in degenerate cases where the networks were effectively identical up to permutation. The absence of curved connectivity here suggests that width $m=2$ provides insufficient redundancy to allow different initializations to lie within the same connected low-loss manifold.
 
@@ -641,7 +635,18 @@ Overall, these results demonstrate a sharp transition in connectivity behavior b
 
 The previous chapters showed that low-loss connectivity and linear mode connectivity are different problems. Curved paths were often easy to find, even when the path search was geometrically constrained, suggesting that trained solutions can belong to a broad connected low-loss region. Linear mode connectivity is stricter: it asks whether two endpoints can be connected by the straight line between their parameters. The controlled permutation benchmark showed that permutation alignment works when a good permutation is guaranteed to exist, but its performance degrades as the underlying modes move farther apart. The XOR experiments sharpened this point further: because all permutations could be checked exhaustively, we saw that even the best possible permutation does not always remove the interpolation barrier. This suggests that permutation symmetry may not capture all structure relevant for low-barrier interpolation. 
 
-Another possibility is that permutation invariance does not capture the full symmetry structure relevant for low-barrier interpolation. Neural networks with positively homogeneous activations such as ReLU possess an additional layerwise scaling symmetry: hidden units can be rescaled by positive constants provided the adjacent layer compensates appropriately, leaving the represented function unchanged. Thus, two networks may represent similar computations while differing not only in the ordering of hidden units, but also in the internal scale assigned to those units. This motivates the main question of this chapter:
+Another possibility is that permutation invariance does not capture the full symmetry structure relevant for low-barrier interpolation. Neural networks with positively homogeneous activations such as ReLU possess an additional layerwise scaling symmetry. A positively homogeneous activation satisfies \(\sigma(cz)=c\,\sigma(z)\) for all \(c>0\). Therefore, for a two-layer block
+\[
+f(x)=W_2\,\sigma(W_1x),
+\]
+one may rescale a hidden unit by a positive constant \(c\) without changing the represented function:
+\[
+(W_2D^{-1})\,\sigma(DW_1x)
+=(W_2D^{-1})D\,\sigma(W_1x)
+=W_2\,\sigma(W_1x), \qquad
+D=\operatorname{diag}(d_1,\dots,d_m),\quad d_i>0.
+\]
+Thus, hidden units can be rescaled by positive constants provided the adjacent layer compensates appropriately, leaving the network function unchanged. Two networks may therefore represent similar computations while differing not only in the ordering of hidden units, but also in the internal scale assigned to those units. This motivates the main question of this chapter:
 
 \begin{quote}
 \textit{Can linear mode connectivity be improved by aligning networks modulo a larger symmetry class that includes both permutation and positive scaling?}
@@ -732,17 +737,20 @@ After several iterations, \(K^{(t)}\) is approximately doubly stochastic and is 
 
 The original Sinkhorn re-basin procedure is therefore:
 \begin{enumerate}
-    \item Initialize layerwise alignment logits \(Z_\ell\),
-    \item Compute soft permutation matrices \(S_\ell=\mathrm{Sinkhorn}(Z_\ell/\tau)\),
-    \item Insert the \(S_\ell\) across adjacent layers so that hidden coordinates are aligned,
-    \item Interpolate between model \(A\) and the transformed version of model \(B\),
-    \item Evaluate an interpolation-related objective, such as midpoint loss, on real data, and
+    \item Initialize layerwise alignment logits \(Z_\ell\) and compute soft permutation matrices \(S_\ell=\mathrm{Sinkhorn}(Z_\ell/\tau)\).
+    \item Transform one model using these soft alignments: apply \(S_\ell\) to reorder the output coordinates of layer \(\ell\), and apply \(S_{\ell-1}^{\top}\) on the input side of the next layer.
+    \item Interpolate between model \(A\) and the transformed version of model \(B\), and evaluate an interpolation-related objective, such as midpoint loss, on real data. During this step, the model is still transformed using the soft matrices \(S_\ell\), not hard permutations.
     \item Backpropagate through the soft alignments and update \(Z_\ell\) by gradient descent.
 \end{enumerate}
+
+After optimization, each soft alignment matrix \(S_\ell\) can be projected to a hard permutation matrix \(P_\ell\) by solving a linear assignment problem, typically with the Hungarian algorithm. This hard projection is then used for final evaluation.
+
+For a true permutation matrix \(P\), the matching between adjacent layers is exact because \(P^{-1}=P^\top\). During Sinkhorn training, however, \(S_\ell\) is only a soft matrix, so directly inverting it is not used. Instead, the implementation uses the differentiable approximation described above: it applies \(S_\ell\) on the output side of one layer and \(S_{\ell-1}^{\top}\) on the input side of the next layer. After projection to a hard permutation, this reduces to the exact permutation action.
 
 Its main advantage for the present chapter is that the alignment variables are already optimized in a differentiable way under the actual quantity of interest, namely interpolation loss, rather than only under a surrogate matching score. This makes Sinkhorn the cleanest base method for adding scale: positive scale variables can be optimized jointly with the soft permutation variables in the same gradient-based loop.
 
 \section{Scale-Aware Sinkhorn Re-basin Formulation}
+\label{sec:scale_aware_sinkhorn}
 
 The proposed extension is intentionally minimal. For each hidden layer, the soft permutation matrix is augmented with a positive diagonal scale matrix:
 \[
@@ -754,31 +762,23 @@ M_\ell=S_\ell D_\ell.
 \]
 Here \(Z_\ell\) are the Sinkhorn logits, \(u_\ell\in\mathbb{R}^{n_\ell}\) are learnable log-scale parameters, and the exponential ensures positive scaling. The original Sinkhorn transformation \(S_\ell\) is therefore replaced by \(M_\ell=S_\ell D_\ell\).
 
-The transformed version of model \(B\) is constructed by applying this hidden-coordinate change consistently across adjacent layers:
+Using the same layer-to-layer correction rule introduced earlier for permutation symmetry, but now replacing the permutation matrices \(P_\ell\) by monomial matrices \(M_\ell\), we obtain the corresponding hard scale-aware transformation. The new ingredient is that the correction on the input side now involves the inverse monomial matrix rather than only a transpose. If \(M_{\ell-1}=P_{\ell-1}D_{\ell-1}\) is a hard monomial matrix, with \(P_{\ell-1}\) a permutation matrix, then
 \[
-W_1'=M_1W_1^B,\qquad
-W_\ell'=M_\ell W_\ell^B M_{\ell-1}^{-1}\;(\ell=2,\dots,L-1),
-\qquad
-W_L'=W_L^B M_{L-1}^{-1},
+M_{\ell-1}^{-1}
+=
+D_{\ell-1}^{-1}P_{\ell-1}^{\top}.
 \]
-\[
-b_\ell'=M_\ell b_\ell^B.
-\]
-The inverse terms compensate for the scale change in the previous layer, so the transformation represents the same scale symmetry as in ReLU networks.
+During soft Sinkhorn training, however, \(S_{\ell-1}\) is still only a soft alignment matrix, not a true permutation, so the exact inverse \(M_{\ell-1}^{-1}\) is not used directly. Instead, the same idea as above is used, now with scaling added in. The output coordinates of layer \(\ell\) are transformed by \(S_\ell D_\ell\), while the input coordinates of the next layer are compensated by \(D_{\ell-1}^{-1}S_{\ell-1}^{\top}\). After the soft alignment is projected to a hard permutation, this reduces to the exact scaled permutation transformation above.
 
-Given the transformed model \(B'\), interpolation is evaluated on a small grid
+Given the transformed model \(B'\), interpolation is evaluated at the midpoint
 \[
-\mathcal{A}=\{0.25,0.5,0.75\},
-\qquad
-\theta_\alpha=(1-\alpha)\theta^A+\alpha\theta^{B'}.
+\theta_{1/2}=\frac{1}{2}\theta^A+\frac{1}{2}\theta^{B'}.
 \]
-The barrier objective is approximated by the average loss on this grid, with a small penalty that keeps scales close to identity:
+In the experiments reported here, the training objective is the midpoint interpolation loss, together with a small regularizer on the log-scales that biases the solution toward identity scaling and controls the gauge freedom:
 \[
 J_{\mathrm{bar}}
 =
-\frac{1}{|\mathcal{A}|}
-\sum_{\alpha\in\mathcal{A}}
-\mathcal{L}(\theta_\alpha),
+\mathcal{L}(\theta_{1/2}),
 \qquad
 J_{\mathrm{scale}}
 =
@@ -786,34 +786,29 @@ J_{\mathrm{scale}}
 \qquad
 J=J_{\mathrm{bar}}+\lambda_{\mathrm{scale}}J_{\mathrm{scale}}.
 \]
-This formulation directly tests whether adding positive scaling to Sinkhorn re-basin reduces the interpolation barrier relative to permutation-only Sinkhorn.
+This regularization also discourages overfitting to the calibration subset. Overall, the formulation directly tests whether adding positive scaling to Sinkhorn re-basin reduces the interpolation barrier relative to permutation-only Sinkhorn.
 
-\section{Experimental Modes}
+\subsection{Scale Finetuning with Frozen Permutations}
 
-To distinguish the effect of scaling from the effect of optimization strategy, four experimental modes were considered.
+Besides joint optimization of permutation and scale, one may also introduce scaling only after a permutation optimization stage has already been completed. This gives a general post-processing procedure that does not depend on Sinkhorn specifically. Once any permutation-finding method has produced valid hard layerwise permutation matrices \(P_\ell\), those matrices can be kept fixed and the corresponding scale variables can then be optimized separately.
 
-\paragraph{permutation\_only}
-Train only the Sinkhorn permutation variables. No scale variables are active. This is the primary baseline and shows how much can be achieved using permutation symmetry alone.
+The procedure therefore has two stages. First, some permutation method is used to obtain hard layerwise permutations \(P_\ell\). These may come from Sinkhorn after projection, from weight matching, from activation matching, or from any other alignment method that returns valid permutation matrices. Second, these permutations are frozen and only the scale variables are optimized. At this stage, no Sinkhorn logits \(Z_\ell\) are introduced, no soft permutation matrices are computed, and no Hungarian projection is performed during optimization. The correspondence between hidden units or channels is treated as fixed throughout. The only trainable variables are the log-scale parameters \(u_\ell\), which define positive diagonal matrices
+\[
+D_\ell=\operatorname{diag}(e^{u_\ell}).
+\]
 
-\paragraph{joint\_scale}
-Train permutation and scale jointly from scratch. This is the most flexible setting. If this performs best, it suggests that scaling helps the optimizer find a lower-barrier representative from the outset, rather than merely refining an already good permutation.
+With the permutations fixed, model \(B\) is reparameterized using the same layer-to-layer correction rule as in Section~\ref{sec:scale_aware_sinkhorn}, but now with \(P_\ell\) fixed and only the diagonal scales varying. Equivalently, each hidden layer is transformed by a monomial matrix \(M_\ell=P_\ell D_\ell\), where the permutation part is constant and the diagonal part is optimized. The output side of layer \(\ell\) is scaled by \(D_\ell\), while the input side of the next layer is compensated by \(D_\ell^{-1}\). Because the permutations are fixed, this stage is a purely continuous optimization over the scale parameters.
 
-\paragraph{perm\_then\_joint\_scale}
-First optimize permutation only. Then continue optimization with both permutation and scale active. This tests whether a stable permutation should first be established before scale is introduced.
-
-\paragraph{perm\_then\_scale\_only}
-First optimize permutation only. Then freeze the permutation and optimize only the scale variables. This isolates the \emph{marginal value of scale} after correspondence has already been fixed.
-
+The optimization objective, midpoint evaluation, and scale regularization are exactly the same as in Section~\ref{sec:scale_aware_sinkhorn}. The only difference is which variables are optimized: during this stage, gradients are taken only with respect to \(u_\ell\). The permutations \(P_\ell\) remain fixed, so the optimization can only improve interpolation by rescaling already-matched hidden units or channels, not by changing their correspondence. This isolates the contribution of scale from the permutation search itself.
 
 
 \section{XOR Experiments}
-The XOR experiments serve as the minimal testbed for separating \emph{symmetry} from \emph{search}. In the previous chapter, XOR already showed that permutation-only alignment is limited in narrow networks and improves with width. However, on those experiments alone it is unclear whether adding scale would help because it genuinely captures an additional symmetry, or simply because it makes optimization easier. XOR provides a setting where this distinction can be tested exactly, since exhaustive search over all permutations is feasible.
+The XOR experiments serve as the minimal testbed for separating symmetry from search. In the previous chapter, XOR already showed that permutation-only alignment is limited in narrow networks and improves with width. However, on those experiments alone it is unclear whether adding scale would help because it genuinely captures an additional symmetry, or simply because it makes optimization easier. XOR provides a setting where this distinction can be tested exactly, since exhaustive search over all permutations is feasible.
 
 \subsection{Methodology}
+\label{subsec:xor_scale_methodology}
 
-XOR is studied with small ReLU MLPs of architecture \(2\)-\(h\)-\(1\), where \(h \in \{3,5,7\}\). The number of trained networks was not kept fixed across widths: for wider settings fewer networks, and therefore fewer model pairs, were used to keep the total experiment time manageable. All models were trained on the full XOR dataset, and only solutions that achieve \(100\%\) training accuracy and sufficiently low endpoint loss were retained. This yields \(21\) valid model pairs for \(h=3\), \(36\) valid pairs for \(h=5\), and \(10\) valid pairs for \(h=7\).
-
-For each pair, linear interpolation in parameter space is evaluated under five alignment modes:
+XOR is studied with small ReLU MLPs of architecture \(2\)-\(h\)-\(1\), where \(h \in \{3,5,7\}\). The number of trained networks was not kept fixed across widths: for wider settings fewer networks, and therefore fewer model pairs, were used to keep the total experiment time manageable. All models were trained on the full XOR dataset, and only solutions that achieve \(100\%\) training accuracy and sufficiently low endpoint loss were retained. This yields \(21\) valid model pairs for \(h=3\), \(36\) valid pairs for \(h=5\), and \(10\) valid pairs for \(h=7\). For each pair, linear interpolation in parameter space is evaluated under five alignment modes:
 \begin{enumerate}
     \item \textbf{No Alignment}: direct interpolation between the two trained endpoints.
     \item \textbf{Sinkhorn Permutation Only (From Scratch)}: a relaxed permutation is optimized from scratch with Sinkhorn and then projected to a hard permutation.
@@ -822,7 +817,7 @@ For each pair, linear interpolation in parameter space is evaluated under five a
     \item \textbf{Best Exhaustive Permutation + Scale Refinement}: first find the oracle best permutation by exhaustive search, then optimize only the scale variables while keeping that permutation fixed.
 \end{enumerate}
 
-The purpose of these modes is to separate two effects. The first is whether a practical relaxed method such as Sinkhorn can \emph{find} the right correspondence between hidden units. The second, and more important, is whether positive scaling gives a genuine improvement \emph{even after the best possible permutation has already been found}. If scale refinement improves the exhaustive-permutation baseline, then the benefit cannot be attributed merely to a better search procedure; it must come from the larger symmetry class itself.
+The purpose of these modes is to separate two effects. The first is whether a practical relaxed method such as Sinkhorn can find the right correspondence between hidden units. The second, and more important, is whether positive scaling gives a genuine improvement even after the best possible permutation has already been found. If scale refinement improves the exhaustive-permutation baseline, then the benefit cannot be attributed merely to a better search procedure; it must come from the larger symmetry class itself.
 
 For the optimization-based methods, a default hyperparameter configuration is run first. If that default run fails to satisfy the target criterion, a bounded hyperparameter search is triggered. For the scale-based methods, the target is a small barrier threshold (\(\epsilon = 0.01\)). For Sinkhorn permutation-only, the target is the barrier achieved by the best exhaustive permutation for that same pair. The main evaluation metric is the interpolation loss barrier.
 
@@ -846,7 +841,7 @@ Best Exhaustive Permutation + Scale Refinement & \textbf{0.247 $\pm$ 0.283} & \t
 \label{tab:xor_loss_barrier}
 \end{table}
 
-Table~\ref{tab:xor_loss_barrier} provides the main quantitative result. As width increases, the best permutation-based alignment becomes substantially more effective: the mean barrier of \emph{Best Exhaustive Permutation} drops from \(0.357\) at \(h=3\) to \(0.111\) at \(h=5\) and further to \(0.023\) at \(h=7\). This is consistent with the earlier XOR findings in Chapter~\ref{chap:methodology}: wider networks provide more redundancy and therefore admit better symmetry-based alignment.
+Table~\ref{tab:xor_loss_barrier} provides the main quantitative result. As width increases, the best permutation-based alignment becomes substantially more effective: the mean barrier of \emph{Best Exhaustive Permutation} drops from \(0.357\) at \(h=3\) to \(0.111\) at \(h=5\) and further to \(0.023\) at \(h=7\). This is consistent with the earlier XOR findings in Section~\ref{subsubsec:effect_hidden_width}: wider networks provide more redundancy and therefore admit better symmetry-based alignment.
 
 The key comparison is between \emph{Best Exhaustive Permutation} and \emph{Best Exhaustive Permutation + Scale Refinement}. Once the best permutation is already fixed, adding scale still reduces the mean barrier from \(0.357\) to \(0.247\) for \(h=3\), from \(0.111\) to \(0.025\) for \(h=5\), and from \(0.023\) to \(0.005\) for \(h=7\). This is strong evidence that scale is not merely helping the search procedure; it improves the best barrier achievable by permutation alone.
 
@@ -855,20 +850,22 @@ The from-scratch \emph{Sinkhorn Permutation + Scale} variant also benefits from 
 \begin{table}[H]
 \centering
 \small
-\begin{tabular}{p{0.50\linewidth}ccc}
+\makebox[\textwidth][c]{%
+\begin{tabular}{lccc}
 \toprule
 \textbf{Comparison} & \textbf{3h} & \textbf{5h} & \textbf{7h} \\
 \midrule
-Best Exhaustive Permutation + Scale Refinement $\leq$ Best Exhaustive Permutation & 21/21 & 36/36 & 10/10 \\
-Sinkhorn Permutation + Scale (From Scratch) $\leq$ Best Exhaustive Permutation & 9/21 & 29/36 & 8/10 \\
-Sinkhorn Permutation Only (From Scratch) $=$ Best Exhaustive Permutation & 9/21 & 7/36 & 0/10 \\
-Best Exhaustive Permutation + Scale Refinement $\leq$ Sinkhorn Permutation + Scale (From Scratch) & 15/21 & 25/36 & 5/10 \\
+Exh.\ Perm.\ + Scale Ref.\ $\leq$ Exh.\ Perm. & 21/21 & 36/36 & 10/10 \\
+Sinkhorn Perm.\ + Scale $\leq$ Exh.\ Perm. & 9/21 & 29/36 & 8/10 \\
+Sinkhorn Perm.\ Only $=$ Exh.\ Perm. & 9/21 & 7/36 & 0/10 \\
+Exh.\ Perm.\ + Scale Ref.\ $\leq$ Sinkhorn Perm.\ + Scale & 15/21 & 25/36 & 5/10 \\
 \bottomrule
-\end{tabular}
-\caption{Pairwise comparison counts across valid XOR model pairs. Lower barrier is better.}
+\end{tabular}%
+}
+\caption{Pairwise comparison counts across valid XOR model pairs. Lower barrier is better. Here, Exh.\ Perm.\ denotes Best Exhaustive Permutation, Exh.\ Perm.\ + Scale Ref.\ denotes Best Exhaustive Permutation + Scale Refinement, Sinkhorn Perm.\ Only denotes Sinkhorn Permutation Only, and Sinkhorn Perm.\ + Scale denotes Sinkhorn Permutation + Scale.}
 \label{tab:xor_pairwise}
 \end{table}
-
+Table~\ref{tab:xor_pairwise} complements the mean results with pairwise comparisons. The strongest result is that \emph{Best Exhaustive Permutation + Scale Refinement} is never worse than \emph{Best Exhaustive Permutation}. Thus, scale reliably improves, or at least preserves, the oracle permutation solution. By contrast, the from-scratch Sinkhorn permutation-only solver matches the exhaustive permutation on only \(9/21\) pairs for \(h=3\), \(7/36\) for \(h=5\), and \(0/10\) for \(h=7\), indicating that the practical permutation-only method is imperfect even in this minimal setting.
 \begin{figure}[H]
     \centering
     \begin{minipage}[t]{0.48\linewidth}
@@ -889,7 +886,6 @@ Best Exhaustive Permutation + Scale Refinement $\leq$ Sinkhorn Permutation + Sca
     \label{fig:xor_aggregate}
 \end{figure}
 
-Table~\ref{tab:xor_pairwise} complements the mean results with pairwise comparisons. The strongest result is that \emph{Best Exhaustive Permutation + Scale Refinement} is never worse than \emph{Best Exhaustive Permutation}. Thus, scale reliably improves, or at least preserves, the oracle permutation solution. By contrast, the from-scratch Sinkhorn permutation-only solver matches the exhaustive permutation on only \(9/21\) pairs for \(h=3\), \(7/36\) for \(h=5\), and \(0/10\) for \(h=7\), indicating that the practical permutation-only method is imperfect even in this minimal setting.
 
 Overall, the XOR experiments refine the interpretation developed in the previous chapter. Permutation symmetry explains a large part of linear mode connectivity, but not all of it. Positive hidden-unit scaling provides a systematic improvement beyond the best permutation alone. At the same time, the gap between oracle refinement and from-scratch optimization shows that practical alignment methods can still fail to realize the full benefit of the underlying symmetry.
 
@@ -897,18 +893,11 @@ Overall, the XOR experiments refine the interpretation developed in the previous
 
 The VGG experiments serve as the large-scale counterpart to the XOR study. On XOR, exhaustive search made it possible to separate the effect of permutation from the effect of scaling exactly. On CIFAR-10 with VGG architectures, exhaustive search is infeasible, so the question becomes whether the same qualitative pattern persists in a realistic high-dimensional setting. In particular, the aim is to test whether adding scale to Sinkhorn-based alignment reduces the interpolation barrier relative to permutation-only alignment, and whether further improvement can be obtained by fixing an already found permutation and optimizing only scale on top of it.
 
-This experiment is a direct continuation of the earlier VGG analysis in Chapter~\ref{chap:methodology}. There, permutation-based alignment improved connectivity but did not achieve full LMC, especially for larger distances between independently trained solutions. The XOR results of the present chapter suggest one possible explanation: permutation may be only part of the relevant symmetry. The VGG experiments therefore test whether the same conclusion extends beyond the minimal synthetic setting.
+This experiment is a direct continuation of the earlier VGG analysis in Section~\ref{sec:controlled_benchmark}. There, permutation-based alignment improved connectivity but did not achieve full LMC for larger distances between independently trained solutions. The XOR results of the present chapter suggest one possible explanation: permutation may be only part of the relevant symmetry. The VGG experiments therefore test whether the same conclusion extends beyond the minimal synthetic setting.
 
 \subsection{Methodology}
 
-The experiment compares three alignment settings on CIFAR-10 for fixed endpoint pairs of VGG11, VGG13, VGG16, and VGG19:
-\begin{itemize}
-    \item \textbf{Sinkhorn Permutation Only}: Sinkhorn permutation parameters are optimized from scratch and then projected to a hard permutation for evaluation.
-    \item \textbf{Sinkhorn Permutation + Scale (Joint)}: permutation and positive hidden-channel scaling are optimized jointly from scratch. During training, the scale variables are optimized jointly with the soft Sinkhorn permutation; evaluation is performed after projecting the permutation to a hard matching.
-    \item \textbf{Permutation Then Scale Finetuning}: the permutation found by the permutation-only run is fixed as a hard permutation, and only the scale variables are optimized afterward.
-\end{itemize}
-
-In all cases, the aligned model is compared to the second endpoint by evaluating test loss along the linear interpolation path in parameter space, and the loss barrier is used as the main metric.
+The optimization modes are the same as in the XOR experiment (see Section~\ref{subsec:xor_scale_methodology}). In the VGG setting, however, exhaustive-permutation baselines are infeasible, so we evaluate only the three optimization-based modes. These are applied to fixed endpoint pairs of VGG11, VGG13, VGG16, and VGG19 on CIFAR-10. In all cases, the aligned model is compared to the second endpoint by evaluating test loss along the linear interpolation, and the loss barrier is used as the main metric.
 
 \subsection{Results and Analysis}
 
@@ -925,22 +914,22 @@ In all cases, the aligned model is compared to the second endpoint by evaluating
     \hfill
     \includegraphics[width=0.48\linewidth]{vgg19_sin.png}
 
-    \caption{Sinkhorn-based alignment with scale augmentation across VGG11, VGG13, VGG16, and VGG19 on CIFAR-10.}
+    \caption{Sinkhorn-based alignment with scale augmentation across VGGs on CIFAR-10.}
     \label{fig:vgg_sinkhorn_scale}
 \end{figure}
 
 Joint Sinkhorn permutation+scale always yields a lower barrier than Sinkhorn permutation-only, indicating that adding scale improves the quality of the interpolating path beyond what is obtained from permutation search alone. This mirrors the XOR findings, where scale improved the best achievable permutation solution. Thus, although exhaustive verification is impossible in the VGG setting, the qualitative pattern is consistent with the minimal controlled study.
 
-The results do not show uniform dominance of one scale-based variant over the other. For VGG13 and VGG16, optimizing scale after first fixing the permutation yields a lower barrier than joint permutation+scale optimization, whereas for VGG11 and VGG19 the jointly optimized variant performs better. What is consistent across all four architectures is that \emph{both} scale-based approaches improve over permutation-only alignment.
+The results do not show uniform dominance of one scale-based variant over the other. For VGG13 and VGG16, optimizing scale after first fixing the permutation yields a lower barrier than joint permutation+scale optimization, whereas for VGG11 and VGG19 the jointly optimized variant performs better. What is consistent across all four architectures is that both scale-based approaches improve over permutation-only alignment.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{barplot_vggs.png}
-    \caption{Maximum loss barrier along the interpolation path for the compared VGG alignment settings.}
+    \caption{Maximum loss barrier along the interpolation path for the compared VGG trained on CIFAR10 alignment settings.}
     \label{fig:vgg_barriers}
 \end{figure}
 
-Taken together, the XOR and VGG results suggest a coherent picture. Permutation symmetry captures an important part of the geometry relevant for linear mode connectivity, but it does not appear to be the full story. Positive scaling provides an additional symmetry direction that can systematically reduce interpolation barriers. This does not prove that scaling is sufficient to recover full linear connectivity in realistic architectures, but it does show that restricting alignment to permutations alone is unnecessarily narrow.
+Taken together, the XOR and VGG results suggest a coherent picture. Permutation symmetry captures an important part of the geometry relevant for linear mode connectivity, but it does not appear to be the full story. Positive scaling provides an additional symmetry direction that can systematically reduce interpolation barriers. This does not prove that scaling is sufficient to recover full linear connectivity in realistic architectures, but it does show that, for architectures with homogeneous activation functions, restricting alignment to permutations alone is unnecessarily narrow.
 
 \section{Implications for the One-Basin Modulo Permutation Hypothesis}
 
@@ -961,6 +950,42 @@ These observations strengthen the conclusion of RQ2: when alignment methods fail
 %==============================================================================
 
 \appendix
+
+\section{Reproducibility Details for Curved-Path VGG16 Experiments}
+\label{app:curved_path_repro}
+
+\subsection{Endpoint Training and Endpoint Construction}
+
+For the VGG16 endpoints used in the curved-path experiments, the CIFAR-10 training recipe follows the standard \texttt{pytorch-vgg-cifar10} setup \citep{fu_pytorch_vgg_cifar10}: SGD with momentum \(0.9\), batch size \(128\), initial learning rate \(0.05\), weight decay \(5\times 10^{-4}\), \(200\) training epochs, and the repository's default learning-rate schedule, which halves the learning rate every \(30\) epochs. Training uses the standard CIFAR-10 augmentation pipeline of random horizontal flips and random crops with padding \(4\). Evaluation uses only tensor conversion and normalization. The curved-path experiments reported in the main text use independently trained endpoint seeds \(0\) and \(1\).
+
+The \texttt{seed0--mirror} endpoints are obtained from the trained \texttt{seed0} model by applying a deterministic reverse-order permutation in every hidden layer or hidden channel dimension, with the corresponding compensation in the next layer so that the represented function is unchanged. The \texttt{seed0--randperm} endpoints are obtained from the same trained \texttt{seed0} model by applying a random full-network permutation with permutation seed \(42\). These transformations change parameter coordinates but do not retrain the model.
+
+\subsection{Curve and Polygon Optimization}
+
+All curved-path optimization is carried out with \texttt{dnn-mode-connectivity} \citep{garipov_dnn_mode_connectivity}. For the Bézier runs discussed above, the path family is quadratic Bézier with \(\texttt{num\_bends}=3\), so the two endpoints are fixed and one trainable interior point is optimized. The \texttt{seed0--seed1}, \texttt{seed0--mirror}, and \texttt{seed0--randperm} runs use the same optimization hyperparameters: \(200\) curve-training epochs, learning rate \(0.015\), weight decay \(5\times 10^{-4}\), checkpoint save frequency \(200\), and evaluation on the CIFAR-10 test split (\texttt{use\_test=true}). Train-time augmentation is not disabled in these runs (\texttt{no\_train\_aug=false} where specified), so the standard VGG CIFAR-10 training transform is used during curve optimization. The seed is \(0\) for \texttt{seed0--seed1}, \texttt{seed0--mirror}, and \texttt{seed0--randperm}; for the analogous \texttt{seed1--mirror} run it is \(1\).
+
+For the polygonal-chain experiments used later in the chapter, the same two-endpoint setup is used, but the path family is \texttt{PolyChain} with \(\texttt{num\_bends}=3\). The reported \texttt{seed0--seed1} and \texttt{seed0--mirror} polygon runs use \(150\) training epochs, learning rate \(0.015\), momentum \(0.9\), weight decay \(5\times 10^{-4}\), batch size \(128\), \(4\) data-loading workers, seed \(1\), checkpoint save frequency \(50\), and \texttt{use\_test=true}. In the random-hyperplane experiments, the trainable midpoint is additionally projected after each optimizer step to a random affine subspace through the interpolation midpoint, with codimensions \(k\in\{1,5,10,30\}\). All other polygon-training settings are kept fixed across those codimensions.
+
+\section{Reproducibility Details for Controlled and XOR Experiments}
+\label{app:controlled_xor_repro}
+
+\subsection{Controlled LMC Benchmark with Known Permutations}
+
+The controlled LMC benchmark uses the same VGG16/CIFAR-10 training stack as the main VGG experiments, namely \texttt{dnn-mode-connectivity} with the VGG transform, SGD with momentum \(0.9\), batch size \(128\), learning rate \(0.05\), weight decay \(5\times 10^{-4}\), and \(200\) total training epochs. Training uses the standard CIFAR-10 augmentation pipeline during endpoint optimization, so after the split the two branches differ not only in minibatch order but also in the sequence of random data augmentations. Four shared-training splits were prepared: \(0/200\), \(8/192\), \(30/170\), and \(80/120\). In the \(0/200\) case, the shared checkpoint is just the random initialization saved at epoch \(0\) together with the optimizer state so that split training can resume from it. In the other cases, a shared checkpoint is first trained for \(8\), \(30\), or \(80\) epochs with shared seed \(42\), and then split training continues to epoch \(200\) with split seeds \(0\) and \(1\). Checkpoints are saved every \(50\) epochs, and in the shared-training stage the script explicitly sets \texttt{lr\_schedule\_epochs=200} so that the learning-rate schedule is the same as if the model had been trained continuously for the full \(200\) epochs.
+
+The alignment benchmark itself is run on the resulting endpoint pair \((w_0,w_1)\). Both models are loaded as \texttt{VGG16.base(num\_classes=10)} networks. A random full-network VGG16 permutation with permutation seed \(42\) is applied to \(w_1\) to construct \(w_1'\); the permutation is generated layerwise using the project's VGG16 permutation specification, so the transformed checkpoint represents the same function as \(w_1\). Weight matching is then run between \(w_0\) and \(w_1'\) using the VGG16 permutation specification and at most \(100\) iterations. Linear interpolation barriers are evaluated on \(11\) equally spaced interpolation points using cross-entropy loss. These evaluations use CIFAR-10 loaders with batch size \(128\), \(4\) workers, \texttt{use\_test=true}, and evaluation-mode transforms, so no stochastic train-time augmentation is used during barrier measurement. Besides the barrier itself, the script also records the \(\ell_2\) distance and RMS parameter difference between \(w_0\), \(w_1\), \(w_1'\), and the recovered checkpoint.
+
+\subsection{XOR Alignment Experiment}
+
+The minimal XOR alignment experiment is implemented in \texttt{scripts/experiments/xor\_experiment.py}. The dataset is the full four-point XOR set \(\{(0,0),(0,1),(1,0),(1,1)\}\) with binary labels \(\{0,1,1,0\}\). Each network is a fully connected ReLU MLP with one hidden layer and one scalar output logit. Parameters are initialized uniformly in \([-0.5,0.5]\). Training uses full-batch SGD with learning rate \(0.05\), a maximum of \(5000\) epochs, and a \texttt{ReduceLROnPlateau} scheduler with factor \(0.5\), patience \(200\), threshold \(10^{-4}\), and minimum learning rate \(5\times 10^{-4}\). Training is stopped once the loss fails to improve by at least \(10^{-4}\) for \(500\) epochs.
+
+For the minimal-width run reported in the thesis, the hidden size is \(2\), and up to \(10\) independently initialized seeds are used, giving \(45\) unordered model pairs. For each pair, the exhaustive alignment search checks both valid hidden-unit permutations: the identity and the swap. The selected permutation is the one that first satisfies \(100\%\) interpolation accuracy and then minimizes interpolation loss. In the width study, the same training routine is reused for hidden sizes \(n\in\{2,3,4,5\}\), but the exhaustive search then ranges over all \(n!\) hidden-unit permutations.
+
+\subsection{XOR Mode-Connectivity Experiment}
+
+The XOR mode-connectivity experiment is implemented in \texttt{scripts/experiments/xor\_curve\_fitting.py}. Endpoint training uses the same XOR dataset and the same SGD-based training procedure described above. The curve-fitting script filters trained endpoints by requiring \(100\%\) training accuracy together with endpoint loss at most \(0.01\). The default script configuration uses \(10\) candidate seeds, hidden size \(3\), and saves outputs under \texttt{results/xor\_unified}; for the thesis experiments, the same code was used with hidden size \(2\) for the minimal-width test and hidden size \(3\) for the next-width comparison.
+
+Two path families are considered: quadratic Bézier curves and polygonal chains. In the default configuration, both use \(\texttt{num\_bends}=3\), which means that the path has a single trainable interior point. Curve fitting uses \(1500\) optimization steps, learning rate \(0.05\), zero weight decay, \(11\) samples of the path parameter \(t\) inside the fitting objective, and \(61\) evaluation points for the final reported path. The default objective is mean loss along the sampled path. When a single trainable point did not suffice, the number of trainable points was increased by using more bends, up to \(10\) trainable points in the reported search.
 
 \textbf{Excluded Experiments}\\
 The following experiments were conducted during the research but excluded from the main thesis as they did not directly contribute to testing the \textit{one-basin modulo permutation hypothesis}. They are documented here for completeness.
@@ -984,4 +1009,14 @@ We measured the $\ell_2$ distance between interpolated weights and each endpoint
 
 \bibliographystyle{plainnat}
 \bibliography{references}
+%todo
+%conclusion and discusion
+%correct chapter 1 and 2
+%add unused experiemnts to appendix
+
+% crrect experiemnts for sinkhrorn (the same hyperparam grid)
+% remve train augmentation sfrm contrlled benchamrk experiemnts
+% many seeds foor the coontrolled benchmark experiemnt
+% line 600 - explain why for different decision boundaries no low loss %path can be found for 2-2-1
+% explain more used methods like bezier curve - what the optimization is etc
 \end{document}

@@ -48,21 +48,26 @@ def main():
     parser = argparse.ArgumentParser(description='Plot connectivity comparison for reg configurations')
     parser.add_argument('--output', type=str, default='plots/connectivity_reg_comparison.png',
                         help='Output file path')
+    parser.add_argument('--variant', type=str, default='standard',
+                        choices=['standard', 'standard_trainaug'],
+                        help='Which curve directory variant to plot')
     parser.add_argument('--show', action='store_true', help='Show plot interactively')
     args = parser.parse_args()
 
+    base_dir = f"results/vgg16/cifar10/curves/{args.variant}"
+
     # Data paths - seeds and bezier curves
     seed_paths = {
-        'seed0-seed1': 'results/vgg16/cifar10/curves/standard/seed0-seed1_reg/evaluations/curve.npz',
-        'seed0-seed2': 'results/vgg16/cifar10/curves/standard/seed0-seed2_bezier/evaluations/curve.npz',
-        'seed1-seed2': 'results/vgg16/cifar10/curves/standard/seed1-seed2_bezier/evaluations/curve.npz',
+        'seed0-seed1': f'{base_dir}/seed0-seed1_reg/evaluations/curve.npz',
+        'seed0-seed2': f'{base_dir}/seed0-seed2_bezier/evaluations/curve.npz',
+        'seed1-seed2': f'{base_dir}/seed1-seed2_bezier/evaluations/curve.npz',
     }
 
     # Data paths - random-permuted versions
     mirror_paths = {
-        'seed0-randperm': 'results/vgg16/cifar10/curves/standard/seed0-randperm_reg/evaluations/curve.npz',
-        'seed1-randperm': 'results/vgg16/cifar10/curves/standard/seed1-randperm_reg/evaluations/curve.npz',
-        'seed2-randperm': 'results/vgg16/cifar10/curves/standard/seed2-randperm_reg/evaluations/curve.npz',
+        'seed0-randperm': f'{base_dir}/seed0-randperm_reg/evaluations/curve.npz',
+        'seed1-randperm': f'{base_dir}/seed1-randperm_reg/evaluations/curve.npz',
+        'seed2-randperm': f'{base_dir}/seed2-randperm_reg/evaluations/curve.npz',
     }
 
     # Load seed data

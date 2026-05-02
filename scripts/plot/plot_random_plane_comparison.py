@@ -23,10 +23,10 @@ from lib.utils.args import ArgumentParserBuilder
 def infer_midpoint_label(path, index):
     match = re.search(r'codim(\d+)', path)
     if match:
-        return f'Random Plane (midpoint, codim={match.group(1)})'
+        return f'Codim={match.group(1)}'
     if 'random_plane_midpoint' in path:
-        return 'Random Plane (midpoint, codim=1)'
-    return f'Random Plane (midpoint {index + 1})'
+        return 'Codim=1'
+    return f'Codim={index + 1}'
 
 
 def plot_comparison(args):
@@ -57,36 +57,23 @@ def plot_comparison(args):
     t_symplane = symplane_data['ts'] if symplane_data is not None else None
     t_random_random = random_random_data['ts'] if random_random_data is not None else None
 
-    # Build title based on what's being plotted
-    curves_plotted = []
-    if polygon_data is not None:
-        curves_plotted.append("Polygon")
-    if symplane_data is not None:
-        curves_plotted.append("Symmetry Plane")
-    if random_midpoint_curves:
-        curves_plotted.append("Random Plane (Midpoint)")
-    if random_random_data is not None:
-        curves_plotted.append("Random Plane (Random)")
-    title = ' vs '.join(curves_plotted) + ' Comparison'
-
     # Create figure with 4 subplots (2x2)
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-    fig.suptitle(title, fontsize=16, fontweight='bold')
 
     # Plot styles
     styles = {
-        'polygon': {'color': '#9467bd', 'linestyle': '-', 'label': 'Polygon Chain (unconstrained)',
+        'polygon': {'color': '#5E548E', 'linestyle': '-', 'label': 'Polygon Chain (unconstrained)',
                     'alpha': 0.9, 'linewidth': 2.5, 'marker': 'o', 'markersize': 3, 'markevery': 5},
-        'symplane': {'color': '#1f77b4', 'linestyle': '-', 'label': 'Symmetry Plane (perpendicular bisector)',
+        'symplane': {'color': '#264653', 'linestyle': '-', 'label': 'Symmetry Plane (perpendicular bisector)',
                      'alpha': 0.9, 'linewidth': 2.5, 'marker': '^', 'markersize': 4, 'markevery': 5},
-        'random_random': {'color': '#ff7f0e', 'linestyle': '-', 'label': 'Random Plane (random anchor)',
+        'random_random': {'color': '#BC6C25', 'linestyle': '-', 'label': 'Random Plane (random anchor)',
                    'alpha': 0.9, 'linewidth': 2.5, 'marker': 'D', 'markersize': 3, 'markevery': 5},
     }
     midpoint_style_cycle = [
-        {'color': '#2ca02c', 'linestyle': '-', 'alpha': 0.9, 'linewidth': 2.5, 'marker': 's', 'markersize': 3, 'markevery': 5},
-        {'color': '#d62728', 'linestyle': '--', 'alpha': 0.9, 'linewidth': 2.5, 'marker': 'o', 'markersize': 3, 'markevery': 5},
-        {'color': '#17becf', 'linestyle': '-.', 'alpha': 0.9, 'linewidth': 2.5, 'marker': 'P', 'markersize': 3, 'markevery': 5},
-        {'color': '#8c564b', 'linestyle': ':', 'alpha': 0.9, 'linewidth': 2.5, 'marker': 'X', 'markersize': 3, 'markevery': 5},
+        {'color': '#0072B2', 'linestyle': '-', 'alpha': 0.95, 'linewidth': 2.5, 'marker': 's', 'markersize': 3, 'markevery': 5},
+        {'color': '#E69F00', 'linestyle': '--', 'alpha': 0.95, 'linewidth': 2.5, 'marker': 'o', 'markersize': 3, 'markevery': 5},
+        {'color': '#009E73', 'linestyle': '-.', 'alpha': 0.95, 'linewidth': 2.5, 'marker': 'P', 'markersize': 3, 'markevery': 5},
+        {'color': '#D55E00', 'linestyle': ':', 'alpha': 0.95, 'linewidth': 2.5, 'marker': 'X', 'markersize': 3, 'markevery': 5},
     ]
 
     # Panel 1: Test Error
@@ -102,10 +89,8 @@ def plot_comparison(args):
     if random_random_data is not None:
         ax.plot(t_random_random, random_random_data['te_err'], **styles['random_random'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
-    ax.set_ylabel('Test Error (%)', fontsize=12)
-    ax.set_title('Test Error Along Path', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Test Error (%)', fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=10, loc='upper right')
     ax.set_xlim(-0.05, 1.05)
 
     # Panel 2: Test Loss
@@ -121,10 +106,8 @@ def plot_comparison(args):
     if random_random_data is not None:
         ax.plot(t_random_random, random_random_data['te_loss'], **styles['random_random'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
-    ax.set_ylabel('Test Loss', fontsize=12)
-    ax.set_title('Test Loss Along Path', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Test Loss', fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=10, loc='upper right')
     ax.set_xlim(-0.05, 1.05)
 
     # Panel 3: Train Error
@@ -140,10 +123,8 @@ def plot_comparison(args):
     if random_random_data is not None:
         ax.plot(t_random_random, random_random_data['tr_err'], **styles['random_random'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
-    ax.set_ylabel('Train Error (%)', fontsize=12)
-    ax.set_title('Train Error Along Path', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Train Error (%)', fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=10, loc='upper right')
     ax.set_xlim(-0.05, 1.05)
 
     # Panel 4: Train Loss
@@ -159,19 +140,44 @@ def plot_comparison(args):
     if random_random_data is not None:
         ax.plot(t_random_random, random_random_data['tr_loss'], **styles['random_random'])
     ax.set_xlabel('t (interpolation parameter)', fontsize=12)
-    ax.set_ylabel('Train Loss', fontsize=12)
-    ax.set_title('Train Loss Along Path', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Train Loss', fontsize=12, fontweight='bold')
     ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=10, loc='upper right')
     ax.set_xlim(-0.05, 1.05)
 
     # Add vertical line at t=0.5 (middle bend location)
     for ax in axes.flat:
         ax.axvline(x=0.5, color='gray', linestyle=':', alpha=0.5, linewidth=1)
 
+    # Add one shared legend in the top-left subplot
+    legend_handles = []
+    legend_labels = []
+    if polygon_data is not None:
+        legend_handles.append(plt.Line2D([], [], **styles['polygon']))
+        legend_labels.append(styles['polygon']['label'])
+    if symplane_data is not None:
+        legend_handles.append(plt.Line2D([], [], **styles['symplane']))
+        legend_labels.append(styles['symplane']['label'])
+    for i, curve in enumerate(random_midpoint_curves):
+        style = midpoint_style_cycle[i % len(midpoint_style_cycle)].copy()
+        style['label'] = curve['label']
+        legend_handles.append(plt.Line2D([], [], **style))
+        legend_labels.append(curve['label'])
+    if random_random_data is not None:
+        legend_handles.append(plt.Line2D([], [], **styles['random_random']))
+        legend_labels.append(styles['random_random']['label'])
+    if legend_handles:
+        axes[0, 0].legend(
+            legend_handles,
+            legend_labels,
+            loc='upper right',
+            ncol=1,
+            fontsize=10,
+            frameon=True,
+        )
+
     # Print summary statistics
     print("\n" + "=" * 80)
-    print(title.upper())
+    print("RANDOM PLANE COMPARISON")
     print("=" * 80)
 
     # Calculate metrics for each curve
@@ -262,7 +268,7 @@ def plot_comparison(args):
     print("=" * 80)
 
     # Adjust layout and save
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.tight_layout()
 
     # Determine output path
     if args.output:
@@ -280,7 +286,7 @@ def plot_comparison(args):
     # Save summary to text file
     summary_lines = []
     summary_lines.append("=" * 80)
-    summary_lines.append(title.upper())
+    summary_lines.append("RANDOM PLANE COMPARISON")
     summary_lines.append("=" * 80)
     summary_lines.append("")
 

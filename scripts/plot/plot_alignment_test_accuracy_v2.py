@@ -1,5 +1,5 @@
 """
-Plot relative train-accuracy barrier: original vs recovered after alignment.
+Plot relative test-accuracy barrier: original vs recovered after alignment.
 
 Compares the relative barrier
 
@@ -38,11 +38,11 @@ def relative_barrier(accs, eps=EPS):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Plot relative train-accuracy barrier: original vs recovered")
+    parser = argparse.ArgumentParser(description="Plot relative test-accuracy barrier: original vs recovered")
     parser.add_argument(
         "--output",
         type=str,
-        default="plots/alignment_train_accuracy_v2.png",
+        default="plots/alignment_test_accuracy_v2.png",
         help="Output file path",
     )
     parser.add_argument("--show", action="store_true", help="Show plot interactively")
@@ -68,8 +68,8 @@ def main():
                     "name": name,
                     "w0_w1": data["distances"]["w0_w1"]["l2_distance"],
                     "w0_w1_recovered": data["distances"]["w0_w1_recovered"]["l2_distance"],
-                    "org_rel_barrier": relative_barrier(data["original_barrier"]["train_acc"]),
-                    "rec_rel_barrier": relative_barrier(data["recovered_barrier_to_w0"]["train_acc"]),
+                    "org_rel_barrier": relative_barrier(data["original_barrier"]["test_acc"]),
+                    "rec_rel_barrier": relative_barrier(data["recovered_barrier_to_w0"]["test_acc"]),
                     "is_independent": False,
                 }
             )
@@ -84,8 +84,8 @@ def main():
                 "name": "seed0-seed1",
                 "w0_w1": data["before_alignment"]["distance"]["l2_distance"],
                 "w0_w1_recovered": data["after_alignment"]["distance"]["l2_distance"],
-                "org_rel_barrier": relative_barrier(data["before_alignment"]["barrier"]["train_acc"]),
-                "rec_rel_barrier": relative_barrier(data["after_alignment"]["barrier"]["train_acc"]),
+                "org_rel_barrier": relative_barrier(data["before_alignment"]["barrier"]["test_acc"]),
+                "rec_rel_barrier": relative_barrier(data["after_alignment"]["barrier"]["test_acc"]),
                 "is_independent": True,
                 "show_original": True,
             }
@@ -172,7 +172,7 @@ def main():
             )
 
     ax.set_xlabel("L2 Distance", fontsize=12)
-    ax.set_ylabel("Relative Train-Accuracy Barrier", fontsize=12)
+    ax.set_ylabel("Relative Test-Accuracy Barrier", fontsize=12)
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=9, loc="upper left")
 
@@ -187,7 +187,7 @@ def main():
         plt.show()
 
     print("\n" + "=" * 88)
-    print("RELATIVE TRAIN-ACCURACY BARRIER SUMMARY")
+    print("RELATIVE TEST-ACCURACY BARRIER SUMMARY")
     print("=" * 88)
     print(
         f"{'Experiment':<15} {'w0_w1':>10} {'Org Rel':>12} {'w0_w1_rec':>10} {'Rec Rel':>12} {'Δ Rel':>12}"
