@@ -604,7 +604,7 @@ The XOR dataset, model class, and endpoint-training setup are the same as in the
     \label{fig:placeholder}
 \end{figure}
 
-Despite this, low-loss paths were found only between models that were virtually identical in their weights (i.e., trivial connections). For non-trivial pairs, no method succeeded in discovering a low-loss curved path. This held even for models whose decision boundaries appeared visually identical. Thus, in the minimal-width 2-2-1 architecture, two independently trained solutions cannot in general be connected, even nonlinearly, unless they are already nearly identical in parameter space.
+Despite this, low-loss paths were found only between models that were virtually identical in their weights. For non-trivial pairs, no method succeeded in discovering a low-loss curved path. This held even for models whose decision boundaries appeared visually identical. Thus, in the minimal-width 2-2-1 architecture, two independently trained solutions cannot in general be connected, even nonlinearly, unless they are already nearly identical in parameter space.
 
 These results mirror our earlier permutation-alignment experiment on the minimal XOR architecture: alignment succeeded only in degenerate cases where the networks were effectively identical up to permutation. The absence of curved connectivity here suggests that width $m=2$ provides insufficient redundancy to allow different initializations to lie within the same connected low-loss manifold.
 
@@ -1012,12 +1012,11 @@ We measured the $\ell_2$ distance between interpolated weights and each endpoint
 %todo
 %conclusion and discusion
 %correct chapter 1 and 2
-%create methodology per expeiment and remove current chpater 3 or create common methodology
 %add unused experiemnts to appendix
 
 % crrect experiemnts for sinkhrorn (the same hyperparam grid)
 % remve train augmentation sfrm contrlled benchamrk experiemnts
 % many seeds foor the coontrolled benchmark experiemnt
-% correct plots (enlarge and change captins and titles) for XOR classification boundary and loss
-% line 600 - explain why for different decision boundaries no low loss path can be found for 2-2-1
+% line 600 - explain why for different decision boundaries no low loss %path can be found for 2-2-1
+% explain more used methods like bezier curve - what the optimization is etc
 \end{document}
