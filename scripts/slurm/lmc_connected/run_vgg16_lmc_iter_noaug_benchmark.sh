@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=2:00:00
+#SBATCH --time=00:30:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=16GB
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=2GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_lmc_iter_bench_%x_%j.out
 #SBATCH --error=slurm_lmc_iter_bench_%x_%j.err
