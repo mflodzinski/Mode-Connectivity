@@ -177,6 +177,7 @@ def main():
     parser.add_argument('--w0', type=str, required=True, help='Path to w_0 checkpoint')
     parser.add_argument('--w1', type=str, required=True, help='Path to w_1 checkpoint')
     parser.add_argument('--perm-seed', type=int, default=42, help='Seed for random permutation')
+    parser.add_argument('--wm-seed', type=int, default=0, help='Seed for weight matching permutation-update order')
     parser.add_argument('--method', type=str, default='weight_matching',
                         choices=['weight_matching'], help='Alignment method')
     parser.add_argument('--max-iter', type=int, default=100, help='Max iterations for weight matching')
@@ -292,6 +293,7 @@ def main():
     print("\n" + "=" * 70)
     print(f"Step 5: Running alignment ({args.method}): align w_1' to w_0")
     print("=" * 70)
+    print(f"Weight matching seed: {args.wm_seed}")
 
     params_w0 = state_dict_to_flat_params(model_w0.state_dict(), ps)
     params_w1_prime = state_dict_to_flat_params(w1_prime_state, ps)
@@ -301,6 +303,7 @@ def main():
         params_w0,
         params_w1_prime,
         max_iter=args.max_iter,
+        seed=args.wm_seed,
         silent=False
     )
 

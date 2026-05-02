@@ -15,7 +15,7 @@ source $HOME/venvs/mode-connectivity/bin/activate || . $HOME/venvs/mode-connecti
 
 PROJECT_ROOT="/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity"
 cd "${PROJECT_ROOT}"
-export PYTHONPATH="${PROJECT_ROOT}:${PROJECT_ROOT}/scripts:${PYTHONPATH}"
+export PYTHONPATH="${PROJECT_ROOT}:${PROJECT_ROOT}/scripts:${PYTHONPATH:-}"
 
 OUTPUT_ROOT="results/vgg16/cifar10/endpoints/lmc_connected_iter_noaug"
 SHARED_ITERS=(0 25 100 1000 5000)
