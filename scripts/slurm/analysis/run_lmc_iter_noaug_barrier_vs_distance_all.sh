@@ -1,14 +1,15 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=00:15:00
+#SBATCH --time=02:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=2GB
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=4GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_lmc_iter_plot_all_%j.out
 #SBATCH --error=slurm_lmc_iter_plot_all_%j.err
 #SBATCH --job-name=lmc_iter_plot_all
+#SBATCH --gres=gpu:a40:1
 
 set -euo pipefail
 
