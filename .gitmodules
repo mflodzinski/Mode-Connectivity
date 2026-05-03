@@ -19,3 +19,6 @@
 [submodule "external/pytorch-vgg-cifar10"]
 	path = external/pytorch-vgg-cifar10
 	url = https://github.com/mflodzinski/pytorch-vgg-cifar10.git
+[submodule "external/open_lth"]
+	path = external/open_lth
+	url = https://github.com/mflodzinski/open_lth.git
