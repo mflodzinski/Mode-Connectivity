@@ -21,6 +21,7 @@ import argparse
 import numpy as np
 import torch
 import torch.nn.functional as F
+import torch.nn as nn
 from collections import OrderedDict
 from typing import Dict, Tuple
 
@@ -38,12 +39,45 @@ import vgg as pytorch_vgg
 
 from scripts.lib.transform.random_permutation import VGG16RandomPermutation
 from scripts.lib.alignment.permutation_spec import (
+    open_lth_cifar_vgg16_bn_permutation_spec,
     vgg16_features_permutation_spec,
     vgg16_permutation_spec,
 )
 from scripts.lib.alignment.weight_matching import (
     weight_matching, apply_permutation, compare_permutations
 )
+
+
+class OpenLTHCifarVGG16BN(nn.Module):
+    class ConvModule(nn.Module):
+        def __init__(self, in_filters, out_filters):
+            super().__init__()
+            self.conv = nn.Conv2d(in_filters, out_filters, kernel_size=3, padding=1)
+            self.bn = nn.BatchNorm2d(out_filters)
+
+        def forward(self, x):
+            return F.relu(self.bn(self.conv(x)))
+
+    def __init__(self, outputs=10):
+        super().__init__()
+        plan = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512]
+        layers = []
+        filters = 3
+        for spec in plan:
+            if spec == 'M':
+                layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
+            else:
+                layers.append(self.ConvModule(filters, spec))
+                filters = spec
+        self.layers = nn.Sequential(*layers)
+        self.fc = nn.Linear(512, outputs)
+
+    def forward(self, x):
+        x = self.layers(x)
+        x = nn.AvgPool2d(2)(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+        return x
 
 
 def canonicalize_state_dict_keys(state_dict):
@@ -61,6 +95,8 @@ def detect_checkpoint_format(state_dict: Dict[str, torch.Tensor]) -> str:
     keys = list(state_dict.keys())
     if any(k.startswith('layer_blocks.') for k in keys):
         return 'dnn_mode_connectivity'
+    if any(k.startswith('layers.') for k in keys):
+        return 'open_lth_cifar_vgg_bn'
     if any(k.startswith('features.') or k.startswith('features.module.') for k in keys):
         return 'pytorch_vgg_cifar10'
     raise ValueError('Unsupported VGG16 checkpoint format')
@@ -84,6 +120,8 @@ def load_checkpoint_state(checkpoint_path: str) -> Tuple[OrderedDict, str]:
 def build_model_from_state_dict(state_dict: Dict[str, torch.Tensor], checkpoint_format: str, num_classes: int = 10):
     if checkpoint_format == 'dnn_mode_connectivity':
         model = models.VGG16.base(num_classes=num_classes)
+    elif checkpoint_format == 'open_lth_cifar_vgg_bn':
+        model = OpenLTHCifarVGG16BN(outputs=num_classes)
     elif checkpoint_format == 'pytorch_vgg_cifar10':
         model = pytorch_vgg.vgg16()
     else:
@@ -105,7 +143,8 @@ def evaluate_barrier(
     model_b,
     loaders,
     num_points: int = 11,
-    device: torch.device = None
+    device: torch.device = None,
+    checkpoint_format: str = 'dnn_mode_connectivity',
 ):
     """Evaluate linear interpolation barrier between two models.
 
@@ -129,7 +168,14 @@ def evaluate_barrier(
     state_b = model_b.state_dict()
 
     # Create interpolation model
-    interp_model = models.VGG16.base(num_classes=10).to(device)
+    if checkpoint_format == 'dnn_mode_connectivity':
+        interp_model = models.VGG16.base(num_classes=10).to(device)
+    elif checkpoint_format == 'open_lth_cifar_vgg_bn':
+        interp_model = build_model_from_state_dict(state_a, checkpoint_format, num_classes=10).to(device)
+    elif checkpoint_format == 'pytorch_vgg_cifar10':
+        interp_model = pytorch_vgg.vgg16().to(device)
+    else:
+        raise ValueError(f'Unsupported checkpoint format: {checkpoint_format}')
 
     ts = np.linspace(0, 1, num_points)
     results = {
@@ -278,7 +324,9 @@ def main():
     print(f"RMS difference: {dist_w0_w1['rms_difference']:.6f}")
     print(f"Total parameters: {dist_w0_w1['num_params']:,}")
 
-    original_barrier = evaluate_barrier(model_w0, model_w1, loaders, args.num_eval_points, device)
+    original_barrier = evaluate_barrier(
+        model_w0, model_w1, loaders, args.num_eval_points, device, checkpoint_format
+    )
     print(f"Original barrier: {original_barrier['barrier']:.4f}")
     print(f"Endpoint avg test loss: {original_barrier['endpoint_avg_test_loss']:.4f}")
     print(f"Max test loss: {original_barrier['max_test_loss']:.4f}")
@@ -292,6 +340,8 @@ def main():
     P_star_inv = perm_gen.invert(P_star)
     if checkpoint_format == 'dnn_mode_connectivity':
         ps = vgg16_permutation_spec()
+    elif checkpoint_format == 'open_lth_cifar_vgg_bn':
+        ps = open_lth_cifar_vgg16_bn_permutation_spec()
     elif checkpoint_format == 'pytorch_vgg_cifar10':
         ps = vgg16_features_permutation_spec()
     else:
@@ -357,7 +407,9 @@ def main():
     print("\n" + "=" * 70)
     print("Step 4: Evaluating permuted barrier (w_0 <-> w_1')")
     print("=" * 70)
-    permuted_barrier = evaluate_barrier(model_w0, model_w1_prime, loaders, args.num_eval_points, device)
+    permuted_barrier = evaluate_barrier(
+        model_w0, model_w1_prime, loaders, args.num_eval_points, device, checkpoint_format
+    )
     print(f"Permuted barrier: {permuted_barrier['barrier']:.4f}")
     print(f"Endpoint avg test loss: {permuted_barrier['endpoint_avg_test_loss']:.4f}")
     print(f"Max test loss: {permuted_barrier['max_test_loss']:.4f}")
@@ -412,7 +464,9 @@ def main():
     print("\n" + "=" * 70)
     print("Step 7A: Evaluating recovered barrier (w_0 <-> w_1_recovered)")
     print("=" * 70)
-    recovered_barrier_to_w0 = evaluate_barrier(model_w0, model_w1_recovered, loaders, args.num_eval_points, device)
+    recovered_barrier_to_w0 = evaluate_barrier(
+        model_w0, model_w1_recovered, loaders, args.num_eval_points, device, checkpoint_format
+    )
     print(f"Recovered barrier to w_0: {recovered_barrier_to_w0['barrier']:.4f}")
     print(f"Endpoint avg test loss: {recovered_barrier_to_w0['endpoint_avg_test_loss']:.4f}")
     print(f"Max test loss: {recovered_barrier_to_w0['max_test_loss']:.4f}")
@@ -421,7 +475,9 @@ def main():
     print("\n" + "=" * 70)
     print("Step 7B: Evaluating recovered barrier (w_1 <-> w_1_recovered)")
     print("=" * 70)
-    recovered_barrier_to_w1 = evaluate_barrier(model_w1, model_w1_recovered, loaders, args.num_eval_points, device)
+    recovered_barrier_to_w1 = evaluate_barrier(
+        model_w1, model_w1_recovered, loaders, args.num_eval_points, device, checkpoint_format
+    )
     print(f"Recovered barrier to w_1: {recovered_barrier_to_w1['barrier']:.4f}")
     print(f"Endpoint avg test loss: {recovered_barrier_to_w1['endpoint_avg_test_loss']:.4f}")
     print(f"Max test loss: {recovered_barrier_to_w1['max_test_loss']:.4f}")
