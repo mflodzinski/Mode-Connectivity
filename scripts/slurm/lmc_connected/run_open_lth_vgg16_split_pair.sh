@@ -57,4 +57,4 @@ srun python scripts/train/run_open_lth_vgg16_split_pair.py \
   --branch-seeds 0 1 \
   --num-workers 4 \
   --batch-size 128 \
-  --num-eval-points 61
+  --num-eval-points 31
