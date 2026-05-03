@@ -55,6 +55,6 @@ srun python scripts/train/run_open_lth_vgg16_split_pair.py \
   --dataset-root "${DATASET_ROOT}" \
   --shared-seed 42 \
   --branch-seeds 0 1 \
-  --num-workers 4 \
+  --num-workers 1 \
   --batch-size 128 \
   --num-eval-points 31
