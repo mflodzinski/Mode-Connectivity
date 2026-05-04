@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=00:20:00
+#SBATCH --time=00:02:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=2GB
+#SBATCH --mem=1GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_pytorch_vgg_split_plot_%x_%j.out
 #SBATCH --error=slurm_pytorch_vgg_split_plot_%x_%j.err
