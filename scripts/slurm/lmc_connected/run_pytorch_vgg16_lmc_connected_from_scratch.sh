@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=08:00:00
+#SBATCH --time=03:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=8GB
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=3GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_pytorch_vgg_lmc_%x_%j.out
 #SBATCH --error=slurm_pytorch_vgg_lmc_%x_%j.err

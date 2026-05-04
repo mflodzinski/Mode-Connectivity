@@ -24,3 +24,18 @@ echo "========================================"
 echo ""
 
 srun python scripts/train/materialize_pytorch_vgg16_independent_pair.py
+
+echo ""
+echo "========================================"
+echo "Evaluate independent pair interpolation"
+echo "========================================"
+echo ""
+
+srun python scripts/analysis/evaluate_pytorch_vgg_pair.py \
+  --w0 results/vgg16/cifar10/endpoints/pytorch_vgg_independent_existing/seed0/checkpoint-200.pt \
+  --w1 results/vgg16/cifar10/endpoints/pytorch_vgg_independent_existing/seed1/checkpoint-200.pt \
+  --data-root ./data \
+  --batch-size 128 \
+  --workers 4 \
+  --num-points 61 \
+  --output-dir results/vgg16/cifar10/endpoints/pytorch_vgg_independent_existing/evaluation
