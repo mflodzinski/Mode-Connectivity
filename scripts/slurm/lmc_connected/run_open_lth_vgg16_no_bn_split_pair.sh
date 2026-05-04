@@ -6,9 +6,9 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=2GB
 #SBATCH --mail-type=END,FAIL
-#SBATCH --output=slurm_open_lth_split_%x_%j.out
-#SBATCH --error=slurm_open_lth_split_%x_%j.err
-#SBATCH --job-name=open_lth_split
+#SBATCH --output=slurm_open_lth_no_bn_split_%x_%j.out
+#SBATCH --error=slurm_open_lth_no_bn_split_%x_%j.err
+#SBATCH --job-name=open_lth_no_bn_split
 #SBATCH --gres=gpu:a40:1
 
 set -euo pipefail
@@ -24,7 +24,7 @@ source "$HOME/venvs/mode-connectivity/bin/activate" || . "$HOME/venvs/mode-conne
 
 PROJECT_ROOT="/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity"
 DATASET_ROOT="/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/open_lth_datasets"
-OUTPUT_ROOT="results/vgg16/cifar10/endpoints/open_lth_shared_split"
+OUTPUT_ROOT="results/vgg16/cifar10/endpoints/open_lth_shared_split_no_bn"
 
 cd "${PROJECT_ROOT}"
 export PYTHONPATH="${PROJECT_ROOT}:${PROJECT_ROOT}/scripts:${PYTHONPATH:-}"
@@ -40,7 +40,7 @@ fi
 mkdir -p "${DATASET_ROOT}"
 
 echo "========================================"
-echo "open_lth VGG16/CIFAR10 shared split pair"
+echo "open_lth VGG16/CIFAR10 shared split pair (no BN)"
 echo "========================================"
 echo "Split iteration: ${SPLIT_ITER}"
 echo "PROJECT_ROOT: ${PROJECT_ROOT}"
@@ -50,6 +50,7 @@ echo "Augmentation: enabled (repo default)"
 echo ""
 
 srun python scripts/train/run_open_lth_vgg16_split_pair.py \
+  --model-name "cifar_vgg_no_bn_16" \
   --split-iter "${SPLIT_ITER}" \
   --output-root "${OUTPUT_ROOT}" \
   --dataset-root "${DATASET_ROOT}" \

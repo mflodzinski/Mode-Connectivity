@@ -39,6 +39,7 @@ import vgg as pytorch_vgg
 
 from scripts.lib.transform.random_permutation import VGG16RandomPermutation
 from scripts.lib.alignment.permutation_spec import (
+    open_lth_cifar_vgg16_no_bn_permutation_spec,
     open_lth_cifar_vgg16_bn_permutation_spec,
     vgg16_features_permutation_spec,
     vgg16_permutation_spec,
@@ -80,6 +81,37 @@ class OpenLTHCifarVGG16BN(nn.Module):
         return x
 
 
+class OpenLTHCifarVGG16NoBN(nn.Module):
+    class ConvModule(nn.Module):
+        def __init__(self, in_filters, out_filters):
+            super().__init__()
+            self.conv = nn.Conv2d(in_filters, out_filters, kernel_size=3, padding=1)
+
+        def forward(self, x):
+            return F.relu(self.conv(x))
+
+    def __init__(self, outputs=10):
+        super().__init__()
+        plan = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512]
+        layers = []
+        filters = 3
+        for spec in plan:
+            if spec == 'M':
+                layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
+            else:
+                layers.append(self.ConvModule(filters, spec))
+                filters = spec
+        self.layers = nn.Sequential(*layers)
+        self.fc = nn.Linear(512, outputs)
+
+    def forward(self, x):
+        x = self.layers(x)
+        x = nn.AvgPool2d(2)(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+        return x
+
+
 def canonicalize_state_dict_keys(state_dict):
     """Strip DataParallel ``features.module.`` prefix when present."""
     out = OrderedDict()
@@ -96,7 +128,9 @@ def detect_checkpoint_format(state_dict: Dict[str, torch.Tensor]) -> str:
     if any(k.startswith('layer_blocks.') for k in keys):
         return 'dnn_mode_connectivity'
     if any(k.startswith('layers.') for k in keys):
-        return 'open_lth_cifar_vgg_bn'
+        if any('.bn.' in k for k in keys):
+            return 'open_lth_cifar_vgg_bn'
+        return 'open_lth_cifar_vgg_no_bn'
     if any(k.startswith('features.') or k.startswith('features.module.') for k in keys):
         return 'pytorch_vgg_cifar10'
     raise ValueError('Unsupported VGG16 checkpoint format')
@@ -122,6 +156,8 @@ def build_model_from_state_dict(state_dict: Dict[str, torch.Tensor], checkpoint_
         model = models.VGG16.base(num_classes=num_classes)
     elif checkpoint_format == 'open_lth_cifar_vgg_bn':
         model = OpenLTHCifarVGG16BN(outputs=num_classes)
+    elif checkpoint_format == 'open_lth_cifar_vgg_no_bn':
+        model = OpenLTHCifarVGG16NoBN(outputs=num_classes)
     elif checkpoint_format == 'pytorch_vgg_cifar10':
         model = pytorch_vgg.vgg16()
     else:
@@ -171,6 +207,8 @@ def evaluate_barrier(
     if checkpoint_format == 'dnn_mode_connectivity':
         interp_model = models.VGG16.base(num_classes=10).to(device)
     elif checkpoint_format == 'open_lth_cifar_vgg_bn':
+        interp_model = build_model_from_state_dict(state_a, checkpoint_format, num_classes=10).to(device)
+    elif checkpoint_format == 'open_lth_cifar_vgg_no_bn':
         interp_model = build_model_from_state_dict(state_a, checkpoint_format, num_classes=10).to(device)
     elif checkpoint_format == 'pytorch_vgg_cifar10':
         interp_model = pytorch_vgg.vgg16().to(device)
@@ -342,6 +380,8 @@ def main():
         ps = vgg16_permutation_spec()
     elif checkpoint_format == 'open_lth_cifar_vgg_bn':
         ps = open_lth_cifar_vgg16_bn_permutation_spec()
+    elif checkpoint_format == 'open_lth_cifar_vgg_no_bn':
+        ps = open_lth_cifar_vgg16_no_bn_permutation_spec()
     elif checkpoint_format == 'pytorch_vgg_cifar10':
         ps = vgg16_features_permutation_spec()
     else:

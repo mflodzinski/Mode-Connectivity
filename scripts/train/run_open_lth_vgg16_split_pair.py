@@ -68,6 +68,12 @@ class ScriptPlatform(local_platform.Platform):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run single-split open_lth VGG16/CIFAR10 branch training.")
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        default="cifar_vgg_16",
+        help="open_lth model name, e.g. cifar_vgg_16 or cifar_vgg_no_bn_16.",
+    )
     parser.add_argument("--split-iter", type=int, required=True, help="Iteration at which to split.")
     parser.add_argument(
         "--output-root",
@@ -111,8 +117,8 @@ def run_on_platform(platform: ScriptPlatform, fn):
         platform_module._PLATFORM = old_platform
 
 
-def get_default_hparams(batch_size: int, do_not_augment: bool) -> tuple:
-    desc = models_registry.get_default_hparams("cifar_vgg_16")
+def get_default_hparams(model_name: str, batch_size: int, do_not_augment: bool) -> tuple:
+    desc = models_registry.get_default_hparams(model_name)
     desc.dataset_hparams.batch_size = batch_size
     desc.dataset_hparams.do_not_augment = do_not_augment
     return desc.model_hparams, desc.dataset_hparams, desc.training_hparams
@@ -246,6 +252,7 @@ def main() -> None:
     eval_dir = output_root / "evaluation"
 
     model_hparams, dataset_hparams, training_hparams = get_default_hparams(
+        model_name=args.model_name,
         batch_size=args.batch_size,
         do_not_augment=args.do_not_augment,
     )
@@ -270,6 +277,7 @@ def main() -> None:
         print("=" * 72)
         print(f"Output root: {output_root}")
         print(f"Dataset root: {args.dataset_root}")
+        print(f"Model name: {args.model_name}")
         print(f"Split iteration: {args.split_iter}")
         print(f"Iterations/epoch: {iterations_per_epoch}")
         print(f"Training end step: {training_hparams.training_steps} -> ep={end_step.ep}, it={end_step.it}")
