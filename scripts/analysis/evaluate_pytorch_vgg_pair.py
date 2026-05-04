@@ -112,6 +112,7 @@ def main() -> None:
     model = build_model_from_state_dict(state_w0, "pytorch_vgg_cifar10", num_classes=10)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
+    print(f"Using device: {device}")
     train_loader, test_loader = build_eval_loaders(args.data_root, args.batch_size, args.workers)
 
     ts = np.linspace(0.0, 1.0, args.num_points)
@@ -123,7 +124,8 @@ def main() -> None:
         "test_acc": [],
     }
 
-    for t in ts:
+    for idx, t in enumerate(ts):
+        print(f"[interp] {idx + 1}/{len(ts)} t={t:.4f}")
         state_t = OrderedDict()
         for key in state_w0:
             state_t[key] = (1.0 - t) * state_w0[key] + t * state_w1[key]
