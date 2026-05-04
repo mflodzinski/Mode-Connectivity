@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=02:00:00
+#SBATCH --time=01:15:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=4
 #SBATCH --mem=8GB
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=slurm_pytorch_vgg_pair_wm_%x_%j.out
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
-  echo "Usage: sbatch $0 <label> [wm_seed]"
+  echo "Usage: $0 <label> [wm_seed]"
   echo "Labels: 100/100 80/120 30/170 8/192 6/194 0/200 independent"
   exit 1
 fi
@@ -22,40 +22,31 @@ fi
 LABEL="$1"
 WM_SEED="${2:-0}"
 
-case "${LABEL}" in
-  "100/100")
-    PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_100split"
-    RESULT_DIR="results/analysis/pytorch_vgg_split_wm/100_100"
-    ;;
-  "80/120")
-    PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_80split"
-    RESULT_DIR="results/analysis/pytorch_vgg_split_wm/80_120"
-    ;;
-  "30/170")
-    PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_30split"
-    RESULT_DIR="results/analysis/pytorch_vgg_split_wm/30_170"
-    ;;
-  "8/192")
-    PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_8split"
-    RESULT_DIR="results/analysis/pytorch_vgg_split_wm/8_192"
-    ;;
-  "6/194")
-    PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_6split"
-    RESULT_DIR="results/analysis/pytorch_vgg_split_wm/6_194"
-    ;;
-  "0/200")
-    PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_0split"
-    RESULT_DIR="results/analysis/pytorch_vgg_split_wm/0_200"
-    ;;
-  "independent")
-    PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_independent_existing"
-    RESULT_DIR="results/analysis/pytorch_vgg_split_wm/independent"
-    ;;
-  *)
-    echo "Unknown label: ${LABEL}"
-    exit 1
-    ;;
-esac
+if [ "${LABEL}" = "100/100" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_100split"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/100_100"
+elif [ "${LABEL}" = "80/120" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_80split"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/80_120"
+elif [ "${LABEL}" = "30/170" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_30split"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/30_170"
+elif [ "${LABEL}" = "8/192" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_8split"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/8_192"
+elif [ "${LABEL}" = "6/194" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_6split"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/6_194"
+elif [ "${LABEL}" = "0/200" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_0split"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/0_200"
+elif [ "${LABEL}" = "independent" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_independent_existing"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/independent"
+else
+  echo "Unknown label: ${LABEL}"
+  exit 1
+fi
 
 source $HOME/venvs/mode-connectivity/bin/activate || . $HOME/venvs/mode-connectivity/bin/activate
 
@@ -71,7 +62,7 @@ echo "========================================"
 echo "Label: ${LABEL}"
 echo "WM seed: ${WM_SEED}"
 echo "Pair root: ${PAIR_ROOT}"
-echo "Result dir: ${RESULT_DIR}"
+echo "Output: ${RESULT_DIR}/results.json"
 echo ""
 
 srun python scripts/analysis/benchmark_alignment.py \
@@ -81,7 +72,7 @@ srun python scripts/analysis/benchmark_alignment.py \
   --wm-seed "${WM_SEED}" \
   --method weight_matching \
   --max-iter 100 \
-  --num-eval-points 11 \
+  --num-eval-points 31 \
   --data-path ./data \
   --batch-size 128 \
   --output "${RESULT_DIR}/results.json"
