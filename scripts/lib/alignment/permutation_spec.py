@@ -184,6 +184,39 @@ def open_lth_cifar_vgg16_bn_permutation_spec() -> PermutationSpec:
     return permutation_spec_from_axes_to_perm(axes_to_perm)
 
 
+def open_lth_cifar_vgg16_no_bn_permutation_spec() -> PermutationSpec:
+    """Permutation spec for open_lth CIFAR VGG16 without BatchNorm.
+
+    State dict keys follow the pattern:
+    - layers.{idx}.conv.weight / bias
+    - fc.weight / bias
+
+    The parameterized convolutional modules live at indices:
+    [0, 1, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15, 16]
+    """
+
+    conv_indices = [0, 1, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15, 16]
+    axes_to_perm = {}
+
+    first_conv = conv_indices[0]
+    axes_to_perm[f"layers.{first_conv}.conv.weight"] = ("P_Conv_0", None, None, None)
+    axes_to_perm[f"layers.{first_conv}.conv.bias"] = ("P_Conv_0",)
+
+    for i in range(1, len(conv_indices)):
+        curr = conv_indices[i]
+        axes_to_perm[f"layers.{curr}.conv.weight"] = (
+            f"P_Conv_{i}",
+            f"P_Conv_{i-1}",
+            None,
+            None,
+        )
+        axes_to_perm[f"layers.{curr}.conv.bias"] = (f"P_Conv_{i}",)
+
+    axes_to_perm["fc.weight"] = (None, "P_Conv_12")
+    axes_to_perm["fc.bias"] = (None,)
+    return permutation_spec_from_axes_to_perm(axes_to_perm)
+
+
 def mlp_permutation_spec(num_hidden_layers: int) -> PermutationSpec:
     """Create permutation spec for MLP.
 
