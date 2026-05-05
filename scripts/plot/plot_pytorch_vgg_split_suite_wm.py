@@ -16,11 +16,10 @@ PAIR_SPECS = [
     ("100/100", 100.0, "results/analysis/pytorch_vgg_split_wm/100_100/results.json"),
     ("80/120", 80.0, "results/analysis/pytorch_vgg_split_wm/80_120/results.json"),
     ("30/170", 30.0, "results/analysis/pytorch_vgg_split_wm/30_170/results.json"),
-    ("8/192", 8.0, "results/analysis/pytorch_vgg_split_wm/8_192/results.json"),
     ("6/194", 6.0, "results/analysis/pytorch_vgg_split_wm/6_194/results.json"),
+    ("5/195", 5.0, "results/analysis/pytorch_vgg_split_wm/5_195/results.json"),
+    ("4/196", 4.0, "results/analysis/pytorch_vgg_split_wm/4_196/results.json"),
     ("3/197", 3.0, "results/analysis/pytorch_vgg_split_wm/3_197/results.json"),
-    ("2/198", 2.0, "results/analysis/pytorch_vgg_split_wm/2_198/results.json"),
-    ("1/199", 1.0, "results/analysis/pytorch_vgg_split_wm/1_199/results.json"),
     ("0/200", 0.0, "results/analysis/pytorch_vgg_split_wm/0_200/results.json"),
     ("independent", None, "results/analysis/pytorch_vgg_split_wm/independent/results.json"),
 ]
@@ -127,21 +126,12 @@ def plot_vs_distance(rows: list[dict], metric: str, output_path: Path) -> None:
 
     orig_color = "#1f77b4"
     rec_color = "#2ca02c"
-
-    shared_sorted = sorted(shared, key=lambda row: row["original_l2_distance"])
-    ax.plot(
-        [row["original_l2_distance"] for row in shared_sorted],
-        [row[f"original_{metric}"] for row in shared_sorted],
-        color=orig_color,
-        lw=1.5,
-        alpha=0.7,
-    )
     ax.scatter(
         [row["original_l2_distance"] for row in shared],
         [row[f"original_{metric}"] for row in shared],
         color=orig_color,
         s=80,
-        label="Original (shared-split)",
+        label="Shared init",
         zorder=5,
     )
 
@@ -150,29 +140,80 @@ def plot_vs_distance(rows: list[dict], metric: str, output_path: Path) -> None:
         [row[f"recovered_{metric}"] for row in shared],
         color=rec_color,
         s=80,
-        marker="^",
-        label="WM recovered",
+        marker="s",
+        label="Shared init + perm. + WM",
         zorder=6,
     )
 
     for row in shared:
-        ax.annotate(row["label"], (row["original_l2_distance"], row[f"original_{metric}"]), textcoords="offset points", xytext=(4, 5), fontsize=8)
+        if row["label"] in {"6/194", "0/200"}:
+            xytext = (-10, -2)
+            ha = "right"
+        else:
+            xytext = (4, 5)
+            ha = "left"
+        ax.annotate(
+            row["label"],
+            (row["original_l2_distance"], row[f"original_{metric}"]),
+            textcoords="offset points",
+            xytext=xytext,
+            fontsize=8,
+            fontweight="bold",
+            ha=ha,
+        )
         ax.annotate(
             "",
             xy=(row["recovered_l2_distance"], row[f"recovered_{metric}"]),
             xytext=(row["original_l2_distance"], row[f"original_{metric}"]),
-            arrowprops=dict(arrowstyle="->", color="gray", alpha=0.7, lw=1.2),
+            arrowprops=dict(
+                arrowstyle="-|>",
+                color="#666666",
+                alpha=0.85,
+                lw=1.3,
+                linestyle=(0, (2.0, 2.0)),
+                mutation_scale=13,
+            ),
         )
 
+    independent_orig_label = True
+    independent_wm_label = True
     for row in independent:
-        ax.scatter([row["original_l2_distance"]], [row[f"original_{metric}"]], color=orig_color, marker="D", s=110, edgecolors="black", linewidths=1.0, zorder=7)
-        ax.scatter([row["recovered_l2_distance"]], [row[f"recovered_{metric}"]], color=rec_color, marker="v", s=110, edgecolors="black", linewidths=1.0, zorder=8)
-        ax.annotate(row["label"], (row["original_l2_distance"], row[f"original_{metric}"]), textcoords="offset points", xytext=(4, 5), fontsize=8)
+        ax.scatter(
+            [row["original_l2_distance"]],
+            [row[f"original_{metric}"]],
+            color="#d62728",
+            marker="o",
+            s=110,
+            edgecolors="black",
+            linewidths=1.0,
+            zorder=7,
+            label="Indep. init" if independent_orig_label else None,
+        )
+        independent_orig_label = False
+        ax.scatter(
+            [row["recovered_l2_distance"]],
+            [row[f"recovered_{metric}"]],
+            color="#d62728",
+            marker="s",
+            s=110,
+            edgecolors="black",
+            linewidths=1.0,
+            zorder=8,
+            label="Indep. init + WM" if independent_wm_label else None,
+        )
+        independent_wm_label = False
         ax.annotate(
             "",
             xy=(row["recovered_l2_distance"], row[f"recovered_{metric}"]),
             xytext=(row["original_l2_distance"], row[f"original_{metric}"]),
-            arrowprops=dict(arrowstyle="->", color="gray", alpha=0.7, lw=1.2),
+            arrowprops=dict(
+                arrowstyle="-|>",
+                color="#666666",
+                alpha=0.85,
+                lw=1.3,
+                linestyle=(0, (2.0, 2.0)),
+                mutation_scale=13,
+            ),
         )
 
     ax.set_xlabel("L2 Distance", fontsize=12)
@@ -193,16 +234,52 @@ def plot_vs_epochs(rows: list[dict], metric: str, output_path: Path) -> None:
     orig_color = "#1f77b4"
     rec_color = "#2ca02c"
 
-    ax.plot([row["shared_epochs"] for row in shared], [row[f"original_{metric}"] for row in shared], color=orig_color, lw=1.8, marker="o", markersize=7, label="Original (shared-split)")
-    ax.plot([row["shared_epochs"] for row in shared], [row[f"recovered_{metric}"] for row in shared], color=rec_color, lw=1.8, marker="^", markersize=7, label="WM recovered")
+    ax.scatter(
+        [row["shared_epochs"] for row in shared],
+        [row[f"original_{metric}"] for row in shared],
+        color=orig_color,
+        s=80,
+        label="Shared init",
+        zorder=5,
+    )
+    ax.scatter(
+        [row["shared_epochs"] for row in shared],
+        [row[f"recovered_{metric}"] for row in shared],
+        color=rec_color,
+        s=80,
+        marker="s",
+        label="Shared init + perm. + WM",
+        zorder=6,
+    )
 
     for row in shared:
-        ax.annotate(row["label"], (row["shared_epochs"], row[f"original_{metric}"]), textcoords="offset points", xytext=(4, 5), fontsize=8)
+        if row["label"] in {"6/194", "0/200"}:
+            xytext = (-10, -2)
+            ha = "right"
+        else:
+            xytext = (4, 5)
+            ha = "left"
+        ax.annotate(
+            row["label"],
+            (row["shared_epochs"], row[f"original_{metric}"]),
+            textcoords="offset points",
+            xytext=xytext,
+            fontsize=8,
+            fontweight="bold",
+            ha=ha,
+        )
         ax.annotate(
             "",
             xy=(row["shared_epochs"], row[f"recovered_{metric}"]),
             xytext=(row["shared_epochs"], row[f"original_{metric}"]),
-            arrowprops=dict(arrowstyle="->", color="gray", alpha=0.7, lw=1.2),
+            arrowprops=dict(
+                arrowstyle="-|>",
+                color="#666666",
+                alpha=0.85,
+                lw=1.3,
+                linestyle=(0, (2.0, 2.0)),
+                mutation_scale=13,
+            ),
         )
 
     ax.set_xlabel("Shared Epochs", fontsize=12)

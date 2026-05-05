@@ -314,7 +314,10 @@ These results establish that minima are connected, suggesting the loss landscape
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{enzari.png}
-    \caption{\textbf{Left:} Permuting hidden units of networks B, C, D to B', C', D' may eliminate barriers with A while preserving function. \textbf{Middle:} The hypothesis models independently trained networks as random permutations of the same underlying mode. \textbf{Right:} Barrier distributions between independent networks match those between random permutations of the same network across 3000+ networks. Points in the lower left mostly correspond to lowest barrier found after searching in the space of valid permutations using a Simulated Annealing algorithm.}
+    \caption{Reproduced from \citet{entezari2021role}. 
+    \textbf{Left:} Permuting hidden units of networks B, C, D to B', C', D' may eliminate barriers with A while preserving the represented function. 
+    \textbf{Middle:} The hypothesis models independently trained networks as random permutations of the same underlying mode. 
+    \textbf{Right:} Barrier distributions between independent networks match those between random permutations of the same network across 3000+ networks. Points in the lower-left region mostly correspond to the lowest barrier found after searching over valid permutations using simulated annealing.}
     \label{fig:entezari}
 \end{figure}
 
@@ -354,22 +357,26 @@ where $n_\ell$ is the width of hidden layer $\ell$. Thus, unit \(i\) is mapped t
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{combined_connectivity.png}
-    \caption{Linear and curve-based connectivity for VGG16 on CIFAR10. The main panels show loss and error along the full interpolation path. The insets show the corresponding curve-only trajectories, that is, the same quantities without linear interpolation, in order to make the differences between seed-seed and seed-mirror pairs more visible in the low-barrier regime.}
+    \includegraphics[width=0.9\linewidth]{combined_connectivity_te_only.png}
+    \caption{Linear and curve-based connectivity for VGG16 on CIFAR10. The main panel shows test error along the full interpolation path. The figure contains three pairwise interpolations/curves between three trained seed models, as well as the mirror-based pairs. The insets show the corresponding curve-only trajectories, that is, the same quantities without linear interpolation, in order to make the differences between seed-seed and seed-mirror pairs more visible.}
     \label{fig:combined_connectivity}
 \end{figure}
-The main panels of Figure~\ref{fig:combined_connectivity} show that both settings admit low-loss curved paths, with barriers below roughly $2.5\%$ test error and below $0.06$ test loss. This confirms that curved mode connectivity is present in our setup, since such barrier values still correspond to functional models along the path. At the same time, the insets reveal a systematic difference: the barriers for mirror-permuted pairs are consistently higher than those for independently trained pairs. This is notable because the mirror endpoints are functionally identical, whereas independently trained models need not be. To test whether this effect is specific to the mirror construction or reflects a more general property of permutation-related pairs, we next repeat the experiment with random permutations instead of deterministic mirroring.
+
+
+The main panel of Figure~\ref{fig:combined_connectivity} shows that both settings admit low-loss curved paths, with the error peaking near the midpoint, \(t=0.5\). Measured relative to the linear interpolation between the endpoint errors at the point of maximal path error, the barrier is \(0.87 \pm 0.29\) for different-mode pairs and \(2.38 \pm 0.00\) for mirrored pairs, reported as mean \(\pm\) sample standard deviation. Thus, although the peak path error remains modest in both cases, the mirrored pairs exhibit a substantially larger excess over the endpoint-interpolation baseline. This confirms that curved mode connectivity is present in our setup, since such barrier values still correspond to functional models along the path. At the same time, the insets reveal a systematic difference: the barriers for mirror-permuted pairs are consistently higher than those for independently trained pairs. This is notable because the mirror endpoints are functionally identical, whereas independently trained models need not be. To test whether this effect is specific to the mirror construction or instead reflects a more general property of permutation-related pairs, we next repeat the experiment using random permutations rather than deterministic mirroring.
+
+
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=1\linewidth]{randpermute.png}
-\caption{Mode connectivity between three independently trained networks and between the same networks and their random permutations (without linear interpolation for clarity).}
+\includegraphics[width=0.9\linewidth]{randpermute_te_only.png}
+\caption{Curved mode connectivity between three independently trained networks and between the same networks and their random permutations (without linear interpolation for clarity).}
 \label{fig:baseline-bezier-nointerpolation_randpermute}
 \end{figure}
 
+As shown in Figure~\ref{fig:baseline-bezier-nointerpolation_randpermute}, random permutations yield low-loss curves that are very similar to those obtained between independently trained models. The error profiles along the optimized Bézier paths still exhibit a visible midpoint peak, but its magnitude remains close to that observed in the independent-seed setting. The barrier for randomly permuted pairs is \(1.07 \pm 0.21\), which is comparable to the previously determined \(0.87 \pm 0.29\) for different-mode pairs. This shows that the elevated barrier observed for mirror-permuted pairs is not a generic consequence of permutation symmetry, but rather a feature of the specific deterministic mirroring construction used to generate those pairs. Why the mirror permutation behaves differently from a random permutation is not clear, but resolving that question is not important for the present thesis. What matters here is that curved low-loss paths remain robust both between independent modes and across random permutation symmetries. Had this not been the case, a clear separation between the random-permutation and independent-seed barriers would have counted as evidence against the hypothesis that these two situations are geometrically equivalent, in the sense illustrated by \citep{entezari2021role} in Figure~\ref{fig:entezari}.
 
 
-As shown in Figure~\ref{fig:baseline-bezier-nointerpolation_randpermute}, random permutations yield low-loss curves that are virtually indistinguishable from those obtained between independently trained models. The loss profiles along the optimized Bézier paths exhibit no pronounced peak and closely match both the shape and magnitude observed in the independent-seed setting. This shows that the elevated barrier observed for mirror permutations is not a generic consequence of permutation symmetry, but rather a feature of that particular construction. Why the mirror permutation behaves differently from a random permutation is not clear, but resolving that question is not important for the present thesis. What matters here is that curved low-loss paths remain robust both between independent modes and across random permutation symmetries.
 
 \section{Hyperplane-Constrained Path Finding}
 The Bézier experiments above show that low-loss curved paths can be found both between independently trained models and between models related by permutation. This raises a more geometric question: how much freedom is actually needed to find such paths? If low-loss paths are rare and occupy only narrow corridors in parameter space, then even a simple geometric constraint should make path optimization much harder. Conversely, if low-loss paths are abundant, then imposing a weak constraint should have little effect. To test this, we constrained the trainable midpoint parameter vector of a three-bend polygonal chain to lie in random affine subspaces that pass through the midpoint of the linear interpolation. Importantly, the codimension constraint is applied only to this trainable point, not to the entire path.
@@ -383,11 +390,11 @@ The Bézier experiments above show that low-loss curved paths can be found both 
 
 \subsection{Methodology}
 
-For two endpoints $w_0$ and $w_1$, let
+For two endpoints $\theta_0$ and $\theta_1$, let
 \[
-\mathbf{m}=\frac{1}{2}(w_0+w_1).
+\mathbf{m}=\frac{1}{2}(\theta_0+\theta_1).
 \]
-The polygonal path is then defined by connecting $w_0$ to a trainable midpoint $\theta$ and $\theta$ to $w_1$, while requiring only this midpoint $\theta$ to remain inside a randomly chosen subspace through $\mathbf{m}$. The two line segments joining $w_0$ to $\theta$ and $\theta$ to $w_1$ are not themselves separately constrained. In the implementation, the midpoint is flattened into a single parameter vector, and the constraint is written as
+The polygonal path is then defined by connecting $\theta_0$ to a trainable midpoint $\theta$ and $\theta$ to $\theta_1$, while requiring only this midpoint $\theta$ to remain inside a randomly chosen subspace through $\mathbf{m}$. The two line segments joining $\theta_0$ to $\theta$ and $\theta$ to $\theta_1$ are not themselves separately constrained. In the implementation, the midpoint is flattened into a single parameter vector, and the constraint is written as
 \[
 N^\top(\theta-\mathbf{m})=0,
 \]
@@ -409,13 +416,12 @@ Thus, optimization is free to move inside the \((N-k)\)-dimensional affine subsp
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{random_plane_midpoint_codim1_5_10_30_seed0-seed1.png}
+    \includegraphics[width=0.8\linewidth]{random_plane_midpoint_codim1_5_10_30_seed0-seed1.png}
     \caption{Comparison of polygonal path optimization when the trainable midpoint is constrained to random subspaces through the interpolation midpoint, for codimensions $1$, $5$, $10$, and $30$.}
     \label{fig:random_planes_comparison}
 \end{figure}
 
-
-The result is that all tested codimensions yield virtually identical low-loss paths: across this range of codimensions, the differences are negligible. At the same time, the optimized trainable midpoints found by the constrained searches are different, showing that multiple distinct constrained configurations can yield similarly good low-loss connections.
+The result is that all tested codimensions yield low-loss paths with virtually identical barriers: across this range of codimensions, the differences are negligible. At the same time, the optimized trainable midpoints found by the constrained searches are different, showing that multiple distinct constrained configurations can yield similarly good low-loss connections.
 
 \begin{table}[H]
     \centering
@@ -435,10 +441,7 @@ The result is that all tested codimensions yield virtually identical low-loss pa
 
 The interpretation is that constraining a single trainable point by these codimension conditions remains extremely weak relative to the ambient parameter dimension of roughly $15$ million. Even after removing up to $30$ directions from the admissible location of the midpoint, the optimizer still has enough freedom to find essentially the same quality of low-loss connection. The important point is therefore not that a particular constrained subspace is special, but that the low-loss region is broad enough to admit many different constrained connecting points.
 
-This supports a broader picture in which trained modes are not connected only by delicate, low-dimensional corridors. Instead, the low-loss region appears thick enough that even constrained path searches can reach different trainable points while retaining essentially the same path quality. A natural next question is how far this can be pushed: at what codimension does connectivity begin to degrade? Systematically increasing the codimension would provide a more direct way to estimate the effective thickness of the low-loss region.
-
-    
-
+This supports a broader picture in which trained modes are not connected only by delicate, low-dimensional corridors. Instead, the low-loss region appears thick enough that even constrained path searches can reach different trainable points while retaining essentially the same path quality.
 
 \section{Controlled LMC Benchmark with Known Permutations}
 \label{sec:controlled_benchmark}
@@ -456,25 +459,26 @@ Importantly, prior work \citep{entezari2021role} focuses on aligning a model wit
     \label{fig:placeholder}
 \end{figure}
 
+
 To create a controlled benchmark, we apply a known permutation $P^*$ to one network in a pair that is already LMC-connected, and test whether the alignment method can recover connectivity. Because a correct permutation is guaranteed to exist, success validates the method’s ability to recover meaningful alignments. Conversely, failure on this controlled task would indicate that the method is too weak to draw conclusions about the hypothesis from its performance. We adopted the shared initialization with split training approach from \citep{frankle2020linear} to construct these network pairs and weight matching \citep{ainsworth2023git} as a permutation finding method.
 
 \subsection{Methodology}
 
-We fix $N = 200$ total epochs (the number required for this model to converge) and vary $n$ (the split point) to control the distance between $w_0$ and $w_1$. Longer shared training (larger $n$) produces closer networks while shorter shared training makes them more distant.
+We fix $N = 200$ total epochs (the number required for this model to converge) and vary $n$ (the split point) to control the distance between $\theta_0$ and $\theta_1$. Longer shared training (larger $n$) produces closer networks while shorter shared training makes them more distant.
 
 \begin{enumerate}
-    \item Train a model for $n$ epochs with a fixed batch ordering, producing a shared checkpoint $w_{\mathrm{shared}}$.
-    \item Create two copies of $w_{\mathrm{shared}}$ and continue training them independently for $N-n$ epochs using different batch orderings. This produces two related endpoints, $w_0$ and $w_1$. \bluecircle{}
-    \item Apply a known random permutation $P^\ast$ to one endpoint, giving $w_1' = P^\ast(w_1)$.
-    \item Run weight matching between $w_0$ and the permuted endpoint $w_1'$ to recover alignment $P$.
-    \item Test whether the recovered alignment removes the artificial permutation by comparing the original $\operatorname{barrier}(w_0, w_1)$ with the aligned $\operatorname{barrier}\bigl(w_0, P(w_1')\bigr)$. \greencircle{}
+    \item Train a model for $n$ epochs with a fixed batch ordering, producing a checkpoint $\theta_{\mathrm{split}}$.
+    \item Create two copies of $\theta_{\mathrm{split}}$ and continue training them independently for $N-n$ epochs using different batch orderings. This produces two related endpoints, $\theta_0$ and $\theta_1$. \bluecircle{}
+    \item Apply a known random permutation $P^\ast$ to one endpoint, giving $\theta_1' = P^\ast(\theta_1)$.
+    \item Run weight matching between $\theta_0$ and the permuted endpoint $\theta_1'$ to recover alignment $P$.
+    \item Test whether the recovered alignment removes the artificial permutation by comparing the original $\operatorname{barrier}(\theta_0, \theta_1)$ with the aligned $\operatorname{barrier}\bigl(\theta_0, P(\theta_1')\bigr)$. \greencircle{}
 \end{enumerate}
 Full training and evaluation details are reported in Appendix~\ref{app:controlled_xor_repro}.
 
 
 
 \subsection{Results}
-In every case the recovered $\text{barrier}(w_0, P(w_1'))$ is lower than the original $\text{barrier}(w_0, w_1)$, suggesting the alignment method finds permutations that improves connectivity beyond the ground truth. This confirms that the method works correctly and manages to find an optimal permutation, at least when one exists.
+In every case the recovered $\text{barrier}(\theta_0, P(\theta_1'))$ is lower than the original $\text{barrier}(\theta_0, \theta_1)$, suggesting the alignment method finds permutations that improves connectivity beyond the ground truth. This confirms that the method works correctly and manages to find an optimal permutation, at least when one exists.
 
 \begin{figure}[H]
     \centering
@@ -485,9 +489,9 @@ In every case the recovered $\text{barrier}(w_0, P(w_1'))$ is lower than the ori
 \end{figure}
 
 
-The important observation is that weight matching is always applied to the pair $(w_0,w_1')$, where $w_1' = P^\ast(w_1)$ is obtained by applying a random permutation to $w_1$. Because of this artificial permutation, the apparent parameter-space mismatch between $w_0$ and $w_1'$ is large in all split settings, and is comparable to the mismatch between independently initialized models. Nevertheless, the quality of the recovered alignment depends strongly on how the underlying pair $(w_0,w_1)$ was created. When the two models share most of their training trajectory, alignment recovers a low-barrier connection. When the split occurs earlier and the models train independently for longer, the post-alignment barrier remains much larger. Thus, even though weight matching sees a similarly difficult-looking permuted pair in all cases, it succeeds only when the underlying unpermuted endpoints are already close.
+The important observation is that weight matching is always applied to the pair $(\theta_0,\theta_1')$, where $\theta_1' = P^\ast(\theta_1)$ is obtained by applying a random permutation to $\theta_1$. Because of this artificial permutation, the apparent parameter-space mismatch between $\theta_0$ and $\theta_1'$ is large in all split settings, and is comparable to the mismatch between independently initialized models. Nevertheless, the quality of the recovered alignment depends strongly on how the underlying pair $(\theta_0,\theta_1)$ was created. When the two models share most of their training trajectory, alignment recovers a low-barrier connection. When the split occurs earlier and the models train independently for longer, the post-alignment barrier remains much larger. Thus, even though weight matching sees a similarly difficult-looking permuted pair in all cases, it succeeds only when the underlying unpermuted endpoints are already close.
 
-This is precisely why the controlled benchmark is useful. For each shared-training split, we know that the artificial permutation can be undone: applying $(P^\ast)^{-1}$ to $w_1'$ recovers the original endpoint $w_1$. Therefore, each run comes with a guaranteed reference barrier, namely the barrier of the constructed pair $(w_0,w_1)$ before the random permutation was applied. The five runs differ only in how far apart the underlying endpoints are, controlled by the amount of shared training. After the artificial permutation, however, all runs present weight matching with the same kind of task: align $w_0$ to a randomly permuted version of another trained model. If permutation symmetry were sufficient to recover LMC between arbitrary modes, one might expect these controlled cases to yield comparable results after alignment, since each contains, in theory, a permutation that cancels out the permutation responsible for breaking LMC. Instead, weight matching succeeds only in cases where we know such an optimal permutation exists by construction, but not in cases where this is unknown; this raises the question of whether such permutations exist in the latter setting at all.
+This is precisely why the controlled benchmark is useful. For each shared-training split, we know that the artificial permutation can be undone: applying $(P^\ast)^{-1}$ to $\theta_1'$ recovers the original endpoint $\theta_1$. Therefore, each run comes with a guaranteed reference barrier, namely the barrier of the constructed pair $(\theta_0,\theta_1)$ before the random permutation was applied. The five runs differ only in how far apart the underlying endpoints are, controlled by the amount of shared training. After the artificial permutation, however, all runs present weight matching with the same kind of task: align $\theta_0$ to a randomly permuted version of another trained model. If permutation symmetry were sufficient to recover LMC between arbitrary modes, one might expect these controlled cases to yield comparable results after alignment, since each contains, in theory, a permutation that cancels out the permutation responsible for breaking LMC. Instead, weight matching succeeds only in cases where we know such an optimal permutation exists by construction, but not in cases where this is unknown; this raises the question of whether such permutations exist in the latter setting at all.
 
 Moreover, we found that at distance $\approx 35$ corresponding to the $8/192$ split, the models are only weakly LMC-connected, with barriers of around 20\% accuracy error. Thus, even for shared-initialization pairs linear mode connectivity degrades substantially at large parameter distances. This reflects an intrinsic limitation of LMC at large separations in parameter space. In other words, LMC after permutation does not hold because the recovered permutation leaves the aligned models too far apart. If an optimal permutation truly places two modes within the same linear basin, one would expect their post-alignment distance to be small, at least for a weight-matching method. The persistence of large distances after alignment therefore still suggests either that no such permutation exists, or that current alignment methods fail to recover it. This raises a natural question: if LMC already becomes fragile at this scale, can we reasonably expect permutation alignment to achieve LMC for independently initialized networks whose post-alignment distance is comparable, if we cannot even construct modes with this distance mismatch and no barrier between them?
 
@@ -977,7 +981,7 @@ For the polygonal-chain experiments used later in the chapter, the same two-endp
 
 The controlled LMC benchmark uses the same VGG16/CIFAR-10 training stack as the main VGG experiments, namely \texttt{dnn-mode-connectivity} with the VGG transform, SGD with momentum \(0.9\), batch size \(128\), learning rate \(0.05\), weight decay \(5\times 10^{-4}\), and \(200\) total training epochs. Training uses the standard CIFAR-10 augmentation pipeline during endpoint optimization, so after the split the two branches differ not only in minibatch order but also in the sequence of random data augmentations. Four shared-training splits were prepared: \(0/200\), \(8/192\), \(30/170\), and \(80/120\). In the \(0/200\) case, the shared checkpoint is just the random initialization saved at epoch \(0\) together with the optimizer state so that split training can resume from it. In the other cases, a shared checkpoint is first trained for \(8\), \(30\), or \(80\) epochs with shared seed \(42\), and then split training continues to epoch \(200\) with split seeds \(0\) and \(1\). Checkpoints are saved every \(50\) epochs, and in the shared-training stage the script explicitly sets \texttt{lr\_schedule\_epochs=200} so that the learning-rate schedule is the same as if the model had been trained continuously for the full \(200\) epochs.
 
-The alignment benchmark itself is run on the resulting endpoint pair \((w_0,w_1)\). Both models are loaded as \texttt{VGG16.base(num\_classes=10)} networks. A random full-network VGG16 permutation with permutation seed \(42\) is applied to \(w_1\) to construct \(w_1'\); the permutation is generated layerwise using the project's VGG16 permutation specification, so the transformed checkpoint represents the same function as \(w_1\). Weight matching is then run between \(w_0\) and \(w_1'\) using the VGG16 permutation specification and at most \(100\) iterations. Linear interpolation barriers are evaluated on \(11\) equally spaced interpolation points using cross-entropy loss. These evaluations use CIFAR-10 loaders with batch size \(128\), \(4\) workers, \texttt{use\_test=true}, and evaluation-mode transforms, so no stochastic train-time augmentation is used during barrier measurement. Besides the barrier itself, the script also records the \(\ell_2\) distance and RMS parameter difference between \(w_0\), \(w_1\), \(w_1'\), and the recovered checkpoint.
+The alignment benchmark itself is run on the resulting endpoint pair \((\theta_0,\theta_1)\). Both models are loaded as \texttt{VGG16.base(num\_classes=10)} networks. A random full-network VGG16 permutation with permutation seed \(42\) is applied to \(\theta_1\) to construct \(\theta_1'\); the permutation is generated layerwise using the project's VGG16 permutation specification, so the transformed checkpoint represents the same function as \(\theta_1\). Weight matching is then run between \(\theta_0\) and \(\theta_1'\) using the VGG16 permutation specification and at most \(100\) iterations. Linear interpolation barriers are evaluated on \(11\) equally spaced interpolation points using cross-entropy loss. These evaluations use CIFAR-10 loaders with batch size \(128\), \(4\) workers, \texttt{use\_test=true}, and evaluation-mode transforms, so no stochastic train-time augmentation is used during barrier measurement. Besides the barrier itself, the script also records the \(\ell_2\) distance and RMS parameter difference between \(\theta_0\), \(\theta_1\), \(\theta_1'\), and the recovered checkpoint.
 
 \subsection{XOR Alignment Experiment}
 

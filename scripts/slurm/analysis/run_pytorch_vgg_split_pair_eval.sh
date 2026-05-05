@@ -15,7 +15,7 @@ set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: sbatch $0 <label>"
-  echo "Labels: 100/100 80/120 30/170 8/192 6/194 3/197 2/198 1/199 0/200 independent"
+  echo "Labels: 100/100 80/120 30/170 8/192 6/194 5/195 4/196 3/197 2/198 1/199 0/200 independent"
   exit 1
 fi
 
