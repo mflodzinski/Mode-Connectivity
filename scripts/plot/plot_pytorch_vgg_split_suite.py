@@ -18,6 +18,9 @@ PAIR_SPECS = [
     ("30/170", 30.0, "results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_30split"),
     ("8/192", 8.0, "results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_8split"),
     ("6/194", 6.0, "results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_6split"),
+    ("3/197", 3.0, "results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_3split"),
+    ("2/198", 2.0, "results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_2split"),
+    ("1/199", 1.0, "results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_1split"),
     ("0/200", 0.0, "results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_0split"),
     ("independent", None, "results/vgg16/cifar10/endpoints/pytorch_vgg_independent_existing"),
 ]

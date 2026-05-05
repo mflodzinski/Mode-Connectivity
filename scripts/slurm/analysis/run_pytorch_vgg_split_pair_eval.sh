@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=00:30:00
+#SBATCH --time=00:10:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=2GB
@@ -15,7 +15,7 @@ set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: sbatch $0 <label>"
-  echo "Labels: 100/100 80/120 30/170 8/192 6/194 0/200 independent"
+  echo "Labels: 100/100 80/120 30/170 8/192 6/194 3/197 2/198 1/199 0/200 independent"
   exit 1
 fi
 
@@ -40,4 +40,4 @@ srun python scripts/analysis/evaluate_pytorch_vgg_split_suite.py \
   --data-root ./data \
   --batch-size 128 \
   --workers 1 \
-  --num-points 31
+  --num-points 21

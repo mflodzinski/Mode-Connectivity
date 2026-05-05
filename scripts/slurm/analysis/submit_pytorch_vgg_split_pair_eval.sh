@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-SCRIPT="scripts/slurm/analysis/run_pytorch_vgg_split_pair_wm.sh"
+SCRIPT="scripts/slurm/analysis/run_pytorch_vgg_split_pair_eval.sh"
 
 sbatch "${SCRIPT}" "100/100"
 sbatch "${SCRIPT}" "80/120"

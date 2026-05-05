@@ -18,6 +18,9 @@ PAIR_SPECS = [
     ("30/170", 30.0, "results/analysis/pytorch_vgg_split_wm/30_170/results.json"),
     ("8/192", 8.0, "results/analysis/pytorch_vgg_split_wm/8_192/results.json"),
     ("6/194", 6.0, "results/analysis/pytorch_vgg_split_wm/6_194/results.json"),
+    ("3/197", 3.0, "results/analysis/pytorch_vgg_split_wm/3_197/results.json"),
+    ("2/198", 2.0, "results/analysis/pytorch_vgg_split_wm/2_198/results.json"),
+    ("1/199", 1.0, "results/analysis/pytorch_vgg_split_wm/1_199/results.json"),
     ("0/200", 0.0, "results/analysis/pytorch_vgg_split_wm/0_200/results.json"),
     ("independent", None, "results/analysis/pytorch_vgg_split_wm/independent/results.json"),
 ]

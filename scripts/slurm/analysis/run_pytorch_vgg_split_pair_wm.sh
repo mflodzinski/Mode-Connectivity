@@ -15,7 +15,7 @@ set -euo pipefail
 
 if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
   echo "Usage: $0 <label> [wm_seed]"
-  echo "Labels: 100/100 80/120 30/170 8/192 6/194 0/200 independent"
+  echo "Labels: 100/100 80/120 30/170 8/192 6/194 3/197 2/198 1/199 0/200 independent"
   exit 1
 fi
 
@@ -37,6 +37,15 @@ elif [ "${LABEL}" = "8/192" ]; then
 elif [ "${LABEL}" = "6/194" ]; then
   PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_6split"
   RESULT_DIR="results/analysis/pytorch_vgg_split_wm/6_194"
+elif [ "${LABEL}" = "3/197" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_3split"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/3_197"
+elif [ "${LABEL}" = "2/198" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_2split"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/2_198"
+elif [ "${LABEL}" = "1/199" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_1split"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/1_199"
 elif [ "${LABEL}" = "0/200" ]; then
   PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_0split"
   RESULT_DIR="results/analysis/pytorch_vgg_split_wm/0_200"
