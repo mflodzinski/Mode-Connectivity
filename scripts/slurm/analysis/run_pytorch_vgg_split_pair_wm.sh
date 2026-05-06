@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --qos=short
-#SBATCH --time=00:30:00
+#SBATCH --time=00:35:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=2GB
@@ -15,7 +15,7 @@ set -euo pipefail
 
 if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
   echo "Usage: $0 <label> [wm_seed]"
-  echo "Labels: 100/100 80/120 30/170 8/192 6/194 3/197 2/198 1/199 0/200 independent"
+  echo "Labels: 100/100 80/120 30/170 8/192 6/194 5/195 4/196 3/197 2/198 1/199 0/200 independent"
   exit 1
 fi
 
@@ -37,6 +37,12 @@ elif [ "${LABEL}" = "8/192" ]; then
 elif [ "${LABEL}" = "6/194" ]; then
   PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_6split"
   RESULT_DIR="results/analysis/pytorch_vgg_split_wm/6_194"
+elif [ "${LABEL}" = "5/195" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_5split"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/5_195"
+elif [ "${LABEL}" = "4/196" ]; then
+  PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_4split"
+  RESULT_DIR="results/analysis/pytorch_vgg_split_wm/4_196"
 elif [ "${LABEL}" = "3/197" ]; then
   PAIR_ROOT="results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_3split"
   RESULT_DIR="results/analysis/pytorch_vgg_split_wm/3_197"

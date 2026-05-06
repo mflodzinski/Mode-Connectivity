@@ -40,34 +40,72 @@
 
 \section{Motivation}
 
-Stochastic gradient descent finds trained modes in neural network loss landscapes, but the nature of these modes remains poorly understood. Networks trained from different initializations converge to different points in parameter space. Do these points lie in isolated basins, separated by high-loss barriers? Or do they all belong to a single connected region of low loss?
-
+Stochastic gradient descent finds trained modes in neural network loss landscapes, 
+but the nature of these modes remains poorly understood. Networks trained from 
+different initializations converge to different points in parameter space. Do these 
+points lie in isolated basins, separated by high-loss barriers? Or do they all 
+belong to a single connected region of low loss?
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.75\linewidth]{example_loss_landscapev2.png}
-    \caption{Example loss landscape in parameter space: optimization trajectories from different random initializations converge to distinct local minima}
-    \label{fig:placeholder}
+    \includegraphics[width=0.73\linewidth]{example_loss_landscapev2.png}
+    \caption{Example loss landscape in parameter space: optimization trajectories 
+    from different random initializations converge to distinct local minima. The 
+    axes $u_1$ and $u_2$ denote directions in parameter space.}
+    \label{fig:intro_loss_landscape}
 \end{figure}
 
-Multiple isolated basins would mean that initialization is critical and that independently trained models occupy genuinely different, separated regions of the loss landscape. A single basin would mean that distinct modes are fundamentally related, with their apparent diversity arising from symmetries in the parameterization.
+Multiple isolated basins would mean that initialization is critical and that 
+independently trained models occupy genuinely different, separated regions of the 
+loss landscape. A single basin, on the other hand, would mean that distinct modes 
+are fundamentally related, with their apparent diversity arising partly from 
+symmetries in the parameterization.
 
-This question has practical implications. If trained modes lie in the same basin, they can be connected by linear paths along which the loss remains low. This enables \textbf{model merging}: combining separately trained models by averaging their weights, which is useful for federated learning where data cannot be centralized. It also enables \textbf{efficient ensembling}: sampling diverse models along low-loss paths rather than training multiple networks from scratch. Conversely, if trained modes lie in isolated basins, linear interpolation between them crosses high-loss barriers, and weight averaging produces dysfunctional networks. Understanding the basin structure is therefore essential for determining when these practical techniques can succeed, while also providing valuable insight into loss landscape geometry.
+This question has both theoretical and practical implications. Theoretically, it 
+concerns the geometry of neural network loss landscapes: whether independently 
+trained solutions are truly separated, or whether their apparent separation is an 
+artifact of overparameterized and symmetric representations. Practically, the 
+answer determines when operations such as weight-space model averaging can be 
+expected to succeed. Averaging neural network weights is only meaningful when the 
+models being averaged are compatible under linear interpolation; otherwise, the 
+average may cross a high-loss barrier and produce a dysfunctional network.
+
+This thesis therefore studies whether independently trained neural networks can be 
+made linearly connected by accounting for permutation symmetries. If this is 
+possible, then models that appear separated in the raw parameter space may in fact 
+belong to the same underlying basin modulo permutation. If it is not possible, then 
+the failures of linear interpolation may reflect genuine structure in the loss 
+landscape rather than merely a misalignment of hidden units or channels.
 
 \section{Problem Statement}
 
-\citep{entezari2021role} conjectured that most SGD minima can be permuted so that there is no barrier on the linear interpolation between them---the \textit{one-basin modulo permutation hypothesis}. Formally:
+\citet{entezari2021role} conjectured that the apparent separation between SGD
+minima may largely be an artifact of ignoring permutation symmetries in neural
+network parameterizations. They state the conjecture as follows:
 
 \begin{quote}
-\textit{For most pairs of SGD minima $\theta_A$ and $\theta_B$, there exists a permutation $P$ such that the loss barrier on the linear path between $\theta_A$ and $P(\theta_B)$ is approximately zero.}
+\textit{Most SGD solutions belong to a set $S$ whose elements can be permuted in
+such a way that there is no barrier on the linear interpolation between any two
+permuted elements in $S$.}
 \end{quote}
 
-This conjecture suggests that the loss landscape may be fundamentally simpler than it appears, with apparently distinct basins being permutations of the same underlying mode. However, the conjecture remains unproven, and existing empirical evidence is inconclusive. Moreover, the statement is inherently ambiguous—"most" is undefined, and there is no threshold specified for what constitutes "approximately zero" barrier.
+The statement does not claim that the original parameter vectors in $S$ are directly linearly connected.
+Rather, it claims that each minimum can be replaced by a functionally equivalent
+permuted representative, obtained by reordering hidden units or channels, such
+that linear interpolation between the permuted representatives has no loss
+barrier. In other words, the conjecture suggests that many apparently distinct
+SGD minima may lie in the same linearly connected basin once permutation
+symmetries are taken into account.
 
-The central question this thesis addresses is:
+This conjecture suggests that the loss landscape may be fundamentally simpler
+than it appears, with apparently distinct basins corresponding to different
+permutation representatives of the same underlying region. However, the conjecture
+remains unproven, and existing empirical evidence is inconclusive.
+
+Therefore, the central question this thesis addresses is:
 
 \begin{quote}
-\textbf{Do independently trained neural networks lie in the same basin of the loss landscape if permutation symmetries are taken into account?}
+\textbf{Do independently trained neural networks admit permutations under which the linear interpolation between them remains low in loss or, when applicable, classification error?}
 \end{quote}
 
 \section{Limitations of Existing Evidence}
@@ -107,11 +145,15 @@ one would need to either:
 This thesis investigates the validity of the \textit{one-basin modulo permutation hypothesis} through the following research questions:
 
 \begin{enumerate}  
-    \item[\textbf{RQ1}] \textbf{(Hypothesis Validity)} Do any two independently trained neural networks lie in the same basin modulo permutation?
+    \item[\textbf{RQ1}] \textbf{(Hypothesis Validity)} Do independently trained neural networks admit permutations under which the linear interpolation between them remains low in loss or, when applicable, classification error?
 
     \item[\textbf{RQ2}] \textbf{(Method Limitations)} When alignment methods fail to achieve linear mode connectivity, is this due to limitations of the methods or evidence against the hypothesis?
+
+    \item[\textbf{RQ3}] \textbf{(Counterexample Search)} Can one identify a network pair or architecture--dataset setting for which it can be shown that no permutation yields low-barrier linear interpolation?
+
+    \item[\textbf{RQ4}] \textbf{(Beyond Permutation Symmetry)} If permutation symmetry alone is not sufficient to bring one network into the basin of another, do additional symmetries need to be taken into account?
 \end{enumerate}
-\noindent We assume throughout that networks share the same architecture, training set, loss function, and hyperparameters---differing only in random initialization and batch ordering. The specific architectures, datasets, and experimental configurations are detailed in Chapter~\ref{chap:methodology}.
+\noindent We assume throughout that networks share the same architecture, core training set, loss function, and hyperparameters---differing only in random initialization, batch ordering, and random augmentations. The specific architectures, datasets, and experimental configurations are detailed in Appendix~\ref{app:curved_path_repro} and Appendix~\ref{app:controlled_xor_repro}.
 
 
 \section{Contributions}
@@ -119,20 +161,29 @@ This thesis investigates the validity of the \textit{one-basin modulo permutatio
 This thesis makes the following contributions:
 
 \begin{enumerate}
-    \item \textbf{Controlled Permutation Benchmark:} A methodology to validate permutation-finding methods by constructing pairs of networks where ground truth permutation is known by construction. This distinguishes method failure from hypothesis failure.
+    \item \textbf{Nonlinear low-loss paths are widespread:} We show that nonlinear low-loss connections between independently trained models remain easy to find even under random affine constraints, indicating that such paths are abundant in parameter space.
     
-    \item \textbf{Same-Function Test (Pure XOR):} An experiment testing whether networks that compute exactly the same function (100\% accuracy on XOR) are linearly connected modulo permutation---a necessary condition for the hypothesis.
-    
+    \item \textbf{Controlled benchmark for alignment methods:} We introduce a benchmark with known ground-truth permutations, which provides insight into why alignment methods fail and into the role that distance between modes in parameter space plays in successful alignment.
 
-    \item \textbf{Distance-Connectivity Analysis:} Systematic study of how the distance between trained modes in parameter space affects alignment quality and barrier height.
+    \item \textbf{A concrete limitation of permutation-only alignment:} We identify architecture--dataset settings in which permutation-only alignment is guaranteed not to yield low interpolation loss.
 
+    \item \textbf{Scale-augmented alignment:} We extend permutation alignment to include scale symmetry and show that, when applicable, this can improve interpolation barriers beyond permutation-only alignment.
 \end{enumerate}
 
 
 %==============================================================================
 \chapter{Background and Literature Review}
 
-This chapter provides the theoretical foundations necessary to understand the \textit{one-basin modulo permutation hypothesis} and surveys the existing literature on mode connectivity. Section~\ref{sec:definitions} introduces the key definitions: loss landscapes, barriers, mode connectivity, and permutation symmetry. Section~\ref{sec:literature} reviews the evidence for and against the hypothesis, tracing the development from early mode connectivity results through modern permutation-finding algorithms.
+This chapter provides the theoretical foundations necessary to understand the 
+\textit{one-basin modulo permutation hypothesis} and surveys the existing 
+literature on mode connectivity, weight averaging, and permutation-based model 
+alignment. Section~\ref{sec:definitions} introduces the key definitions: loss 
+landscapes, barriers, mode connectivity, and permutation symmetry. 
+Section~\ref{sec:weight_averaging} explains why linear connectivity is practically 
+important for weight-space model averaging and model merging. 
+Section~\ref{sec:literature} reviews the evidence for and against the hypothesis, 
+tracing the development from early mode connectivity results to modern 
+permutation-finding algorithms.
 
 %==============================================================================
 \section{Definitions and Theoretical Foundations}
@@ -147,14 +198,15 @@ The loss landscape of a neural network is the function $\mathcal{L}: \Theta \to 
 
 A basin in the loss landscape is informally a connected region of parameter space containing a local minimum, where gradient-based optimization initialized within this region will converge to that minimum. More precisely, for a minimum $\theta^*$, its basin is the set of parameter initializations from which gradient descent converges to $\theta^*$.
 
-For the purposes of mode connectivity, we use a relaxed definition: two modes $\theta_A$ and $\theta_B$ are in the same basin if they can be connected by a continuous path along which the loss remains low (close to the endpoint losses). This definition focuses on the connectivity structure rather than the convergence behavior.
+For the purposes of this work, we use an analogous connectivity-based definition: two modes $\theta_A$ and $\theta_B$ are considered to lie in the same basin if they can be connected by a linear path along which the loss remains low, i.e., close to the endpoint losses. This definition focuses on the geometry of the loss landscape rather than on the convergence behavior of gradient descent. In particular, if the loss remains approximately constant along a path between two converged models, then the path does not cross a high-loss barrier, suggesting that the two solutions, and every point on that intepolation, belong to the same linearly connected low-loss region.
 
 
-\subsection{Loss Barrier}
+\subsection{Barrier}
 
 The barrier \citep{entezari2021role} quantifies the difficulty of linearly interpolating between two local minima. Let $\theta_A$ and $\theta_B$ be local minima in parameter space, and let $C(\theta)$ denote a scalar evaluation criterion:
 
 \begin{equation}
+\label{eq:barrier}
 \text{barrier}(\theta_A, \theta_B; C) =
 \sup_{\lambda \in [0,1]}
 \left[
@@ -170,7 +222,7 @@ Here $C$ may denote either the loss or the classification error, yielding a loss
 \begin{itemize}
     \item Barrier $\approx 0$: Flat or convex interpolation; the two modes are linearly connected.
     \item Barrier $> 0$: A loss/error ``hill'' exists between the two modes.
-    \item Barrier $\approx$ loss/error at random initialization: Solutions are effectively disconnected.
+    \item Barrier $\approx$ loss/error at random initialization: Modes are effectively disconnected.
 \end{itemize}
 
 \begin{figure}[H]
@@ -261,7 +313,7 @@ This accounts for the fact that $\theta_B$ and $P(\theta_B)$ compute the same fu
         \toprule
         \textbf{Claim} & \textbf{Statement} & \textbf{Status} \\
         \midrule
-        Mode connectivity & $\exists$ low-loss curved path & Proven \\
+        Mode connectivity & $\exists$ nonlinear low-loss path & Proven \\
         LMC (shared init) & Linear path after shared training & Proven \\
         LMC modulo permutation & $\exists P$ s.t.\ linear barrier $\approx 0$ & \textbf{Open} \\
         LMC (random init) & Raw linear path has low barrier & False \\
@@ -271,13 +323,70 @@ This accounts for the fact that $\theta_B$ and $P(\theta_B)$ compute the same fu
 
 The \textit{one-basin modulo permutation hypothesis} corresponds to ``LMC modulo permutation''---stronger than general mode connectivity but weaker than claiming raw linear connectivity.
 
+\section{Weight Averaging and Model Merging}
+\label{sec:weight_averaging}
+One practical reason to study linear mode connectivity is that weight averaging 
+only works when the models being averaged are compatible in parameter space. Given 
+two models $\theta_A$ and $\theta_B$, their average is the midpoint of the linear 
+interpolation,
+\[
+\theta_{\mathrm{avg}} = \frac{1}{2}(\theta_A + \theta_B).
+\]
+Thus, if the linear path between two models crosses a high-loss barrier, the 
+averaged model may perform poorly even when both endpoints have low loss. This 
+makes linear connectivity stronger and more practically relevant for model 
+averaging than general mode connectivity: two modes may be connected by a nonlinear 
+low-loss path, while their direct linear interpolation still has a high barrier.
+
+Several successful weight-averaging methods operate in settings where such 
+compatibility is encouraged by design. Stochastic Weight Averaging (SWA) averages 
+checkpoints visited along a single SGD trajectory, typically using a constant or 
+cyclical learning-rate schedule. Since these checkpoints come from the same 
+training run, they are not fully independent minima; rather, they are nearby 
+points sampled from the same region of the loss landscape. Averaging them often 
+produces a solution near the centre of a wider, flatter optimum and can improve 
+generalization while retaining the inference cost of a single model 
+\citep{izmailov2018averaging}.
+
+A related example is given by model soups, where multiple models fine-tuned from 
+the same pretrained initialization are averaged in weight space. These models may 
+be trained with different hyperparameters, but because they share the same 
+pretrained starting point, they are more likely to remain in a common linearly 
+connected low-error basin than models trained independently from random 
+initialization. \citet{wortsman2022model} show that such averaging can improve 
+accuracy and robustness without increasing inference-time or memory cost, unlike a 
+conventional ensemble.
+
+These examples show that weight averaging can be beneficial once linear 
+compatibility in parameter space is present. However, they avoid the harder case 
+of averaging independently trained networks. Models trained from different random 
+initializations may be more diverse, but direct averaging of their weights often 
+crosses a high-loss barrier and produces a dysfunctional network. If permutation 
+symmetries could be used to move independently trained models into the same 
+linearly connected basin, then the benefits of weight averaging could potentially 
+extend beyond shared-trajectory or shared-initialization settings.
+
+This is the motivation behind permutation-aware model merging methods such as Git 
+Re-Basin, which attempt to align independently trained models before averaging 
+them in weight space \citep{ainsworth2023git}. \citet{ainsworth2023git} test this 
+idea by merging multiple independently trained MLPs on MNIST and report that the 
+resulting merged model achieves lower test loss than the individual input models. 
+Thus, permutation-aware merging suggests a possible way to obtain some benefits of 
+combining independently trained models in a single network, without the memory or 
+inference-time overhead of a conventional ensemble, although the merged model may 
+still underperform an explicit ensemble in terms of loss and accuracy.
 
 %==============================================================================
-\section{Evidence For and Against the One-Basin Modulo Permutation Hypothesis}
+%==============================================================================
+\section{Evidence For and Against the Hypothesis}
 \label{sec:literature}
 %==============================================================================
 
-This section traces the development of mode connectivity research, from early results establishing curved-path connectivity through modern permutation-finding algorithms. Each result is contextualized by its contribution to understanding the \textit{one-basin modulo permutation hypothesis}.
+This section reviews the evidence for and against the \textit{one-basin modulo 
+permutation hypothesis}. It begins with curved-path mode connectivity results, 
+which show that many trained networks can be connected by nonlinear low-loss paths. 
+It then discusses the statistical evidence of \citet{entezari2021role} and the 
+development of explicit permutation-finding methods.
 
 \subsection{Mode Connectivity via Curved Paths}
 
@@ -303,7 +412,11 @@ The study of mode connectivity began with the discovery that trained networks ca
 
 where $\theta_{\text{mid}}$ is a trainable midpoint optimized to minimize the expected loss along the path.
 
-These results establish that minima are connected, suggesting the loss landscape has a simpler structure than previously thought. However, the existence of curved paths does not imply LMC---even a single bend point means the path deviates from the direct linear interpolation, leaving open whether linear connectivity could be achieved without such detours.
+These results establish that many minima are connected by nonlinear low-loss paths, 
+suggesting that the loss landscape has a simpler structure than previously thought. 
+However, the existence of curved paths does not imply linear mode connectivity. 
+Even a single bend point means that the path avoids the direct linear interpolation, 
+leaving open whether two modes can be connected by a straight low-loss path.
 
 
 
@@ -321,9 +434,38 @@ These results establish that minima are connected, suggesting the loss landscape
     \label{fig:entezari}
 \end{figure}
 
-The interpretation: if independently trained networks ``look like'' permuted versions of each other in terms of barrier statistics, they may actually \textit{be} permuted versions of the same underlying mode. This provides the first empirical motivation for the conjecture. However, the evidence is \textit{indirect}---the authors did not find permutations that actually achieve low barriers; they only showed that barrier distributions match. The evidence is insufficient, rather unmatching distributions of barrier would be a more convincing evidence of the incorrectness of the hypothesis. The hypothesis remained unverified: could such permutations actually be found?
+This evidence is suggestive but indirect. Matching barrier distributions are
+consistent with the hypothesis, but they do not by themselves exhibit the
+permutations needed to achieve low-barrier interpolation. Conversely, a clear
+mismatch between the two distributions would have provided stronger evidence
+against the hypothesis. Thus, the central question remained open: could such
+permutations actually be found?
 
+\subsection{Explicit Permutation Alignment: Successes and Limitations}
 
+The indirect evidence of \citet{entezari2021role} motivated the development of
+methods that explicitly search for permutations. \citet{ainsworth2023git}
+addressed this in Git Re-Basin by introducing algorithms that align one model to
+another by permuting hidden units or channels before interpolation. Their results
+show that permutation alignment can substantially reduce interpolation barriers
+across several architecture--dataset combinations. In particular, they report
+zero-barrier linear mode connectivity for MLPs on MNIST and for sufficiently wide
+ResNet models on CIFAR-10, providing strong empirical support for the one-basin
+modulo permutation hypothesis.
+
+However, the results are not uniformly successful. Git Re-Basin also shows that
+linear mode connectivity after permutation depends on architecture, width, and
+training stage. For example, in their width-scaling experiments on CIFAR-10, the
+standard-width VGG16 and ResNet20 models do not fully exhibit linear mode
+connectivity after applying permutation, while increasing model width substantially reduces
+the barrier and can eventually drive it to zero. Larger-scale settings such as
+ImageNet also remain challenging, with permutation alignment reducing but not
+eliminating the interpolation barrier \citep{ainsworth2023git}. These failures
+leave open whether the remaining barriers are due to limitations of the
+permutation-search methods or because no suitable permutation exists for those
+models. Thus, Git Re-Basin provides the first strong explicit evidence that the
+conjectured permutations can sometimes be found, but also shows that the
+hypothesis is not fully resolved across all architectures and settings.
 
 
 %==============================================================================
@@ -455,7 +597,7 @@ Importantly, prior work \citep{entezari2021role} focuses on aligning a model wit
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\linewidth]{construction.png}
-    \caption{Starting from a shared initialization $x_{\mathrm{init}}$, training splits at $x_{\mathrm{split}}$ to produce two related modes $x_0$ and $x_1$. A known permutation maps $x_1 \to x_1'$, and weight matching attempts to recover $P(x_1')$. The blue and green dotted lines indicate the distances between modes, as referred to in the later part of the experiment.}
+    \caption{Starting from a shared initialization $\theta_{\mathrm{init}}$, training proceeds jointly until the split point $\theta_{\mathrm{split}}$, after which it diverges to produce two related modes $\theta_0$ and $\theta_1$. A known permutation is then applied to $\theta_1$ to obtain $\theta_1'$, and weight matching attempts to align $\theta_0$ and $\theta_1'$, producing $P(\theta_1')$. The blue and green dotted lines indicate the distances between modes referred to later in the experiment. The axes $u_1$ and $u_2$ denote directions in parameter space.}
     \label{fig:placeholder}
 \end{figure}
 
@@ -464,29 +606,32 @@ To create a controlled benchmark, we apply a known permutation $P^*$ to one netw
 
 \subsection{Methodology}
 
-We fix $N = 200$ total epochs (the number required for this model to converge) and vary $n$ (the split point) to control the distance between $\theta_0$ and $\theta_1$. Longer shared training (larger $n$) produces closer networks while shorter shared training makes them more distant.
+We fix \(N\) as the total number of training epochs, chosen to match the number required for this model to converge, and vary \(n\), the number of shared epochs, to control the distance between \(\theta_0\) and \(\theta_1\). Longer shared training (larger \(n\)) produces closer networks, whereas shorter shared training makes them more distant.
+
 
 \begin{enumerate}
     \item Train a model for $n$ epochs with a fixed batch ordering, producing a checkpoint $\theta_{\mathrm{split}}$.
-    \item Create two copies of $\theta_{\mathrm{split}}$ and continue training them independently for $N-n$ epochs using different batch orderings. This produces two related endpoints, $\theta_0$ and $\theta_1$. \bluecircle{}
+    \item Create two copies of $\theta_{\mathrm{split}}$ and continue training them independently for $N-n$ epochs using different batch orderings. This produces two related endpoints, $\theta_0$ and $\theta_1$.
     \item Apply a known random permutation $P^\ast$ to one endpoint, giving $\theta_1' = P^\ast(\theta_1)$.
     \item Run weight matching between $\theta_0$ and the permuted endpoint $\theta_1'$ to recover alignment $P$.
-    \item Test whether the recovered alignment removes the artificial permutation by comparing the original $\operatorname{barrier}(\theta_0, \theta_1)$ with the aligned $\operatorname{barrier}\bigl(\theta_0, P(\theta_1')\bigr)$. \greencircle{}
+    \item Test whether the recovered alignment removes the artificial permutation by comparing the original $\operatorname{barrier}(\theta_0, \theta_1)$ with the aligned $\operatorname{barrier}\bigl(\theta_0, P(\theta_1')\bigr)$.
 \end{enumerate}
 Full training and evaluation details are reported in Appendix~\ref{app:controlled_xor_repro}.
 
 
 
 \subsection{Results}
-In every case the recovered $\text{barrier}(\theta_0, P(\theta_1'))$ is lower than the original $\text{barrier}(\theta_0, \theta_1)$, suggesting the alignment method finds permutations that improves connectivity beyond the ground truth. This confirms that the method works correctly and manages to find an optimal permutation, at least when one exists.
+In every case, the recovered barrier value \(\operatorname{barrier}(\theta_0, P(\theta_1'))\), computed according to \eqref{eq:barrier}, is lower than the original \(\operatorname{barrier}(\theta_0, \theta_1)\), suggesting that the alignment method finds permutations that improve connectivity beyond the ground truth. This confirms that the method works correctly and manages to find an optimal permutation, at least when one exists.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{train_accuracy.png}
     \caption{
-    Train barrier as a function of $\ell_2$ distance between weight vectors, before and after permutation alignment. Blue and green circles correspond to distances and barriers between $x_0$ and $x_1$, and between $x_0$ and $P(x_1')$, respectively; red diamonds denote independently trained networks.}
+    Train barrier as a function of \(\ell_2\) distance between weight vectors, before and after permutation alignment. Blue and green circles correspond to distances and barriers between \(\theta_0\) and \(\theta_1\), and between \(\theta_0\) and \(P(\theta_1')\), respectively; red diamonds denote independently trained networks. The labels of the form \(n/(N-n)\) indicate the training split, where the two models are trained jointly for \(n\) epochs and then trained independently for the remaining \(N-n\) epochs.}
     \label{fig:barrier-vs-distance}
 \end{figure}
+
+
 
 
 The important observation is that weight matching is always applied to the pair $(\theta_0,\theta_1')$, where $\theta_1' = P^\ast(\theta_1)$ is obtained by applying a random permutation to $\theta_1$. Because of this artificial permutation, the apparent parameter-space mismatch between $\theta_0$ and $\theta_1'$ is large in all split settings, and is comparable to the mismatch between independently initialized models. Nevertheless, the quality of the recovered alignment depends strongly on how the underlying pair $(\theta_0,\theta_1)$ was created. When the two models share most of their training trajectory, alignment recovers a low-barrier connection. When the split occurs earlier and the models train independently for longer, the post-alignment barrier remains much larger. Thus, even though weight matching sees a similarly difficult-looking permuted pair in all cases, it succeeds only when the underlying unpermuted endpoints are already close.
@@ -502,6 +647,7 @@ The analysis above leaves a few possible interpretations. One is that the \texti
 \section{XOR Experiment: Validating Alignment on a Minimal Problem}
 
 The experiment above shows that alignment performance depends strongly on the underlying distance between modes. However, it still does not fully resolve whether failures at larger distances are caused by limitations of the alignment algorithm or by the absence of any permutation that would yield LMC. To separate these possibilities, we next study the XOR problem, which provides a minimal and fully analyzable setting for permutation alignment. With a 2-2-1 architecture, there are only two hidden-unit permutations: the identity and a swap. Exhaustive search is therefore trivial, allowing us to verify exactly when alignment succeeds or fails, and why.
+
 
 
 Additionally, XOR is interesting because multiple distinct decision boundaries can achieve 100\% classification accuracy. Networks may learn different weight configurations while computing functions that agree on the four training points but differ elsewhere. This allows us to test alignment between networks with both similar and different decision boundaries.
@@ -953,9 +1099,8 @@ The present thesis does not resolve that broader question fully. However, it pro
 
 These observations strengthen the conclusion of RQ2: when alignment methods fail, this failure may reflect not only optimization limitations, but also an incomplete choice of symmetry class.
 
-%==============================================================================
-\chapter{Excluded Experiments}
-%==============================================================================
+\bibliographystyle{plainnat}
+\bibliography{references}
 
 \appendix
 
@@ -995,36 +1140,16 @@ The XOR mode-connectivity experiment is implemented in \texttt{scripts/experimen
 
 Two path families are considered: quadratic Bézier curves and polygonal chains. In the default configuration, both use \(\texttt{num\_bends}=3\), which means that the path has a single trainable interior point. Curve fitting uses \(1500\) optimization steps, learning rate \(0.05\), zero weight decay, \(11\) samples of the path parameter \(t\) inside the fitting objective, and \(61\) evaluation points for the final reported path. The default objective is mean loss along the sampled path. When a single trainable point did not suffice, the number of trainable points was increased by using more bends, up to \(10\) trainable points in the reported search.
 
-\textbf{Excluded Experiments}\\
-The following experiments were conducted during the research but excluded from the main thesis as they did not directly contribute to testing the \textit{one-basin modulo permutation hypothesis}. They are documented here for completeness.
 
-\textbf{Initialization Strategy Robustness}
-
-We tested various initialization strategies for Bézier curve training, including biased linear initialization, perturbed midpoint, and sphere-constrained initialization. All strategies converged to low-loss paths with similar barrier heights, indicating that the optimization landscape for path-finding is favorable and the results are not sensitive to initialization choices.
-
-\textbf{Prediction Changes Along Low-Loss Paths}
-
-We tracked how individual datapoint predictions change along trained Bézier curves connecting two modes. While the overall accuracy remains high throughout the path, individual predictions can flip multiple times, suggesting that the path traverses regions with different decision boundaries despite maintaining low loss.
-
-\textbf{Effect of Regularization on Path Properties}
-
-We investigated how different regularization strengths during endpoint training affect the properties of connecting Bézier curves. Stronger regularization produced curves that have less bend and whose points lie closer to the origin.
-
-\textbf{Layer-wise Distance Along Interpolation}
-
-We measured the $\ell_2$ distance between interpolated weights and each endpoint on a per-layer basis along Bézier curves. The analysis revealed that different layers contribute unequally to the overall weight-space distance, with early layers typically showing larger relative changes along the path.
-
-
-\bibliographystyle{plainnat}
-\bibliography{references}
 %todo
-%conclusion and discusion
-%correct chapter 1 and 2
-%add unused experiemnts to appendix
-
-% crrect experiemnts for sinkhrorn (the same hyperparam grid)
 % remve train augmentation sfrm contrlled benchamrk experiemnts
+%add unused experiemnts to appendix
 % many seeds foor the coontrolled benchmark experiemnt
+
+
+%correct chapter 1 and 2
+%conclusion and discusion
+% crrect experiemnts for sinkhrorn (the same hyperparam grid)
 % line 600 - explain why for different decision boundaries no low loss %path can be found for 2-2-1
 % explain more used methods like bezier curve - what the optimization is etc
 \end{document}
