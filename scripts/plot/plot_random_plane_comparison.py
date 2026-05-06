@@ -57,8 +57,25 @@ def plot_comparison(args):
     t_symplane = symplane_data['ts'] if symplane_data is not None else None
     t_random_random = random_random_data['ts'] if random_random_data is not None else None
 
-    # Create figure with 4 subplots (2x2)
-    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+    metric_map = {
+        'te_err': ('te_err', 'Test Error (%)'),
+        'te_loss': ('te_loss', 'Test Loss'),
+        'tr_err': ('tr_err', 'Train Error (%)'),
+        'tr_loss': ('tr_loss', 'Train Loss'),
+    }
+    single_metric = args.metric is not None
+    if single_metric:
+        fig, single_ax = plt.subplots(figsize=(8.0, 6.4))
+        axes = np.array([[single_ax]])
+        plot_specs = [(metric_map[args.metric][0], metric_map[args.metric][1], single_ax)]
+    else:
+        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+        plot_specs = [
+            ('te_err', 'Test Error (%)', axes[0, 0]),
+            ('te_loss', 'Test Loss', axes[0, 1]),
+            ('tr_err', 'Train Error (%)', axes[1, 0]),
+            ('tr_loss', 'Train Loss', axes[1, 1]),
+        ]
 
     # Plot styles
     styles = {
@@ -76,73 +93,21 @@ def plot_comparison(args):
         {'color': '#D55E00', 'linestyle': ':', 'alpha': 0.95, 'linewidth': 2.5, 'marker': 'X', 'markersize': 3, 'markevery': 5},
     ]
 
-    # Panel 1: Test Error
-    ax = axes[0, 0]
-    if polygon_data is not None:
-        ax.plot(t_polygon, polygon_data['te_err'], **styles['polygon'])
-    if symplane_data is not None:
-        ax.plot(t_symplane, symplane_data['te_err'], **styles['symplane'])
-    for i, curve in enumerate(random_midpoint_curves):
-        style = midpoint_style_cycle[i % len(midpoint_style_cycle)].copy()
-        style['label'] = curve['label']
-        ax.plot(curve['data']['ts'], curve['data']['te_err'], **style)
-    if random_random_data is not None:
-        ax.plot(t_random_random, random_random_data['te_err'], **styles['random_random'])
-    ax.set_xlabel('t (interpolation parameter)', fontsize=12)
-    ax.set_ylabel('Test Error (%)', fontsize=12, fontweight='bold')
-    ax.grid(True, alpha=0.3)
-    ax.set_xlim(-0.05, 1.05)
-
-    # Panel 2: Test Loss
-    ax = axes[0, 1]
-    if polygon_data is not None:
-        ax.plot(t_polygon, polygon_data['te_loss'], **styles['polygon'])
-    if symplane_data is not None:
-        ax.plot(t_symplane, symplane_data['te_loss'], **styles['symplane'])
-    for i, curve in enumerate(random_midpoint_curves):
-        style = midpoint_style_cycle[i % len(midpoint_style_cycle)].copy()
-        style['label'] = curve['label']
-        ax.plot(curve['data']['ts'], curve['data']['te_loss'], **style)
-    if random_random_data is not None:
-        ax.plot(t_random_random, random_random_data['te_loss'], **styles['random_random'])
-    ax.set_xlabel('t (interpolation parameter)', fontsize=12)
-    ax.set_ylabel('Test Loss', fontsize=12, fontweight='bold')
-    ax.grid(True, alpha=0.3)
-    ax.set_xlim(-0.05, 1.05)
-
-    # Panel 3: Train Error
-    ax = axes[1, 0]
-    if polygon_data is not None:
-        ax.plot(t_polygon, polygon_data['tr_err'], **styles['polygon'])
-    if symplane_data is not None:
-        ax.plot(t_symplane, symplane_data['tr_err'], **styles['symplane'])
-    for i, curve in enumerate(random_midpoint_curves):
-        style = midpoint_style_cycle[i % len(midpoint_style_cycle)].copy()
-        style['label'] = curve['label']
-        ax.plot(curve['data']['ts'], curve['data']['tr_err'], **style)
-    if random_random_data is not None:
-        ax.plot(t_random_random, random_random_data['tr_err'], **styles['random_random'])
-    ax.set_xlabel('t (interpolation parameter)', fontsize=12)
-    ax.set_ylabel('Train Error (%)', fontsize=12, fontweight='bold')
-    ax.grid(True, alpha=0.3)
-    ax.set_xlim(-0.05, 1.05)
-
-    # Panel 4: Train Loss
-    ax = axes[1, 1]
-    if polygon_data is not None:
-        ax.plot(t_polygon, polygon_data['tr_loss'], **styles['polygon'])
-    if symplane_data is not None:
-        ax.plot(t_symplane, symplane_data['tr_loss'], **styles['symplane'])
-    for i, curve in enumerate(random_midpoint_curves):
-        style = midpoint_style_cycle[i % len(midpoint_style_cycle)].copy()
-        style['label'] = curve['label']
-        ax.plot(curve['data']['ts'], curve['data']['tr_loss'], **style)
-    if random_random_data is not None:
-        ax.plot(t_random_random, random_random_data['tr_loss'], **styles['random_random'])
-    ax.set_xlabel('t (interpolation parameter)', fontsize=12)
-    ax.set_ylabel('Train Loss', fontsize=12, fontweight='bold')
-    ax.grid(True, alpha=0.3)
-    ax.set_xlim(-0.05, 1.05)
+    for metric_key, ylabel, ax in plot_specs:
+        if polygon_data is not None:
+            ax.plot(t_polygon, polygon_data[metric_key], **styles['polygon'])
+        if symplane_data is not None:
+            ax.plot(t_symplane, symplane_data[metric_key], **styles['symplane'])
+        for i, curve in enumerate(random_midpoint_curves):
+            style = midpoint_style_cycle[i % len(midpoint_style_cycle)].copy()
+            style['label'] = curve['label']
+            ax.plot(curve['data']['ts'], curve['data'][metric_key], **style)
+        if random_random_data is not None:
+            ax.plot(t_random_random, random_random_data[metric_key], **styles['random_random'])
+        ax.set_xlabel('t (interpolation parameter)', fontsize=12)
+        ax.set_ylabel(ylabel, fontsize=12, fontweight='bold')
+        ax.grid(True, alpha=0.3)
+        ax.set_xlim(-0.05, 1.05)
 
     # Add vertical line at t=0.5 (middle bend location)
     for ax in axes.flat:
@@ -166,12 +131,13 @@ def plot_comparison(args):
         legend_handles.append(plt.Line2D([], [], **styles['random_random']))
         legend_labels.append(styles['random_random']['label'])
     if legend_handles:
-        axes[0, 0].legend(
+        legend_target = plot_specs[0][2]
+        legend_target.legend(
             legend_handles,
             legend_labels,
             loc='upper right',
             ncol=1,
-            fontsize=10,
+            fontsize=args.legend_fontsize,
             frameon=True,
         )
 
@@ -357,6 +323,11 @@ if __name__ == '__main__':
                        help='Path to random plane (midpoint) curve.npz file (optional, can be passed multiple times)')
     parser.add_argument('--random-random-file', type=str, default=None,
                        help='Path to random plane (random anchor) curve.npz file (optional)')
+    parser.add_argument('--metric', type=str, default=None,
+                       choices=['te_err', 'te_loss', 'tr_err', 'tr_loss'],
+                       help='Plot only a single metric instead of the default 2x2 figure.')
+    parser.add_argument('--legend-fontsize', type=float, default=10,
+                       help='Legend font size.')
 
     # Standard arguments using ArgumentParserBuilder
     ArgumentParserBuilder.add_plot_output_args(parser, required=False)

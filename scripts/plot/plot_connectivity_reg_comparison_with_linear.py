@@ -210,9 +210,6 @@ def main():
 
     # Create 2x2 subplot
     fig, axes = plt.subplots(2, 2, figsize=(10, 8))
-
-    # Plot configuration: top left to bottom right
-    # Test Error, Test Loss, Train Error, Train Loss
     plots = [
         ('te_err', 'Test Error (%)', axes[0, 0]),
         ('te_loss', 'Test Loss', axes[0, 1]),

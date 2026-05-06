@@ -109,20 +109,20 @@ def draw(output_path: Path) -> None:
     ax.scatter(*min_c, marker="X", s=180, color="#ff8c00", edgecolor="black", zorder=7)
 
     ax.text(
-        start_a[0] - 0.35, start_a[1] + 0.25, "Init A", fontsize=11, weight="bold", color="white"
+        start_a[0] - 0.35, start_a[1] + 0.25, "Init A", fontsize=15, weight="bold", color="white"
     )
     ax.text(
-        start_c[0] - 0.2, start_c[1] + 0.25, "Init B", fontsize=11, weight="bold", color="white"
+        start_c[0] - 0.2, start_c[1] + 0.25, "Init B", fontsize=15, weight="bold", color="white"
     )
     ax.text(
-        min_a[0] - 0.2, min_a[1] - 0.45, "Minimum A", fontsize=10, weight="bold", color="white"
+        min_a[0] - 0.2, min_a[1] - 0.45, "Minimum A", fontsize=14, weight="bold", color="white"
     )
     ax.text(
-        min_c[0] - 0.5, min_c[1] - 0.45, "Minimum B", fontsize=10, weight="bold", color="white"
+        min_c[0] - 0.5, min_c[1] - 0.45, "Minimum B", fontsize=14, weight="bold", color="white"
     )
 
-    ax.set_xlabel(r"$\theta_1$")
-    ax.set_ylabel(r"$\theta_2$")
+    ax.set_xlabel(r"$u_1$", fontsize=20)
+    ax.set_ylabel(r"$u_2$", fontsize=20)
     ax.set_xlim(-4.5, 4.5)
     ax.set_ylim(-4.5, 4.5)
     ax.set_xticks([])
