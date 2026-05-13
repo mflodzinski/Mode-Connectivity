@@ -1035,7 +1035,7 @@ def plot_pair_curves(pair_payload: dict[str, Any], output_path: Path, metric_key
         t = np.asarray(metrics["t"], dtype=np.float64)
         values = np.asarray(metrics["accuracy" if metric_key == "acc" else "loss"], dtype=np.float64)
         plt.plot(t, values, label=labels[method_key], color=colors[method_key])
-    plt.xlabel("t")
+    plt.xlabel("t (interpolation parameter)")
     plt.ylabel(ylabel)
     plt.title(title)
     plt.legend()
@@ -1113,6 +1113,10 @@ def plot_aggregate_curves(
     title: str | None,
     include_std: bool,
     show_legend: bool = True,
+    title_fontsize: int = 16,
+    ylabel_fontsize: int = 16,
+    ylabel_fontweight: str = "bold",
+    legend_fontsize: int = 14,
 ) -> None:
     plt.figure()
     colors, labels = get_plot_style()
@@ -1128,12 +1132,12 @@ def plot_aggregate_curves(
         plt.plot(t, mean, label=labels[method_key], color=color)
         if include_std:
             plt.fill_between(t, mean - std, mean + std, color=color, alpha=0.15)
-    plt.xlabel("t")
-    plt.ylabel(ylabel)
+    plt.xlabel("t (interpolation parameter)")
+    plt.ylabel(ylabel, fontsize=ylabel_fontsize, fontweight=ylabel_fontweight)
     if title:
-        plt.title(title)
+        plt.title(title, fontsize=title_fontsize)
     if show_legend:
-        plt.legend()
+        plt.legend(fontsize=legend_fontsize)
     plt.savefig(output_path, dpi=220, bbox_inches="tight")
     plt.close()
 

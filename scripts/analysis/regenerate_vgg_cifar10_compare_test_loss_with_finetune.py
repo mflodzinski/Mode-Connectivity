@@ -55,11 +55,11 @@ def regenerate_plot(architecture: str) -> Path:
         label="Permutation Then Scale Finetuning",
     )
     ax.set_xlabel("t (interpolation parameter)")
-    ax.set_ylabel("Test Loss")
-    ax.set_title(f"{vgg_name}: test loss")
+    ax.set_ylabel("Test Loss", fontsize=14, fontweight="bold")
+    ax.set_title(f"{vgg_name}: test loss", fontsize=15)
     ax.grid(True, which="major", linestyle="--", linewidth=0.7, alpha=0.5)
     if show_legend:
-        ax.legend()
+        ax.legend(fontsize=13)
 
     output_path = comparison_root / "compare_test_loss.png"
     fig.savefig(output_path, dpi=200, bbox_inches="tight")
