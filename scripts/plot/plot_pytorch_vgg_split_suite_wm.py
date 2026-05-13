@@ -16,8 +16,7 @@ PAIR_SPECS = [
     ("100/100", 100.0, "results/analysis/pytorch_vgg_split_wm/100_100/results.json"),
     ("80/120", 80.0, "results/analysis/pytorch_vgg_split_wm/80_120/results.json"),
     ("30/170", 30.0, "results/analysis/pytorch_vgg_split_wm/30_170/results.json"),
-    ("6/194", 6.0, "results/analysis/pytorch_vgg_split_wm/6_194/results.json"),
-    ("5/195", 5.0, "results/analysis/pytorch_vgg_split_wm/5_195/results.json"),
+    ("8/192", 8.0, "results/analysis/pytorch_vgg_split_wm/8_192/results.json"),
     ("4/196", 4.0, "results/analysis/pytorch_vgg_split_wm/4_196/results.json"),
     ("3/197", 3.0, "results/analysis/pytorch_vgg_split_wm/3_197/results.json"),
     ("0/200", 0.0, "results/analysis/pytorch_vgg_split_wm/0_200/results.json"),
@@ -146,9 +145,12 @@ def plot_vs_distance(rows: list[dict], metric: str, output_path: Path) -> None:
     )
 
     for row in shared:
-        if row["label"] in {"6/194", "0/200"}:
+        if row["label"] == "0/200":
             xytext = (-10, -2)
             ha = "right"
+        elif row["label"] == "8/192":
+            xytext = (1, 5)
+            ha = "left"
         else:
             xytext = (4, 5)
             ha = "left"
@@ -217,7 +219,7 @@ def plot_vs_distance(rows: list[dict], metric: str, output_path: Path) -> None:
         )
 
     ax.set_xlabel("L2 Distance", fontsize=12)
-    ax.set_ylabel(metric_label(metric), fontsize=12)
+    ax.set_ylabel(metric_label(metric), fontsize=12, fontweight="bold")
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=9)
     plt.tight_layout()
@@ -253,9 +255,12 @@ def plot_vs_epochs(rows: list[dict], metric: str, output_path: Path) -> None:
     )
 
     for row in shared:
-        if row["label"] in {"6/194", "0/200"}:
+        if row["label"] == "0/200":
             xytext = (-10, -2)
             ha = "right"
+        elif row["label"] == "8/192":
+            xytext = (1, 5)
+            ha = "left"
         else:
             xytext = (4, 5)
             ha = "left"
@@ -283,7 +288,7 @@ def plot_vs_epochs(rows: list[dict], metric: str, output_path: Path) -> None:
         )
 
     ax.set_xlabel("Shared Epochs", fontsize=12)
-    ax.set_ylabel(metric_label(metric), fontsize=12)
+    ax.set_ylabel(metric_label(metric), fontsize=12, fontweight="bold")
     ax.set_xticks([row["shared_epochs"] for row in shared])
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=9)
