@@ -5,9 +5,9 @@ The runner reuses the shared curve orchestration layer and injects the
 random-plane projection flags that define the codimension experiments.
 """
 
-import hydra
 from omegaconf import DictConfig
 
+from mode_connectivity.common.hydra_compat import compose_experiment_config
 from mode_connectivity.common.utils import set_global_seed
 from mode_connectivity.curves.runners import (
     build_curve_training_command,
@@ -17,12 +17,7 @@ from mode_connectivity.curves.runners import (
 )
 
 
-@hydra.main(
-    version_base=None,
-    config_path="../../configs/experiments",
-    config_name="curves/runs/random_plane_midpoint_seed0_seed1",
-)
-def main(cfg: DictConfig):
+def run(cfg: DictConfig) -> None:
     seed = cfg.get('seed', 0)
     set_global_seed(seed)
     anchor_type = "random anchor" if cfg.get('random_anchor', False) else "midpoint"
@@ -59,6 +54,14 @@ def main(cfg: DictConfig):
         cfg=cfg,
         run_name=f"randomplane_{anchor_type}_{cfg.model}_{cfg.get('experiment_name', 'seed0-seed1')}",
     )
+
+
+def main() -> None:
+    cfg = compose_experiment_config(
+        default_config_name="curves/runs/random_plane_midpoint_seed0_seed1",
+        caller_file=__file__,
+    )
+    run(cfg)
 
 
 if __name__ == "__main__":

@@ -4,9 +4,9 @@ The runner iterates over configured seeds, builds one upstream endpoint command
 per seed, and keeps the orchestration for those runs in one place.
 """
 
-import hydra
 from omegaconf import DictConfig
 
+from mode_connectivity.common.hydra_compat import compose_experiment_config
 from mode_connectivity.common.utils import set_global_seed
 from mode_connectivity.core.training_commands import (
     build_base_command, add_wandb_args, add_seed_arg,
@@ -15,12 +15,7 @@ from mode_connectivity.core.training_commands import (
 )
 from mode_connectivity.external import train_script_path
 
-@hydra.main(
-    version_base=None,
-    config_path="../../configs/experiments",
-    config_name="curves/runs/endpoints_standard",
-)
-def main(cfg: DictConfig):
+def run(cfg: DictConfig) -> None:
     seed = cfg.get('seed', 0)
     set_global_seed(seed)
 
@@ -43,6 +38,14 @@ def main(cfg: DictConfig):
         print_and_format_command(cmd)
         import subprocess
         subprocess.run(cmd, check=True)
+
+
+def main() -> None:
+    cfg = compose_experiment_config(
+        default_config_name="curves/runs/endpoints_standard",
+        caller_file=__file__,
+    )
+    run(cfg)
 
 if __name__ == "__main__":
     main()

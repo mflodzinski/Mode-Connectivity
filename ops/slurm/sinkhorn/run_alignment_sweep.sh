@@ -13,9 +13,10 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "${SCRIPT_DIR}/../common.sh"
+SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
+COMMON_SH="${SUBMIT_DIR}/ops/slurm/common.sh"
+# shellcheck disable=SC1090
+source "${COMMON_SH}"
 
 CONFIG_NAME="${1:-sinkhorn/runs/vgg11_cifar_perm_only}"
 if [ "$#" -gt 0 ]; then

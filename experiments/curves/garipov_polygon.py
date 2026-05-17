@@ -4,9 +4,9 @@ This runner specializes the shared curve command builder to ``PolyChain`` and
 adds the bookkeeping used by the polygon experiments in the thesis.
 """
 
-import hydra
 from omegaconf import DictConfig
 
+from mode_connectivity.common.hydra_compat import compose_experiment_config
 from mode_connectivity.common.utils import set_global_seed
 from mode_connectivity.curves.runners import (
     build_curve_training_command,
@@ -16,12 +16,7 @@ from mode_connectivity.curves.runners import (
 )
 
 
-@hydra.main(
-    version_base=None,
-    config_path="../../configs/experiments",
-    config_name="curves/runs/polygon_seed0_mirror",
-)
-def main(cfg: DictConfig):
+def run(cfg: DictConfig) -> None:
     seed = cfg.get('seed', 0)
     set_global_seed(seed)
     run_dir = str(cfg.output_root)
@@ -45,6 +40,14 @@ def main(cfg: DictConfig):
         include_training_hparams=True,
     )
     run_training_command(cmd, cfg=cfg, run_name=f"polygon_{cfg.model}_{cfg.experiment_name}")
+
+
+def main() -> None:
+    cfg = compose_experiment_config(
+        default_config_name="curves/runs/polygon_seed0_mirror",
+        caller_file=__file__,
+    )
+    run(cfg)
 
 
 if __name__ == "__main__":

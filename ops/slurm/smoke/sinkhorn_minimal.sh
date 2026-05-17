@@ -13,33 +13,31 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "${SCRIPT_DIR}/../common.sh"
+SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
+COMMON_SH="${SUBMIT_DIR}/ops/slurm/common.sh"
+# shellcheck disable=SC1090
+source "${COMMON_SH}"
 
 mc_setup_python_env
 mc_require_external_file "external/sinkhorn-rebasin/examples/models/vgg.py"
 mc_banner "Smoke Check: Sinkhorn Alignment"
 
-CONFIG_NAME="${CONFIG_NAME:-sinkhorn/runs/vgg11_cifar_perm_only}"
 BASE_OUTPUT_ROOT="${BASE_OUTPUT_ROOT:-results/smoke/sinkhorn/vgg11_perm_only_50iters}"
 
-echo "CONFIG_NAME: ${CONFIG_NAME}"
 echo "BASE_OUTPUT_ROOT: ${BASE_OUTPUT_ROOT}"
 echo ""
 
 mc_run_module experiments.sinkhorn.vgg_cifar_alignment_sweep \
-  --config-name "${CONFIG_NAME}" \
-  base_output_root="${BASE_OUTPUT_ROOT}" \
-  start_index=0 \
-  end_index=1 \
-  continue_on_error=false \
-  num_workers="${SLURM_CPUS_PER_TASK}" \
-  best_eval_interval=5 \
-  early_stopping_patience=2 \
-  'validation_alpha_grid=[0.5]' \
-  'sweep.alignment_iterations=[50]' \
-  'sweep.loss_name=[dist_l2]' \
-  'sweep.tau=[1.0]' \
-  'sweep.lr=[0.01]' \
-  'sweep.sinkhorn_l=[1.0]'
+  ++base_output_root="${BASE_OUTPUT_ROOT}" \
+  ++start_index=0 \
+  ++end_index=1 \
+  ++continue_on_error=false \
+  ++num_workers="${SLURM_CPUS_PER_TASK}" \
+  ++best_eval_interval=5 \
+  ++early_stopping_patience=2 \
+  '++validation_alpha_grid=[0.5]' \
+  '++sweep.alignment_iterations=[50]' \
+  '++sweep.loss_name=[dist_l2]' \
+  '++sweep.tau=[1.0]' \
+  '++sweep.lr=[0.01]' \
+  '++sweep.sinkhorn_l=[1.0]'

@@ -13,7 +13,6 @@ from pathlib import Path
 from time import time
 from typing import Any, Dict
 
-import hydra
 import matplotlib
 import torch
 from hydra.utils import to_absolute_path
@@ -24,6 +23,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from mode_connectivity.alignment.permutation_pipeline import resolve_device, write_summary_files
+from mode_connectivity.common.hydra_compat import compose_experiment_config
 from mode_connectivity.common.utils import set_global_seed
 from mode_connectivity.core import data as core_data
 from mode_connectivity.core.output import ensure_dir, save_json
@@ -597,12 +597,11 @@ def run_alignment_sweep_all(cfg: DictConfig) -> None:
     print_top_runs(comparison_rows)
 
 
-@hydra.main(
-    version_base=None,
-    config_path="../../configs/experiments",
-    config_name="sinkhorn/runs/vgg11_cifar_perm_only",
-)
-def main(cfg: DictConfig) -> None:
+def main() -> None:
+    cfg = compose_experiment_config(
+        default_config_name="sinkhorn/runs/vgg11_cifar_perm_only",
+        caller_file=__file__,
+    )
     run_alignment_sweep_all(cfg)
 
 

@@ -6,18 +6,15 @@ binds that reusable workflow to the repo-level experiment surface.
 
 from __future__ import annotations
 
-import hydra
-from omegaconf import DictConfig
-
+from mode_connectivity.common.hydra_compat import compose_experiment_config
 from mode_connectivity.lmc.shared_training import run
 
 
-@hydra.main(
-    version_base=None,
-    config_path="../../configs/experiments",
-    config_name="lmc/runs/split_30",
-)
-def main(cfg: DictConfig) -> None:
+def main() -> None:
+    cfg = compose_experiment_config(
+        default_config_name="lmc/runs/split_30",
+        caller_file=__file__,
+    )
     run(cfg)
 
 

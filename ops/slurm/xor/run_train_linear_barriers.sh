@@ -12,9 +12,10 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "${SCRIPT_DIR}/../common.sh"
+SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
+COMMON_SH="${SUBMIT_DIR}/ops/slurm/common.sh"
+# shellcheck disable=SC1090
+source "${COMMON_SH}"
 
 mc_setup_python_env
 mc_banner "XOR Train Linear Barriers"

@@ -9,10 +9,10 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
 
+from mode_connectivity.common.hydra_compat import compose_experiment_config
 from mode_connectivity.lmc.shared_training import (
     build_loaders,
     build_model,
@@ -25,12 +25,7 @@ from mode_connectivity.lmc.shared_training import (
 )
 
 
-@hydra.main(
-    version_base=None,
-    config_path="../../configs/experiments",
-    config_name="lmc/runs/resume_shared_checkpoint",
-)
-def main(cfg: DictConfig) -> None:
+def run(cfg: DictConfig) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     cudnn.benchmark = False
     cudnn.deterministic = True
@@ -90,6 +85,14 @@ def main(cfg: DictConfig) -> None:
         )
         print(f"Branch {branch_idx} final checkpoint: {branch_dir / f'checkpoint-{cfg.final_epochs}.pt'}")
         print(f"Branch {branch_idx} best val acc: {best_prec1:.3f}")
+
+
+def main() -> None:
+    cfg = compose_experiment_config(
+        default_config_name="lmc/runs/resume_shared_checkpoint",
+        caller_file=__file__,
+    )
+    run(cfg)
 
 
 if __name__ == "__main__":

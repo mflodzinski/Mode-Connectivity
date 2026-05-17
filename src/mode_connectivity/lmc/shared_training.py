@@ -10,7 +10,6 @@ import random
 import shutil
 from pathlib import Path
 
-import hydra
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
@@ -20,6 +19,7 @@ import torch.utils.data
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
 
+from mode_connectivity.common.hydra_compat import compose_experiment_config
 from mode_connectivity.core import data as core_data
 from mode_connectivity.external import load_vgg_module
 
@@ -312,12 +312,11 @@ def run(cfg: DictConfig) -> None:
         print(f"Branch {branch_idx} best val acc: {best_prec1:.3f}")
 
 
-@hydra.main(
-    version_base=None,
-    config_path="../../../configs/experiments",
-    config_name="lmc/runs/split_30",
-)
-def main(cfg: DictConfig) -> None:
+def main() -> None:
+    cfg = compose_experiment_config(
+        default_config_name="lmc/runs/split_30",
+        caller_file=__file__,
+    )
     run(cfg)
 
 
