@@ -1,0 +1,7 @@
+defaults:
+  - /curves/_base/common
+  - /curves/_base/endpoints_standard
+  - _self_
+
+experiment_name: "garipov_vgg16_seed2"
+seeds: [2]

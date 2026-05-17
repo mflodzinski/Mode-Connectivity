@@ -4,12 +4,9 @@
 [submodule "external/dnn-mode-connectivity"]
 	path = external/dnn-mode-connectivity
 	url = https://github.com/mflodzinski/dnn-mode-connectivity
-[submodule "external/external/git-rebasin"]
-	path = external/external/git-rebasin
-	url = https://github.com/samuela/git-re-basin.git
 [submodule "external/git-rebasin"]
 	path = external/git-rebasin
-	url = https://github.com/samuela/git-re-basin.git
+	url = https://github.com/mflodzinski/git-re-basin.git
 [submodule "external/cycle-consistent-model-merging"]
 	path = external/cycle-consistent-model-merging
 	url = https://github.com/mflodzinski/cycle-consistent-model-merging.git

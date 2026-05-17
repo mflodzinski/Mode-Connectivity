@@ -1,0 +1,9 @@
+defaults:
+  - /curves/_base/common
+  - /curves/_base/advanced_geometry_training
+  - /curves/geometry/random_plane_random
+  - /curves/pairs/seed0_seed1
+  - _self_
+
+experiment_name: "randomplane_random_${pair_slug}"
+output_root: "results/vgg16/cifar10/advanced_geometry/${geometry_slug}/${pair_slug}"

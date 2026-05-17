@@ -1,0 +1,4 @@
+defaults:
+  - /curves/_base/common
+  - /curves/_base/endpoints_regularized
+  - _self_

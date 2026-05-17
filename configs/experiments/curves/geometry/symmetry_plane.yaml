@@ -1,0 +1,6 @@
+defaults: []
+
+curve: "PolyChain"
+num_bends: 3
+geometry_slug: "symmetry_plane"
+project_symmetry_plane: true

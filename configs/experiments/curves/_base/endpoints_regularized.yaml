@@ -1,0 +1,16 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_regularized_endpoints"
+output_root: "results/vgg16/cifar10/regularized_endpoints/checkpoints"
+
+epochs: 200
+save_intermediate: true
+save_freq: 100
+lr: 0.02
+wd: 1e-3
+
+early_stopping: false
+patience: 100
+min_delta: 0.0
+
+seeds: [2]

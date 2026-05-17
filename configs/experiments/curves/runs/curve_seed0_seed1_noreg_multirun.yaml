@@ -1,0 +1,7 @@
+defaults:
+  - /curves/runs/curve_seed0_seed1_noreg
+  - _self_
+
+experiment_name: "garipov_vgg16_curve_${pair_slug}_noreg_multirun"
+output_root: "results/vgg16/cifar10/curves/standard/${pair_slug}_noreg_multirun/checkpoints"
+save_freq: 100

@@ -1,0 +1,6 @@
+defaults:
+  - /curves/runs/polygon_seed0_seed1
+  - _self_
+
+experiment_name: "${pair_slug}_test_train_swap"
+output_root: "results/vgg16/cifar10/advanced_geometry/polygon/${pair_slug}_test_train_swap"

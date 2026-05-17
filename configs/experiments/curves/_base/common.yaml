@@ -1,0 +1,13 @@
+defaults: []
+
+dataset: "CIFAR10"
+data_path: "./data"
+transform: "VGG"
+model: "VGG16"
+
+use_test: true
+no_train_aug: false
+train_half_only: false
+
+use_wandb: true
+project_name: "thesis-mode-connectivity"

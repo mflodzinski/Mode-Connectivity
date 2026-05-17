@@ -1,0 +1,14 @@
+defaults: []
+
+w0_checkpoint: "results/vgg16/cifar10/endpoints/lmc_connected/seed0/checkpoint-200.pt"
+w1_checkpoint: "results/vgg16/cifar10/endpoints/lmc_connected/seed1/checkpoint-200.pt"
+
+permutation_seed: 42
+method: "weight_matching"
+max_iter: 100
+
+num_eval_points: 11
+batch_size: 128
+data_path: "./data"
+
+output_dir: "results/analysis/alignment_benchmark"

@@ -1,0 +1,151 @@
+{
+  "figures": [
+    {
+      "alias": "example_loss_landscapev2.png",
+      "source": "plots/pseudo_loss_landscape_two_minima.png",
+      "status": "high_confidence",
+      "notes": "Conceptual replacement preserved from the repo; exact original alias source was not committed."
+    },
+    {
+      "alias": "imabarrier_example_v3ge.png",
+      "source": "plots/loss_barrier_thresholds_pseudo.png",
+      "status": "high_confidence",
+      "notes": "Conceptual barrier illustration preserved from the repo; exact original alias source was not committed."
+    },
+    {
+      "alias": "enzari.png",
+      "source": "archive/legacy/weekly_updates/weekly_thesis_update/entezari_lmc_beamer/image.png",
+      "status": "archived_source",
+      "notes": "Recovered from archived thesis presentation material."
+    },
+    {
+      "alias": "combined_connectivity_te_only.png",
+      "source": "plots/connectivity_reg_comparison_with_linear_yaxis_test_error_mixed_sources.png",
+      "status": "high_confidence",
+      "notes": "Matches the thesis caption for combined seed-seed and mirror connectivity test-error visualization."
+    },
+    {
+      "alias": "randpermute_te_only.png",
+      "source": "plots/connectivity_trainaug_seedseed_vs_seedrandperm_curve_only_test_error_panel.png",
+      "status": "high_confidence",
+      "notes": "Matches the thesis caption for curve-only seed-seed vs seed-randperm comparison."
+    },
+    {
+      "alias": "canvaxd_v2.png",
+      "source": null,
+      "status": "source_unresolved_placeholder",
+      "notes": "No exact committed schematic was found."
+    },
+    {
+      "alias": "random_plane_midpoint_codim1_5_10_30_seed0-seed1.png",
+      "source": "results/vgg16/cifar10/advanced_geometry_trainaug/figures/random_plane_midpoint_codim1_5_10_30_seed0-seed1.png",
+      "status": "exact"
+    },
+    {
+      "alias": "construction.png",
+      "source": null,
+      "status": "source_unresolved_placeholder",
+      "notes": "No exact committed controlled-benchmark construction schematic was found."
+    },
+    {
+      "alias": "test_accuracy_barrier.png",
+      "source": "plots/pytorch_vgg_split_suite_wm_test_acc_relative_barrier_vs_distance.png",
+      "status": "high_confidence",
+      "notes": "Matches the controlled benchmark barrier-vs-distance result described in the thesis."
+    },
+    {
+      "alias": "success.png",
+      "source": null,
+      "status": "source_unresolved_placeholder",
+      "notes": "Exact XOR alignment success panel was not found as a committed artifact."
+    },
+    {
+      "alias": "unsuccesfull_same_boundary.png",
+      "source": null,
+      "status": "source_unresolved_placeholder",
+      "notes": "Exact XOR failed-alignment same-boundary panel was not found as a committed artifact."
+    },
+    {
+      "alias": "unsuccesgul_diff_boundary.png",
+      "source": null,
+      "status": "source_unresolved_placeholder",
+      "notes": "Exact XOR failed-alignment different-boundary panel was not found as a committed artifact."
+    },
+    {
+      "alias": "2-4_interpolation.png",
+      "source": "results/xor/xor_2h_15seeds/plots/interpolation_2_4_before_after.png",
+      "status": "exact"
+    },
+    {
+      "alias": "9-12_interpolation.png",
+      "source": "results/xor/xor_2h_15seeds/plots/interpolation_9_12_before_after.png",
+      "status": "exact"
+    },
+    {
+      "alias": "11-14_interpolation.png",
+      "source": "results/xor/xor_2h_15seeds/plots/interpolation_11_14_before_after.png",
+      "status": "exact"
+    },
+    {
+      "alias": "2-4_successful.png",
+      "source": null,
+      "status": "source_unresolved_placeholder",
+      "notes": "Exact 2-5-1 successful alignment panel was not found as a committed artifact."
+    },
+    {
+      "alias": "loss_alignemt.png",
+      "source": "results/xor/xor_5h_trained_linear_pairs/plots/loss_2_4_before_after.png",
+      "status": "high_confidence"
+    },
+    {
+      "alias": "unsuccesful_10-14_bezier_3bend.png",
+      "source": "results/xor/xor_2h_seeds9_10_12_14_curves/plots/curve_10_14_bezier_snapshots.png",
+      "status": "high_confidence"
+    },
+    {
+      "alias": "3hidden_xor_bezier.png",
+      "source": "results/xor/xor_3h_unified/plots/curve_3_11_bezier_snapshots.png",
+      "status": "high_confidence"
+    },
+    {
+      "alias": "3h_xor.png",
+      "source": "results/xor/xor_3h_perm_vs_scale/plots/aggregate_loss_curves_titled_no_legend.png",
+      "status": "high_confidence"
+    },
+    {
+      "alias": "h5_xor.png",
+      "source": "results/xor/xor_5h_perm_vs_scale/plots/aggregate_loss_curves_titled_no_legend.png",
+      "status": "high_confidence"
+    },
+    {
+      "alias": "h7_xor.png",
+      "source": "results/xor/xor_7h_perm_vs_scale/plots/aggregate_loss_curves_titled_no_legend.png",
+      "status": "high_confidence"
+    },
+    {
+      "alias": "vgg11_sin.png",
+      "source": "results/vgg11/cifar10/interpolation_comparison_three_way/compare_test_loss.png",
+      "status": "high_confidence"
+    },
+    {
+      "alias": "vgg13_sin.png",
+      "source": "results/vgg13/cifar10/interpolation_comparison_three_way/compare_test_loss.png",
+      "status": "high_confidence"
+    },
+    {
+      "alias": "vgg16_sin.png",
+      "source": "results/vgg16/cifar10/interpolation_comparison_three_way/compare_test_loss.png",
+      "status": "high_confidence"
+    },
+    {
+      "alias": "vgg19_sin.png",
+      "source": "results/vgg19/cifar10/interpolation_comparison_three_way/compare_test_loss.png",
+      "status": "high_confidence"
+    },
+    {
+      "alias": "barplot_vggs.png",
+      "source": "results/vgg_cifar10_three_way_barriers/vgg_cifar10_three_way_test_loss_barriers.png",
+      "status": "exact"
+    }
+  ]
+}

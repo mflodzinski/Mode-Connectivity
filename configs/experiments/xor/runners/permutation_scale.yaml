@@ -1,0 +1,3 @@
+argv:
+  - --output
+  - results/xor/permutation_scale

@@ -1,0 +1,6 @@
+defaults: []
+
+pair_name: "seed2_randperm"
+pair_slug: "seed2-randperm"
+endpoint0: "results/vgg16/cifar10/endpoints/standard/seed2/checkpoints/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/standard/seed2_randperm/checkpoints/checkpoint-200.pt"

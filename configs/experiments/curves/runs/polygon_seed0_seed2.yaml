@@ -1,0 +1,9 @@
+defaults:
+  - /curves/_base/common
+  - /curves/_base/advanced_geometry_training
+  - /curves/geometry/polygon
+  - /curves/pairs/seed0_seed2
+  - _self_
+
+experiment_name: "${pair_slug}"
+output_root: "results/vgg16/cifar10/advanced_geometry/${geometry_slug}/${pair_slug}"

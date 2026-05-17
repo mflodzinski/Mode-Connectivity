@@ -1,0 +1,4 @@
+defaults: []
+experiment_name: "pytorch_vgg16_lmc_connected_4split"
+output_root: "results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected_4split"
+shared_epochs: 4

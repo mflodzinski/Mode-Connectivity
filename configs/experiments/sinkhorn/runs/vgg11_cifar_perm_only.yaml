@@ -1,0 +1,4 @@
+defaults:
+  - /sinkhorn/_base/alignment_sweep
+  - /sinkhorn/presets/vgg11_cifar_perm_only
+  - _self_
