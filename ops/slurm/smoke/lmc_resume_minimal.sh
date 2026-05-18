@@ -19,17 +19,21 @@ COMMON_SH="${SUBMIT_DIR}/ops/slurm/common.sh"
 source "${COMMON_SH}"
 
 mc_setup_python_env
-mc_banner "Smoke Check: LMC Resume"
+mc_banner "Smoke Check: LMC From Scratch"
 
-OUTPUT_ROOT="${OUTPUT_ROOT:-results/smoke/lmc/resume_shared_checkpoint_151}"
-FINAL_EPOCHS="${FINAL_EPOCHS:-151}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-results/smoke/lmc/from_scratch_split0_1epoch}"
+SHARED_EPOCHS="${SHARED_EPOCHS:-0}"
+FINAL_EPOCHS="${FINAL_EPOCHS:-1}"
 
 echo "OUTPUT_ROOT: ${OUTPUT_ROOT}"
+echo "SHARED_EPOCHS: ${SHARED_EPOCHS}"
 echo "FINAL_EPOCHS: ${FINAL_EPOCHS}"
 echo ""
 
-mc_run_module experiments.lmc.pytorch_vgg16_lmc_connected_pair \
+mc_run_module experiments.lmc.pytorch_vgg16_lmc_connected_pair_from_scratch \
   ++output_root="${OUTPUT_ROOT}" \
+  ++shared_epochs="${SHARED_EPOCHS}" \
   ++final_epochs="${FINAL_EPOCHS}" \
+  ++workers="${SLURM_CPUS_PER_TASK}" \
   ++save_every=1 \
   ++epoch_print_freq=1

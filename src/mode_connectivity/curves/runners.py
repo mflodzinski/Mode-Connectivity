@@ -137,6 +137,8 @@ def run_curve_evaluation(
         "--num_points",
         str(num_points),
     ]
+    if cfg.get("num_workers") is not None:
+        cmd.extend(["--num_workers", str(cfg.num_workers)])
     if cfg.get("use_test"):
         cmd.append("--use_test")
     print("Evaluating curve:", " ".join(cmd))

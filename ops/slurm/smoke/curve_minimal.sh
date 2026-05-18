@@ -34,6 +34,7 @@ mc_run_module experiments.curves.garipov_curve \
   ++output_root="${OUTPUT_ROOT}" \
   ++epochs="${EPOCHS}" \
   ++save_freq="${SAVE_FREQ}" \
+  ++num_workers="${SLURM_CPUS_PER_TASK}" \
   ++use_wandb=false \
   ++no_train_aug=true
 
@@ -41,5 +42,6 @@ mc_run_module experiments.curves.evaluate_garipov_curve \
   ++output_root="${OUTPUT_ROOT}" \
   ++epochs="${EPOCHS}" \
   ++save_freq="${SAVE_FREQ}" \
+  ++num_workers="${SLURM_CPUS_PER_TASK}" \
   ++use_wandb=false \
   ++no_train_aug=true

@@ -21,9 +21,10 @@ source "${COMMON_SH}"
 mc_setup_python_env
 mc_banner "Smoke Check: LMC Alignment Benchmark"
 
-PAIR_ROOT="${PAIR_ROOT:-results/smoke/lmc/resume_shared_checkpoint_151}"
-W0_CHECKPOINT="${W0_CHECKPOINT:-${PAIR_ROOT}/seed0/checkpoint-151.pt}"
-W1_CHECKPOINT="${W1_CHECKPOINT:-${PAIR_ROOT}/seed1/checkpoint-151.pt}"
+PAIR_ROOT="${PAIR_ROOT:-results/smoke/lmc/from_scratch_split0_1epoch}"
+FINAL_EPOCH="${FINAL_EPOCH:-1}"
+W0_CHECKPOINT="${W0_CHECKPOINT:-${PAIR_ROOT}/seed0/checkpoint-${FINAL_EPOCH}.pt}"
+W1_CHECKPOINT="${W1_CHECKPOINT:-${PAIR_ROOT}/seed1/checkpoint-${FINAL_EPOCH}.pt}"
 OUTPUT_JSON="${OUTPUT_JSON:-${PAIR_ROOT}/benchmark_alignment/results.json}"
 
 echo "W0_CHECKPOINT: ${W0_CHECKPOINT}"
@@ -41,4 +42,5 @@ mc_run_module experiments.lmc.benchmark_alignment \
   --num-eval-points 11 \
   --data-path ./data \
   --batch-size 128 \
+  --workers "${SLURM_CPUS_PER_TASK}" \
   --output "${OUTPUT_JSON}"

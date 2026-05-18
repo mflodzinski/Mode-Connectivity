@@ -20,8 +20,8 @@ These launchers are intentionally resource-thin smoke checks:
   Runs a single Sinkhorn alignment sweep combination for 50 alignment
   iterations between existing VGG11/CIFAR checkpoints.
 - `lmc_resume_minimal.sh`
-  Resumes the pytorch-vgg shared-checkpoint workflow for 1 extra epoch per
-  branch using the existing external shared checkpoint.
+  Runs the pytorch-vgg split-training workflow from scratch with
+  `shared_epochs=0` and `final_epochs=1` so the smoke check is self-contained.
 - `lmc_benchmark_minimal.sh`
   Runs the alignment benchmark against the checkpoints produced by
   `lmc_resume_minimal.sh`.

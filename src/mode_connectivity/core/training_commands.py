@@ -41,6 +41,8 @@ def build_base_command(train_script: str,
         "--wd",
         str(cfg.wd),
     ]
+    if hasattr(cfg, 'num_workers'):
+        cmd += ["--num-workers", str(cfg.num_workers)]
     return cmd
 
 

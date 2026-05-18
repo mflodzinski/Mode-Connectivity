@@ -16,6 +16,7 @@ Workflow:
 """
 
 import argparse
+from pathlib import Path
 import numpy as np
 import torch
 
@@ -121,6 +122,7 @@ def main():
     parser.add_argument('--num-eval-points', type=int, default=11, help='Number of interpolation points')
     parser.add_argument('--data-path', type=str, default='./data', help='Path to data')
     parser.add_argument('--batch-size', type=int, default=128, help='Batch size')
+    parser.add_argument('--workers', type=int, default=4, help='DataLoader workers')
     parser.add_argument('--output', type=str, default=None, help='Output file for results')
     args = parser.parse_args()
 
@@ -146,7 +148,7 @@ def main():
         'CIFAR10',
         data_path=args.data_path,
         batch_size=args.batch_size,
-        num_workers=4,
+        num_workers=args.workers,
         transform_name='VGG',
         use_test=True,
         shuffle_train=False,
@@ -339,6 +341,8 @@ def main():
     # Save results
     if args.output:
         import json
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         results = {
             'config': vars(args),
             'distances': {
@@ -357,9 +361,9 @@ def main():
                 'per_layer': {k: v['accuracy'] for k, v in perm_comparison['per_layer'].items()}
             }
         }
-        with open(args.output, 'w') as f:
+        with open(output_path, 'w') as f:
             json.dump(results, f, indent=2)
-        print(f"\nResults saved to {args.output}")
+        print(f"\nResults saved to {output_path}")
 
 
 if __name__ == '__main__':

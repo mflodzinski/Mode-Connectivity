@@ -22,15 +22,24 @@ mc_setup_python_env
 mc_require_external_file "external/sinkhorn-rebasin/examples/models/vgg.py"
 mc_banner "Smoke Check: Sinkhorn Alignment"
 
-BASE_OUTPUT_ROOT="${BASE_OUTPUT_ROOT:-results/smoke/sinkhorn/vgg11_perm_only_50iters}"
+BASE_OUTPUT_ROOT="${BASE_OUTPUT_ROOT:-results/smoke/sinkhorn/vgg16_perm_only_50iters}"
+MODEL_A_CHECKPOINT="${MODEL_A_CHECKPOINT:-external/pytorch-vgg-cifar10/save_vgg16_seed0/model_final_state_dict.pth}"
+MODEL_B_CHECKPOINT="${MODEL_B_CHECKPOINT:-external/pytorch-vgg-cifar10/save_vgg16_seed1/model_final_state_dict.pth}"
+VGG_NAME="${VGG_NAME:-VGG16}"
 
 echo "BASE_OUTPUT_ROOT: ${BASE_OUTPUT_ROOT}"
+echo "MODEL_A_CHECKPOINT: ${MODEL_A_CHECKPOINT}"
+echo "MODEL_B_CHECKPOINT: ${MODEL_B_CHECKPOINT}"
+echo "VGG_NAME: ${VGG_NAME}"
 echo ""
 
 mc_run_module experiments.sinkhorn.vgg_cifar_alignment_sweep \
   ++base_output_root="${BASE_OUTPUT_ROOT}" \
+  ++model_a_checkpoint="${MODEL_A_CHECKPOINT}" \
+  ++model_b_checkpoint="${MODEL_B_CHECKPOINT}" \
+  ++vgg_name="${VGG_NAME}" \
   ++start_index=0 \
-  ++end_index=1 \
+  ++end_index=0 \
   ++continue_on_error=false \
   ++num_workers="${SLURM_CPUS_PER_TASK}" \
   ++best_eval_interval=5 \

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 
 def _find_config_root(caller_file: str) -> Path:
@@ -47,4 +47,55 @@ def compose_experiment_config(
     config_root = _find_config_root(caller_file)
     GlobalHydra.instance().clear()
     with initialize_config_dir(version_base=None, config_dir=str(config_root)):
-        return compose(config_name=config_name, overrides=overrides)
+        cfg = compose(config_name=config_name, overrides=overrides)
+    return _normalize_config_shape(cfg, config_name)
+
+
+def _deep_merge(dst: dict, src: dict) -> None:
+    for key, value in src.items():
+        if (
+            key in dst
+            and isinstance(dst[key], dict)
+            and isinstance(value, dict)
+        ):
+            _deep_merge(dst[key], value)
+        else:
+            dst[key] = value
+
+
+def _flatten_package_layers(node: dict) -> dict:
+    result: dict = {}
+    package_keys = {"curves", "sinkhorn", "lmc", "_base", "geometry", "pairs", "presets", "splits"}
+    for key, value in node.items():
+        if isinstance(value, dict) and key in package_keys:
+            _deep_merge(result, _flatten_package_layers(value))
+        else:
+            result[key] = value
+    return result
+
+
+def _normalize_config_shape(cfg: DictConfig, config_name: str) -> DictConfig:
+    container = OmegaConf.to_container(cfg, resolve=False)
+    if not isinstance(container, dict):
+        return cfg
+
+    parts = [part for part in config_name.split("/") if part]
+    group_parts = parts[:-1] if len(parts) > 1 else []
+    node = container
+    for part in group_parts:
+        if isinstance(node, dict) and part in node:
+            node = node[part]
+        else:
+            node = None
+            break
+
+    if not isinstance(node, dict):
+        return cfg
+
+    flattened = _flatten_package_layers(node)
+    if group_parts:
+        root_group = group_parts[0]
+        for key, value in container.items():
+            if key != root_group:
+                flattened[key] = value
+    return OmegaConf.create(flattened)
