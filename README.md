@@ -1,114 +1,74 @@
-# Mode Connectivity Thesis Repository
+# Mode-Connectivity
 
-This repository has been refactored to preserve the thesis experiments and results while separating reusable library code from runnable thesis workflows. The code backbone lives under `src/mode_connectivity/`, thesis-facing entrypoints live under `experiments/`, developer-facing plotting and verification CLIs live under `tools/`, and active Slurm launchers live in `ops/slurm/`.
+This repository contains the active code, configs, and operator scripts for the mode-connectivity thesis workflows: Garipov-style curves, linear mode connectivity, Sinkhorn-based alignment, and smaller XOR studies. The reusable implementation lives under `src/mode_connectivity`, while repo-facing runners, Slurm launchers, and plotting or verification utilities live alongside it in dedicated top-level directories.
 
-## Active Layout
+## Setup
 
-```text
-.
-├── thesis/
-│   ├── tex/                  # Thesis source
-│   ├── figures/aliases/      # Stable figure filenames used by draft.tex
-│   ├── figures/source_index/ # Figure provenance index
-│   └── MANIFEST.md           # Thesis experiment and figure traceability
-├── src/mode_connectivity/    # Reusable Python library code only
-├── experiments/             # Thesis experiment runners
-├── tools/                   # Plotting and verification CLIs
-├── ops/slurm/                # Active Slurm launchers grouped by domain
-├── configs/                  # Active experiment configs
-├── results/                  # Active result trees preserved in-place
-├── plots/                    # Generated summary plots preserved in-place
-├── external/                 # Vendored/submodule dependencies
-├── tests/                    # Regression and smoke tests
-└── archive/legacy/           # Historical, runtime, and low-priority preserved artifacts
+- Python: `>=3.10,<3.12`
+- Dependency management: Poetry
+- External code: git submodules under `external/`
+
+Typical setup:
+
+```bash
+git submodule update --init --recursive
+poetry install
+poetry run pytest
 ```
 
-## Thesis Source
+Notes:
 
-- Root [`draft.tex`](./draft.tex) is now a compatibility wrapper.
-- The editable thesis source lives at [`thesis/tex/draft.tex`](./thesis/tex/draft.tex).
-- Figure filenames referenced by the thesis are materialized in [`thesis/figures/aliases`](./thesis/figures/aliases).
-- Figure provenance is recorded in [`thesis/figures/source_index/figure_sources.json`](./thesis/figures/source_index/figure_sources.json).
-- Experiment entrypoints are invoked as `python -m experiments...`.
-- Plotting and verification utilities are invoked as `python -m tools...`.
+- `poetry.toml` is configured for an in-project virtual environment, so Poetry will create `.venv/`.
+- `data/`, `results/`, and `plots/` are working directories for datasets and generated artifacts, not the primary source tree.
+- `external/` contains vendored or submodule upstream code. Treat it as dependency code, not the main place to edit repo logic.
 
-## Thesis-Critical Experiment Families
+## Where To Start
 
-- Curved-path VGG16 experiments:
-  `experiments.curves.garipov_endpoints`,
-  `experiments.curves.garipov_curve`
-- Hyperplane-constrained geometry experiments:
-  `experiments.curves.garipov_polygon`,
-  `experiments.curves.random_plane`,
-  `experiments.curves.symmetry_plane`
-- Controlled LMC benchmark:
-  `experiments.lmc.pytorch_vgg16_lmc_connected_pair`,
-  `experiments.lmc.materialize_pytorch_vgg16_independent_pair`,
-  `experiments.lmc.evaluate_pytorch_vgg_pair`,
-  `experiments.lmc.evaluate_pytorch_vgg_split_suite`,
-  `experiments.lmc.benchmark_alignment`
-- XOR alignment experiments:
-  `experiments.xor.permutation_scale`
-- XOR connectivity experiments:
-  `experiments.xor.basin_test`,
-  `experiments.xor.train_linear_barriers`,
-  `experiments.xor.curve_fitting`
-- VGG Sinkhorn + scale chapter:
-  `experiments.sinkhorn.vgg_cifar_alignment_sweep`,
-  `experiments.sinkhorn.vgg_cifar_three_way_comparison`,
-  `experiments.sinkhorn.vgg_cifar_three_way_barriers`
-- Verification utilities:
-  `tools.verification.network_transform`,
-  `tools.verification.verify_shuffle_effect`,
-  `tools.verification.check_model_functional_equivalence`
+- Run an experiment:
+  See [experiments/README.md](experiments/README.md) and [configs/experiments/README.md](configs/experiments/README.md).
+- Inspect reusable library code:
+  Start at [src/mode_connectivity/README.md](src/mode_connectivity/README.md).
+- Use local or cluster operator scripts:
+  See [ops/README.md](ops/README.md) and [ops/slurm/README.md](ops/slurm/README.md).
+- Use plotting or verification utilities:
+  See [tools/README.md](tools/README.md).
+- Browse historical material only when needed:
+  See [archive/README.md](archive/README.md).
 
-## Archive Policy
+Common active entry surfaces:
 
-- Nothing thesis-relevant is deleted.
-- If provenance or future usefulness is uncertain, the asset stays in place or is moved under `archive/legacy/`.
-- Heavy result trees used by thesis experiments remain at their original paths unless compatibility is proven.
-- `external/` submodules are intentionally left structurally unchanged.
+- `python -m experiments...`
+- `python tools/...`
+- `bash ops/local/...`
+- `sbatch` or `bash` under `ops/slurm/...`
 
-## Archived Material
+## Top-Level Layout
 
-Archived material now lives under `archive/legacy/`, including:
+- `src/`
+  Active reusable Python library code.
+- `experiments/`
+  Repo-facing runnable entrypoints for experiment families.
+- `configs/`
+  Canonical configuration trees, primarily under `configs/experiments/`.
+- `ops/`
+  Local smoke scripts and Slurm launcher wrappers.
+- `tools/`
+  Operator-facing plotting and verification utilities.
+- `tests/`
+  Active structure and behavior smoke tests for the retained layout.
+- `archive/`
+  Historical reference material and legacy layouts.
+- `thesis/`
+  Thesis writing assets and figure support files.
+- `external/`
+  Vendored or submodule upstream repositories used by active workflows.
 
-- old weekly thesis update drafts and figures
-- runtime outputs from `outputs/`, `wandb/`, and `.mplcache/`
-- root-level loose artifacts and LaTeX build byproducts
-- previously archived result trees such as `results/vgg16/cifar10/_archive`
-- the pre-refactor `scripts/{analysis,train,plot,eval,experiments,lib,utils}` layout
-- the pre-refactor `scripts/slurm` tree
+## Directory Guides
 
-## Known Gaps Preserved Explicitly
-
-- `references.bib` is still missing from the repository.
-- Some thesis figure names in `draft.tex` had no exact committed source image. Those aliases are preserved as explicit placeholders and are marked in the source index and `MANIFEST.md`.
-
-## Config Layout
-
-Active experiment configuration now lives only under `configs/experiments/`.
-The tree is organized by family and composed through Hydra groups:
-
-- `configs/experiments/curves/{_base,pairs,geometry,runs}`
-- `configs/experiments/lmc/{_base,splits,runs,analysis}`
-- `configs/experiments/sinkhorn/{_base,presets,runs}`
-- `configs/experiments/xor/{runners,search}`
-
-The legacy `configs/garipov`, `configs/pytorch_vgg`, and `configs/analysis`
-trees are no longer part of the active runtime surface.
-
-## Slurm Layout
-
-Active Slurm launchers are now small generic wrappers grouped by domain:
-
-- `ops/slurm/curves/`
-- `ops/slurm/endpoints/`
-- `ops/slurm/lmc/`
-- `ops/slurm/sinkhorn/`
-- `ops/slurm/xor/`
-- `ops/slurm/verification/`
-
-The old per-run submit script sprawl was removed. The remaining scripts are
-parameterized entrypoints that accept config names, checkpoint paths, and a
-small set of environment overrides.
+- [src/mode_connectivity/README.md](src/mode_connectivity/README.md)
+- [experiments/README.md](experiments/README.md)
+- [configs/experiments/README.md](configs/experiments/README.md)
+- [ops/README.md](ops/README.md)
+- [ops/slurm/README.md](ops/slurm/README.md)
+- [tools/README.md](tools/README.md)
+- [archive/README.md](archive/README.md)
