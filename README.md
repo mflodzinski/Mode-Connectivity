@@ -31,8 +31,6 @@ Notes:
   See [ops/README.md](ops/README.md) and [ops/slurm/README.md](ops/slurm/README.md).
 - Use plotting or verification utilities:
   See [tools/README.md](tools/README.md).
-- Browse historical material only when needed:
-  See [archive/README.md](archive/README.md).
 
 Common active entry surfaces:
 
@@ -55,10 +53,6 @@ Common active entry surfaces:
   Operator-facing plotting and verification utilities.
 - `tests/`
   Active structure and behavior smoke tests for the retained layout.
-- `archive/`
-  Historical reference material and legacy layouts.
-- `thesis/`
-  Thesis writing assets and figure support files.
 - `external/`
   Vendored upstream repositories used by active workflows.
 
@@ -70,4 +64,3 @@ Common active entry surfaces:
 - [ops/README.md](ops/README.md)
 - [ops/slurm/README.md](ops/slurm/README.md)
 - [tools/README.md](tools/README.md)
-- [archive/README.md](archive/README.md)
