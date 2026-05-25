@@ -6,12 +6,11 @@ This repository contains the active code, configs, and operator scripts for the 
 
 - Python: `>=3.10,<3.12`
 - Dependency management: Poetry
-- External code: git submodules under `external/`
+- External code: vendored third-party directories under `external/`
 
 Typical setup:
 
 ```bash
-git submodule update --init --recursive
 poetry install
 poetry run pytest
 ```
@@ -20,7 +19,7 @@ Notes:
 
 - `poetry.toml` is configured for an in-project virtual environment, so Poetry will create `.venv/`.
 - `data/`, `results/`, and `plots/` are working directories for datasets and generated artifacts, not the primary source tree.
-- `external/` contains vendored or submodule upstream code. Treat it as dependency code, not the main place to edit repo logic.
+- `external/` contains vendored upstream code. Treat it as dependency code, not the main place to edit repo logic. Third-party license details are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 ## Where To Start
 
@@ -61,7 +60,7 @@ Common active entry surfaces:
 - `thesis/`
   Thesis writing assets and figure support files.
 - `external/`
-  Vendored or submodule upstream repositories used by active workflows.
+  Vendored upstream repositories used by active workflows.
 
 ## Directory Guides
 
