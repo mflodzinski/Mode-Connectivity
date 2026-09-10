@@ -209,6 +209,8 @@ __marimo__/
 outputs/
 results/
 data/
+plots/
+tests/
 wandb/
 thesis/
 archive/

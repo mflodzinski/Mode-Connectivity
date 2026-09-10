@@ -189,7 +189,7 @@ def plot(rows: list[dict], output_path: Path) -> None:
         )
 
     ax.set_xlabel("L2 Distance", fontsize=12)
-    ax.set_ylabel("Test Error Barrier", fontsize=12, fontweight="bold")
+    ax.set_ylabel("Test Error Barrier (%)", fontsize=12, fontweight="bold")
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=9)
     plt.tight_layout()

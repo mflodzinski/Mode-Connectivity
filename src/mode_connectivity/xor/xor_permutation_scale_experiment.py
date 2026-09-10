@@ -1138,7 +1138,7 @@ def plot_aggregate_curves(
         plt.plot(t, mean, label=labels[method_key], color=color)
         if include_std:
             plt.fill_between(t, mean - std, mean + std, color=color, alpha=0.15)
-    plt.xlabel("t (interpolation parameter)")
+    plt.xlabel("t(interpolation parameter)")
     plt.ylabel(ylabel, fontsize=ylabel_fontsize, fontweight=ylabel_fontweight)
     if title:
         plt.title(title, fontsize=title_fontsize)
@@ -1995,6 +1995,15 @@ def main() -> None:
         metric_key="loss",
         ylabel="Loss",
         title=None,
+        include_std=False,
+        show_legend=False,
+    )
+    plot_aggregate_curves(
+        aggregates,
+        plots_dir / "aggregate_loss_curves_titled_no_legend.png",
+        metric_key="loss",
+        ylabel="Loss",
+        title=f"Hidden size {hidden_size}",
         include_std=False,
         show_legend=False,
     )

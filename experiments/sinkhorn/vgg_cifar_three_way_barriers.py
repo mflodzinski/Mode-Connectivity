@@ -15,6 +15,7 @@ import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 from mode_connectivity.common.paths import PROJECT_ROOT
 
@@ -22,13 +23,43 @@ from mode_connectivity.alignment.permutation_pipeline import compute_paper_loss_
 
 
 METHOD_SPECS = [
-    ("test_naive", "No Alignment", "tab:gray"),
-    ("test_perm", "Sinkhorn Permutation Only (From Scratch)", "tab:orange"),
-    ("test_scale", "Sinkhorn Permutation + Scale (From Scratch)", "tab:purple"),
-    ("perm_then_scale_only", "Permutation Then Scale Finetuning", "tab:green"),
+    ("test_naive", "No Alignment"),
+    ("test_perm", "Permutation Only"),
+    ("test_scale", "Permutation + Scale"),
+    ("perm_then_scale_only", "Permutation then Scale"),
 ]
 
 ARCHITECTURES = ["vgg11", "vgg13", "vgg16", "vgg19"]
+
+COLOR_CONFIGS = [
+    (
+        "color_config_1",
+        {
+            "No Alignment": "#BDBDBD",
+            "Permutation Only": "#4C78A8",
+            "Permutation + Scale": "#8E63CE",
+            "Permutation then Scale": "#59A14F",
+        },
+    ),
+    (
+        "color_config_2",
+        {
+            "No Alignment": "#999999",
+            "Permutation Only": "#377EB8",
+            "Permutation + Scale": "#984EA3",
+            "Permutation then Scale": "#4DAF4A",
+        },
+    ),
+    (
+        "color_config_3",
+        {
+            "No Alignment": "#CFCFCF",
+            "Permutation Only": "#7AA6DC",
+            "Permutation + Scale": "#B39DDB",
+            "Permutation then Scale": "#81C784",
+        },
+    ),
+]
 
 PERM_THEN_SCALE_COMPARISON_PATHS = {
     "vgg11": PROJECT_ROOT
@@ -67,46 +98,81 @@ def load_perm_then_scale_barrier(architecture: str) -> float:
 
 
 def main() -> None:
-    plot_data: dict[str, list[float]] = {label: [] for _, label, _ in METHOD_SPECS}
+    plot_data: dict[str, list[float]] = {label: [] for _, label in METHOD_SPECS}
     architecture_labels: list[str] = []
 
     for architecture in ARCHITECTURES:
         payload = load_curves(architecture)
         architecture_labels.append(str(payload["vgg_name"]))
         curves = payload["curves"]
-        for curve_key, label, _ in METHOD_SPECS[:3]:
+        for curve_key, label in METHOD_SPECS[:3]:
             curve = curves[curve_key]
             plot_data[label].append(compute_barrier(curve["losses"], curve["lambdas"]))
-        plot_data["Permutation Then Scale Finetuning"].append(load_perm_then_scale_barrier(architecture))
+        plot_data["Permutation then Scale"].append(load_perm_then_scale_barrier(architecture))
 
     output_root = PROJECT_ROOT / "results" / "vgg_cifar10_three_way_barriers"
     output_root.mkdir(parents=True, exist_ok=True)
+    thesis_output_root = PROJECT_ROOT / "thesis" / "figures" / "new"
+    thesis_output_root.mkdir(parents=True, exist_ok=True)
 
     x = np.arange(len(architecture_labels))
     width = 0.14
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for index, (_, label, color) in enumerate(METHOD_SPECS):
-        offset = (index - (len(METHOD_SPECS) - 1) / 2.0) * width
-        ax.bar(x + offset, plot_data[label], width=width, label=label, color=color)
+    def save_barplot(output_path: Path, show_legend: bool, colors: dict[str, str]) -> None:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        for index, (_, label) in enumerate(METHOD_SPECS):
+            offset = (index - (len(METHOD_SPECS) - 1) / 2.0) * width
+            ax.bar(x + offset, plot_data[label], width=width, label=label, color=colors[label])
 
-    ax.set_xticks(x)
-    ax.set_xticklabels(architecture_labels)
-    ax.set_xlabel("Architecture")
-    ax.set_ylabel("Test Loss Barrier", fontweight="bold")
-    ax.grid(True, which="major", axis="both", linestyle="--", linewidth=0.7, alpha=0.5)
-    ax.set_axisbelow(True)
-    ax.legend()
+        ax.set_xticks(x)
+        ax.set_xticklabels(architecture_labels, fontsize=16)
+        ax.set_xlabel("Architecture", fontsize=18, fontweight="bold")
+        ax.set_ylabel("Test Loss Barrier", fontsize=18, fontweight="bold")
+        ax.tick_params(axis="y", labelsize=14)
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+        ax.grid(True, which="major", axis="both", linestyle="--", linewidth=0.7, alpha=0.5)
+        ax.set_axisbelow(True)
+        if show_legend:
+            ax.legend(fontsize=13)
 
-    fig.tight_layout()
-    fig.savefig(output_root / "vgg_cifar10_three_way_test_loss_barriers.png", dpi=200, bbox_inches="tight")
-    plt.close(fig)
+        fig.tight_layout()
+        fig.savefig(output_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+
+    for index, (config_name, colors) in enumerate(COLOR_CONFIGS, start=1):
+        result_stem = f"vgg_cifar10_three_way_test_loss_barriers_{config_name}"
+        thesis_stem = f"barplot_vggs_{config_name}"
+
+        result_with_legend = output_root / f"{result_stem}.png"
+        result_no_legend = output_root / f"{result_stem}_no_legend.png"
+        save_barplot(result_with_legend, show_legend=True, colors=colors)
+        save_barplot(result_no_legend, show_legend=False, colors=colors)
+
+        thesis_with_legend = thesis_output_root / f"{thesis_stem}.png"
+        thesis_no_legend = thesis_output_root / f"{thesis_stem}_no_legend.png"
+        thesis_with_legend.write_bytes(result_with_legend.read_bytes())
+        thesis_no_legend.write_bytes(result_no_legend.read_bytes())
+
+        if index == 1:
+            canonical_with_legend = output_root / "vgg_cifar10_three_way_test_loss_barriers.png"
+            canonical_no_legend = output_root / "vgg_cifar10_three_way_test_loss_barriers_no_legend.png"
+            canonical_with_legend.write_bytes(result_with_legend.read_bytes())
+            canonical_no_legend.write_bytes(result_no_legend.read_bytes())
+            (thesis_output_root / "barplot_vggs.png").write_bytes(result_with_legend.read_bytes())
+            (thesis_output_root / "barplot_vggs_no_legend.png").write_bytes(result_no_legend.read_bytes())
 
     with open(output_root / "vgg_cifar10_three_way_test_loss_barriers.json", "w") as handle:
         json.dump(
             {
                 "architectures": architecture_labels,
                 "barriers": plot_data,
+                "color_configs": [
+                    {
+                        "name": config_name,
+                        "colors": colors,
+                    }
+                    for config_name, colors in COLOR_CONFIGS
+                ],
             },
             handle,
             indent=2,
