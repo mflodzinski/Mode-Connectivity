@@ -29,6 +29,9 @@ This directory is the canonical configuration tree for active experiment runs. T
   Uses `_base/`, `splits/`, `analysis/`, and `runs/`.
 - `sinkhorn/`
   Uses `_base/`, `presets/`, and `runs/`.
+- `training_stage/`
+  Defines the frozen split, checkpoints, budgets, and evaluation protocol for
+  the independent-training checkpoint matrix.
 - `xor/`
   Stores preset files consumed directly by the thin XOR wrappers rather than full Hydra family composition.
 

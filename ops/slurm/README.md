@@ -17,6 +17,10 @@ This directory contains the active Slurm-facing launcher wrappers for the retain
   Run linear mode-connectivity training, packaging, benchmarking, and evaluation jobs.
 - `sinkhorn/`
   Launch Sinkhorn-based alignment sweeps and comparison runs.
+- `training_stage/`
+  Submit the resumable pilot or full training-stage connectivity DAG. Start with
+  `bash ops/slurm/training_stage/submit_pilot.sh --dry-run`, then omit
+  `--dry-run` on DAIC once the commands look correct.
 - `verification/`
   Run diagnostic or correctness checks on produced checkpoints or transforms.
 - `xor/`

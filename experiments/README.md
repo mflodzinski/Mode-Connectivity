@@ -10,13 +10,15 @@ This directory contains the repo-facing runnable entrypoints for the active expe
   Linear mode-connectivity training, packaging, benchmarking, and evaluation flows.
 - `sinkhorn/`
   VGG/CIFAR alignment sweeps and comparison runs built around Sinkhorn-based rebasining.
+- `training_stage/`
+  Independent VGG16 training, checkpoint-pair alignment, evaluation, and Slurm submission.
 - `xor/`
   Thin wrappers around retained argparse-heavy XOR experiments.
 
 ## How Runners Pair With Configs
 
 - Config-driven families:
-  `curves/`, `lmc/`, and `sinkhorn/` compose defaults from `configs/experiments/...` and then execute through reusable library helpers.
+  `curves/`, `lmc/`, `sinkhorn/`, and `training_stage/` compose defaults from `configs/experiments/...` and then execute through reusable library helpers.
 - Thin CLI wrapper family:
   `xor/` loads preset argv-style settings from `configs/experiments/xor/runners/` and forwards them to the retained XOR implementations.
 

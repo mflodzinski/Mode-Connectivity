@@ -18,6 +18,9 @@ This package is the active reusable library layer for the repository. It holds e
   Shared VGG/CIFAR alignment logic and sweep support for Sinkhorn-based workflows.
 - `lmc/`
   Reusable helpers for linear mode-connectivity training flows.
+- `training_stage/`
+  Frozen experiment protocol, endpoint training, alignment, evaluation,
+  recovery, reporting, and Slurm task orchestration.
 - `transform/`
   Function-preserving network transformations such as permutations and mirrors.
 - `xor/`

@@ -1,0 +1,42 @@
+# @package _global_
+output_root: results/training_stage
+data_root: data
+split_seed: 2026
+seed_pairs: [[0, 1], [2, 3], [4, 5]]
+stages: [1, 10, 60, 200]
+checkpoints: [0, 1, 2, 3, 5, 10, 20, 29, 30, 31, 59, 60, 61, 100, 150, 200]
+epochs: 200
+train_batch_size: 128
+eval_batch_size: 1000
+alignment_batch_size: 1000
+workers: 1
+lr: 0.05
+momentum: 0.9
+weight_decay: 0.0005
+lr_step: 30
+validation_size: 5000
+alignment_size: 5000
+train_eval_size: 2000
+selection_size: 1000
+test_eval_size: 2000
+eval_points: 11
+audit_points: 41
+validation_alphas: [0.0, 0.25, 0.5, 0.75, 1.0]
+alignment_seed: 0
+base_passes: 200
+branch_passes: 50
+base_lr: 0.08
+scale_lr: 0.1
+alignment_weight_decay: 0.01
+tau: 1.0
+sinkhorn_iters: 20
+sinkhorn_l: 1.0
+lambda_scale: 0.001
+validation_interval: 5
+min_passes: 20
+patience: 4
+min_delta: 0.0001
+wm_sweeps: 100
+atol: 0.00001
+rtol: 0.0001
+device: cuda
