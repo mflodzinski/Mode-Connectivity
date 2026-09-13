@@ -17,6 +17,7 @@ class PermutationSpec(NamedTuple):
         axes_to_perm: Maps param_key -> tuple of permutation names for each axis.
                       None means that axis is not permuted.
     """
+
     perm_to_axes: Dict[str, List[Tuple[str, int]]]
     axes_to_perm: Dict[str, Tuple[Optional[str], ...]]
 
@@ -54,11 +55,19 @@ def vgg16_permutation_spec() -> PermutationSpec:
     """
     # Map (block_idx, layer_idx) to conv layer index (0-12)
     conv_layout = [
-        (0, 0), (0, 1),           # Block 0: layers 0,1 -> conv 0,1
-        (1, 0), (1, 1),           # Block 1: layers 0,1 -> conv 2,3
-        (2, 0), (2, 1), (2, 2),   # Block 2: layers 0,1,2 -> conv 4,5,6
-        (3, 0), (3, 1), (3, 2),   # Block 3: layers 0,1,2 -> conv 7,8,9
-        (4, 0), (4, 1), (4, 2),   # Block 4: layers 0,1,2 -> conv 10,11,12
+        (0, 0),
+        (0, 1),  # Block 0: layers 0,1 -> conv 0,1
+        (1, 0),
+        (1, 1),  # Block 1: layers 0,1 -> conv 2,3
+        (2, 0),
+        (2, 1),
+        (2, 2),  # Block 2: layers 0,1,2 -> conv 4,5,6
+        (3, 0),
+        (3, 1),
+        (3, 2),  # Block 3: layers 0,1,2 -> conv 7,8,9
+        (4, 0),
+        (4, 1),
+        (4, 2),  # Block 4: layers 0,1,2 -> conv 10,11,12
     ]
 
     def conv_key(block, layer):
@@ -77,10 +86,10 @@ def vgg16_permutation_spec() -> PermutationSpec:
         block, layer = conv_layout[i]
         prev_block, prev_layer = conv_layout[i - 1]
         axes_to_perm[f"{conv_key(block, layer)}.weight"] = (
-            f"P_Conv_{i}",      # output channels (axis 0 in PyTorch)
-            f"P_Conv_{i-1}",    # input channels (axis 1 in PyTorch)
-            None,               # kernel height
-            None                # kernel width
+            f"P_Conv_{i}",  # output channels (axis 0 in PyTorch)
+            f"P_Conv_{i-1}",  # input channels (axis 1 in PyTorch)
+            None,  # kernel height
+            None,  # kernel width
         )
         axes_to_perm[f"{conv_key(block, layer)}.bias"] = (f"P_Conv_{i}",)
 
@@ -88,9 +97,9 @@ def vgg16_permutation_spec() -> PermutationSpec:
     block, layer = conv_layout[0]
     axes_to_perm[f"{conv_key(block, layer)}.weight"] = (
         "P_Conv_0",  # output channels (axis 0)
-        None,        # input channels (3, fixed)
-        None,        # kernel height
-        None         # kernel width
+        None,  # input channels (3, fixed)
+        None,  # kernel height
+        None,  # kernel width
     )
 
     # FC layers in classifier
@@ -109,15 +118,43 @@ def vgg16_permutation_spec() -> PermutationSpec:
     return permutation_spec_from_axes_to_perm(axes_to_perm)
 
 
-def vgg16_features_permutation_spec() -> PermutationSpec:
-    """Create permutation spec for VGG16 with ``features.*``/``classifier.*`` keys.
+def vgg_features_permutation_spec(vgg_name: str) -> PermutationSpec:
+    """Create a permutation spec for a no-BN VGG model with ``features.*`` keys.
 
-    This matches the VGG16 layout used by:
+    This matches the VGG11/13/16/19 layouts used by:
     - ``external/pytorch-vgg-cifar10``
     - ``external/sinkhorn-rebasin/examples/models/vgg.py``
     """
-
-    conv_indices = [0, 2, 5, 7, 10, 12, 14, 17, 19, 21, 24, 26, 28]
+    conv_indices_by_name = {
+        "VGG11": [0, 3, 6, 8, 11, 13, 16, 18],
+        "VGG13": [0, 2, 5, 7, 10, 12, 15, 17, 20, 22],
+        "VGG16": [0, 2, 5, 7, 10, 12, 14, 17, 19, 21, 24, 26, 28],
+        "VGG19": [
+            0,
+            2,
+            5,
+            7,
+            10,
+            12,
+            14,
+            16,
+            19,
+            21,
+            23,
+            25,
+            28,
+            30,
+            32,
+            34,
+        ],
+    }
+    try:
+        conv_indices = conv_indices_by_name[vgg_name]
+    except KeyError as error:
+        supported = ", ".join(conv_indices_by_name)
+        raise ValueError(
+            f"Unsupported VGG architecture {vgg_name!r}; choose one of: {supported}."
+        ) from error
 
     axes_to_perm = {}
 
@@ -135,7 +172,8 @@ def vgg16_features_permutation_spec() -> PermutationSpec:
         )
         axes_to_perm[f"features.{curr}.bias"] = (f"P_Conv_{i}",)
 
-    axes_to_perm["classifier.1.weight"] = ("P_Dense_0", "P_Conv_12")
+    final_conv = f"P_Conv_{len(conv_indices) - 1}"
+    axes_to_perm["classifier.1.weight"] = ("P_Dense_0", final_conv)
     axes_to_perm["classifier.1.bias"] = ("P_Dense_0",)
     axes_to_perm["classifier.4.weight"] = ("P_Dense_1", "P_Dense_0")
     axes_to_perm["classifier.4.bias"] = ("P_Dense_1",)
@@ -143,6 +181,11 @@ def vgg16_features_permutation_spec() -> PermutationSpec:
     axes_to_perm["classifier.6.bias"] = (None,)
 
     return permutation_spec_from_axes_to_perm(axes_to_perm)
+
+
+def vgg16_features_permutation_spec() -> PermutationSpec:
+    """Backward-compatible VGG16 ``features.*`` permutation specification."""
+    return vgg_features_permutation_spec("VGG16")
 
 
 def mlp_permutation_spec(num_hidden_layers: int) -> PermutationSpec:
@@ -157,8 +200,8 @@ def mlp_permutation_spec(num_hidden_layers: int) -> PermutationSpec:
     assert num_hidden_layers >= 1
 
     axes_to_perm = {
-        "Dense_0.weight": (f"P_0", None),
-        "Dense_0.bias": (f"P_0",),
+        "Dense_0.weight": ("P_0", None),
+        "Dense_0.bias": ("P_0",),
     }
 
     for i in range(1, num_hidden_layers):
@@ -166,7 +209,10 @@ def mlp_permutation_spec(num_hidden_layers: int) -> PermutationSpec:
         axes_to_perm[f"Dense_{i}.bias"] = (f"P_{i}",)
 
     # Output layer
-    axes_to_perm[f"Dense_{num_hidden_layers}.weight"] = (None, f"P_{num_hidden_layers-1}")
+    axes_to_perm[f"Dense_{num_hidden_layers}.weight"] = (
+        None,
+        f"P_{num_hidden_layers-1}",
+    )
     axes_to_perm[f"Dense_{num_hidden_layers}.bias"] = (None,)
 
     return permutation_spec_from_axes_to_perm(axes_to_perm)

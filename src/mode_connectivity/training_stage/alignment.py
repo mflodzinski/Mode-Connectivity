@@ -4,7 +4,7 @@ import time
 
 import torch
 
-from mode_connectivity.alignment.permutation_spec import vgg16_features_permutation_spec
+from mode_connectivity.alignment.permutation_spec import vgg_features_permutation_spec
 from mode_connectivity.alignment.weight_matching import weight_matching
 from .geometry import (
     alignment_state,
@@ -35,7 +35,7 @@ def weight_artifact(a, b, cfg):
     start = time.monotonic()
     with torch.no_grad():
         perm = weight_matching(
-            vgg16_features_permutation_spec(),
+            vgg_features_permutation_spec(cfg["model"]),
             a.state_dict(),
             b.state_dict(),
             max_iter=cfg["wm_sweeps"],
@@ -54,8 +54,8 @@ def optimize(cfg, replicate, ea, eb, phase, stop):
     directory.mkdir(parents=True, exist_ok=True)
     seeds = cfg["seed_pairs"][replicate]
     seed_all(cfg["alignment_seed"])
-    a = freeze(read_model(checkpoint(cfg, seeds[0], ea), cfg["device"]))
-    b = freeze(read_model(checkpoint(cfg, seeds[1], eb), cfg["device"]))
+    a = freeze(read_model(checkpoint(cfg, seeds[0], ea), cfg))
+    b = freeze(read_model(checkpoint(cfg, seeds[1], eb), cfg))
     endpoint_paths = [checkpoint(cfg, seeds[0], ea), checkpoint(cfg, seeds[1], eb)]
     provenance = artifact_provenance(cfg, endpoint_paths)
     data = Data(cfg)

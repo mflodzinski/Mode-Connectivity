@@ -30,6 +30,10 @@ from .scheduling import build_dag, completed, prerequisite_tasks
 
 
 def validate_config(cfg):
+    if cfg["model"] not in {"VGG11", "VGG13", "VGG16", "VGG19"}:
+        raise ValueError(
+            "model must be a supported VGG architecture without batch norm."
+        )
     if cfg["stages"] != sorted(set(cfg["stages"])) or len(cfg["stages"]) < 2:
         raise ValueError("stages must contain at least two distinct ordered epochs.")
     if cfg["stages"][-1] != cfg["epochs"] or not set(cfg["stages"]).issubset(

@@ -16,16 +16,16 @@ from mode_connectivity.sinkhorn.shared import (
 from .protocol import load
 
 
-def model():
+def model(cfg):
     return load_upstream_vgg_class()(
-        "VGG16", in_channels=3, out_features=10, h_in=32, w_in=32
+        cfg["model"], in_channels=3, out_features=10, h_in=32, w_in=32
     )
 
 
-def read_model(path, device):
-    result = model()
+def read_model(path, cfg):
+    result = model(cfg)
     result.load_state_dict(load(path)["state_dict"])
-    return result.to(device).eval()
+    return result.to(cfg["device"]).eval()
 
 
 def freeze(net):
@@ -219,14 +219,14 @@ def hard_artifact(pi):
 def transformed(b, artifact, cfg):
     if "weight_permutation" in artifact:
         from mode_connectivity.alignment.permutation_spec import (
-            vgg16_features_permutation_spec,
+            vgg_features_permutation_spec,
         )
         from mode_connectivity.alignment.weight_matching import apply_permutation
 
-        output = model().to(cfg["device"]).eval()
+        output = model(cfg).to(cfg["device"]).eval()
         output.load_state_dict(
             apply_permutation(
-                vgg16_features_permutation_spec(),
+                vgg_features_permutation_spec(cfg["model"]),
                 artifact["weight_permutation"],
                 b.state_dict(),
             )
@@ -235,7 +235,7 @@ def transformed(b, artifact, cfg):
     pi = make_rebasin(b, cfg, scale=artifact.get("scale", False), artifact=artifact)
     pi.eval()
     with torch.no_grad():
-        out = model().to(cfg["device"]).eval()
+        out = model(cfg).to(cfg["device"]).eval()
         out.load_state_dict(pi().state_dict())
     del pi
     return out

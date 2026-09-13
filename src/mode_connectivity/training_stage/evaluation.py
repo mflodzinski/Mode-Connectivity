@@ -82,7 +82,7 @@ def evaluate_pair(
         else [within_seed, within_seed]
     )
     pa, pb = checkpoint(cfg, seeds[0], ea), checkpoint(cfg, seeds[1], eb)
-    a, b = read_model(pa, cfg["device"]), read_model(pb, cfg["device"])
+    a, b = read_model(pa, cfg), read_model(pb, cfg)
     endpoint_ids = [dict(path=str(p), sha256=file_hash(p)) for p in [pa, pb]]
     destination = destination or directory / "profiles.json"
     result = json.loads(destination.read_text()) if destination.exists() else {}
@@ -148,8 +148,8 @@ def controls(cfg, replicate, stop):
         directory = pair_dir(cfg, replicate, epoch, epoch)
         if not (directory / "wm.pt").exists():
             paths = [checkpoint(cfg, seeds[0], epoch), checkpoint(cfg, seeds[1], epoch)]
-            a = read_model(paths[0], cfg["device"])
-            b = read_model(paths[1], cfg["device"])
+            a = read_model(paths[0], cfg)
+            b = read_model(paths[1], cfg)
             artifact = weight_artifact(a, b, cfg)
             artifact.update(
                 transform="weight_matching", **artifact_provenance(cfg, paths)
@@ -189,7 +189,7 @@ def controls(cfg, replicate, stop):
             )
         data = Data(cfg, allow_test=True)
         path = checkpoint(cfg, seed, cfg["epochs"])
-        net = read_model(path, cfg["device"])
+        net = read_model(path, cfg)
         write_json(
             destination / f"endpoint_{seed}_full_test.json",
             endpoint_metrics(cfg, net, path, data, "test_full"),

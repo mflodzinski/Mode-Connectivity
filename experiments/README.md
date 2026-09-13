@@ -11,7 +11,8 @@ This directory contains the repo-facing runnable entrypoints for the active expe
 - `sinkhorn/`
   VGG/CIFAR alignment sweeps and comparison runs built around Sinkhorn-based rebasining.
 - `training_stage/`
-  Independent VGG16 training, checkpoint-pair alignment, evaluation, and Slurm submission.
+  Independent configurable VGG training (VGG11 by default), checkpoint-pair alignment,
+  evaluation, and Slurm submission.
 - `xor/`
   Thin wrappers around retained argparse-heavy XOR experiments.
 

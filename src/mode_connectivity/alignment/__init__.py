@@ -11,14 +11,19 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 os.environ.setdefault("MPLCONFIGDIR", str(_PROJECT_ROOT / ".mplcache"))
 os.environ.setdefault("XDG_CACHE_HOME", str(_PROJECT_ROOT / ".mplcache"))
 
-from .permutation_spec import PermutationSpec, vgg16_permutation_spec
-from .sinkhorn_utils import stable_sinkhorn
-from .weight_matching import weight_matching, apply_permutation
+from .permutation_spec import (  # noqa: E402
+    PermutationSpec,
+    vgg16_permutation_spec,
+    vgg_features_permutation_spec,
+)
+from .sinkhorn_utils import stable_sinkhorn  # noqa: E402
+from .weight_matching import weight_matching, apply_permutation  # noqa: E402
 
 __all__ = [
-    'PermutationSpec',
-    'vgg16_permutation_spec',
-    'stable_sinkhorn',
-    'weight_matching',
-    'apply_permutation',
+    "PermutationSpec",
+    "vgg16_permutation_spec",
+    "vgg_features_permutation_spec",
+    "stable_sinkhorn",
+    "weight_matching",
+    "apply_permutation",
 ]

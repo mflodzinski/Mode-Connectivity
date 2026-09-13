@@ -24,7 +24,7 @@ def train(cfg, seed, stop):
     recovery = directory / "recovery.pt"
     seed_all(seed)
     data = Data(cfg)
-    net = model().to(cfg["device"])
+    net = model(cfg).to(cfg["device"])
     optimizer = torch.optim.SGD(
         net.parameters(),
         lr=cfg["lr"],
