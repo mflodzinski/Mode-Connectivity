@@ -38,6 +38,6 @@ min_passes: 20
 patience: 4
 min_delta: 0.0001
 wm_sweeps: 100
-atol: 0.00001
+atol: 0.00002
 rtol: 0.0001
 device: cuda
