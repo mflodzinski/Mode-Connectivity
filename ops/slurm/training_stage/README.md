@@ -41,3 +41,34 @@ Inspect `results/training_stage/status/`, `logs/`, and `submissions.json` while
 the experiment runs. The final report contains aggregate JSON/CSV data, heatmap
 figures, absolute interpolation profiles, audit discrepancies, and available
 Slurm accounting output.
+
+## Git Re-Basin CIFAR-10 MLP reproduction and extension
+
+The MLP preset trains only seed pair `(0, 1)`. It reproduces the Figure 3
+same-stage weight-matching curve at all 100 paper checkpoints, adds a true
+initialization measurement, and runs the 4-by-4 cross-stage experiment at
+completed epochs 1, 10, 50, and 100.
+
+```bash
+# First inspect, then submit the engineering pilot.
+bash ops/slurm/training_stage/submit_mlp_pilot.sh --dry-run
+bash ops/slurm/training_stage/submit_mlp_pilot.sh
+
+# After status/gate.json says complete, submit all unfinished main tasks.
+bash ops/slurm/training_stage/submit_mlp_main.sh
+```
+
+The default output is `results/training_stage_git_rebasin_mlp_pair01`. Use a
+new directory for every protocol change, for example:
+
+```bash
+bash ops/slurm/training_stage/submit_mlp_pilot.sh \
+  output_root=results/training_stage_git_rebasin_mlp_pair01_rerun
+```
+
+The pilot contains 19 logical tasks: preparation, smoke check, two independent
+training jobs, four onset checkpoints, three base/scale/continuation alignment
+branches, the dense audit, and the gate. Slurm arrays may make the number of
+rows shown by `squeue` differ from the number of submission commands. The full
+DAG contains 174 logical tasks, of which 101 are independent onset evaluations
+and 64 are the four cross-stage alignment/evaluation phases.

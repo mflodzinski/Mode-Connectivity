@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+from torch import nn
 from torch.func import functional_call
 
 from mode_connectivity.external.sinkhorn_rebasin import (
@@ -16,7 +17,48 @@ from mode_connectivity.sinkhorn.shared import (
 from .protocol import load
 
 
+class GitRebasinCifarMLP(nn.Module):
+    """The exact layer layout used for CIFAR-10 Figure 3 in Git Re-Basin.
+
+    Flax Dense layers use LeCun-normal kernels and zero biases by default.  The
+    adjusted truncated-normal initializer below matches that distribution's
+    variance; framework RNG streams still differ from JAX.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.Dense_0 = nn.Linear(32 * 32 * 3, 512)
+        self.Dense_1 = nn.Linear(512, 512)
+        self.Dense_2 = nn.Linear(512, 512)
+        self.Dense_3 = nn.Linear(512, 10)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        # Standard deviation correction used by JAX/Flax variance_scaling for
+        # a normal distribution truncated at two standard deviations.
+        truncation_stddev = 0.87962566103423978
+        for layer in [self.Dense_0, self.Dense_1, self.Dense_2, self.Dense_3]:
+            target_std = layer.in_features ** -0.5
+            nn.init.trunc_normal_(
+                layer.weight,
+                mean=0.0,
+                std=target_std / truncation_stddev,
+                a=-2.0 * target_std / truncation_stddev,
+                b=2.0 * target_std / truncation_stddev,
+            )
+            nn.init.zeros_(layer.bias)
+
+    def forward(self, x):
+        x = x.reshape(x.shape[0], 32 * 32 * 3)
+        x = torch.relu(self.Dense_0(x))
+        x = torch.relu(self.Dense_1(x))
+        x = torch.relu(self.Dense_2(x))
+        return torch.log_softmax(self.Dense_3(x), dim=-1)
+
+
 def model(cfg):
+    if cfg["model"] == "GitRebasinCifarMLP":
+        return GitRebasinCifarMLP()
     return load_upstream_vgg_class()(
         cfg["model"], in_channels=3, out_features=10, h_in=32, w_in=32
     )
@@ -57,6 +99,10 @@ def barriers(alphas, values):
     return dict(
         chord=float(excess.max()),
         worse=float(y.max() - max(y[0], y[-1])),
+        # This is the scalar plotted in Git Re-Basin Figure 3.  It is only a
+        # chord barrier when endpoint losses are equal, so retain the two
+        # endpoint-safe definitions above for the cross-stage experiment.
+        git_rebasin=float(y.max() - 0.5 * (y[0] + y[-1])),
         mean=float(y.mean()),
         peak_alpha=float(t[y.argmax()]),
         chord_peak_alpha=float(t[excess.argmax()]),
@@ -219,14 +265,20 @@ def hard_artifact(pi):
 def transformed(b, artifact, cfg):
     if "weight_permutation" in artifact:
         from mode_connectivity.alignment.permutation_spec import (
+            git_rebasin_cifar_mlp_permutation_spec,
             vgg_features_permutation_spec,
         )
         from mode_connectivity.alignment.weight_matching import apply_permutation
 
+        spec = (
+            git_rebasin_cifar_mlp_permutation_spec()
+            if cfg["model"] == "GitRebasinCifarMLP"
+            else vgg_features_permutation_spec(cfg["model"])
+        )
         output = model(cfg).to(cfg["device"]).eval()
         output.load_state_dict(
             apply_permutation(
-                vgg_features_permutation_spec(cfg["model"]),
+                spec,
                 artifact["weight_permutation"],
                 b.state_dict(),
             )

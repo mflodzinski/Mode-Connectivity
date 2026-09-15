@@ -143,7 +143,7 @@ def controls(cfg, replicate, stop):
     destination = root(cfg) / "controls" / str(replicate)
     destination.mkdir(parents=True, exist_ok=True)
     seeds = cfg["seed_pairs"][replicate]
-    for epoch in cfg["checkpoints"]:
+    for epoch in cfg.get("control_checkpoints", cfg["checkpoints"]):
         stop.check()
         directory = pair_dir(cfg, replicate, epoch, epoch)
         if not (directory / "wm.pt").exists():

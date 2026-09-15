@@ -17,6 +17,8 @@ TIMES = {
     "prepare": "00:20:00",
     "smoke": "00:20:00",
     "train": "03:00:00",
+    "onset": "00:30:00",
+    "onset_report": "00:20:00",
     "base": "03:00:00",
     "scale": "01:00:00",
     "continue": "01:00:00",
@@ -26,7 +28,7 @@ TIMES = {
     "gate": "00:20:00",
     "report": "00:20:00",
 }
-CPU_ONLY = {"prepare", "gate", "report"}
+CPU_ONLY = {"prepare", "gate", "report", "onset_report"}
 
 
 def build_dag(cfg):
@@ -43,6 +45,37 @@ def build_dag(cfg):
     add("smoke", "smoke", ["prepare"])
     for seed in sum(cfg["seed_pairs"], []):
         add(f"train_{seed}", "train", ["smoke"], seed=seed)
+    onset_gate_dependencies = []
+    onset_tasks = []
+    if cfg.get("onset_enabled", False):
+        final_onset = max(cfg["onset_epochs"])
+        for rep, seeds in enumerate(cfg["seed_pairs"]):
+            training_dependencies = [f"train_{seed}" for seed in seeds]
+            final_id = add(
+                f"onset_{rep}_{final_onset}",
+                "onset",
+                training_dependencies,
+                replicate=rep,
+                epoch=final_onset,
+                index=final_onset,
+            )
+            onset_tasks.append(final_id)
+            if rep == 0 and final_onset in cfg["onset_pilot_epochs"]:
+                onset_gate_dependencies.append(final_id)
+            for epoch in cfg["onset_epochs"]:
+                if epoch == final_onset:
+                    continue
+                task_id = add(
+                    f"onset_{rep}_{epoch}",
+                    "onset",
+                    training_dependencies + [final_id],
+                    replicate=rep,
+                    epoch=epoch,
+                    index=epoch,
+                )
+                onset_tasks.append(task_id)
+                if rep == 0 and epoch in cfg["onset_pilot_epochs"]:
+                    onset_gate_dependencies.append(task_id)
     stages = cfg["stages"]
     pairs = [(a, b) for a in stages for b in stages]
     pilot_indices = [
@@ -76,7 +109,11 @@ def build_dag(cfg):
 
     alignment(0, pilot_indices, pilot=True)
     add("audit", "audit", [f"scale_0_{i}" for i in pilot_indices])
-    gate_deps = ["audit"] + [f"continue_0_{i}" for i in pilot_indices]
+    gate_deps = (
+        ["audit"]
+        + [f"continue_0_{i}" for i in pilot_indices]
+        + onset_gate_dependencies
+    )
     add("gate", "gate", gate_deps)
     for rep in range(len(cfg["seed_pairs"])):
         indices = [i for i in range(len(pairs)) if rep != 0 or i not in pilot_indices]
@@ -103,10 +140,16 @@ def build_dag(cfg):
             [f"evaluate_{rep}_{i}" for i in range(len(pairs))],
             replicate=rep,
         )
+    report_dependencies = [
+        f"controls_{r}" for r in range(len(cfg["seed_pairs"]))
+    ] + ["gate"]
+    if cfg.get("onset_enabled", False):
+        add("onset_report", "onset_report", onset_tasks)
+        report_dependencies.append("onset_report")
     add(
         "report",
         "report",
-        [f"controls_{r}" for r in range(len(cfg["seed_pairs"]))] + ["gate"],
+        report_dependencies,
     )
     return tasks
 
@@ -157,7 +200,9 @@ def dependency_expression(task, refs):
         if index is not None and index == task.get("index"):
             corr.add(job)
         else:
-            after.add(job if index is None else f"{job}_{index}")
+            # A scalar consumer can depend on completion of the whole parent
+            # array. This is shorter and correctly covers every submitted index.
+            after.add(job if index is None or "index" not in task else f"{job}_{index}")
     parts = []
     if corr:
         parts.append("aftercorr:" + ":".join(sorted(corr)))

@@ -4,7 +4,10 @@ import time
 
 import torch
 
-from mode_connectivity.alignment.permutation_spec import vgg_features_permutation_spec
+from mode_connectivity.alignment.permutation_spec import (
+    git_rebasin_cifar_mlp_permutation_spec,
+    vgg_features_permutation_spec,
+)
 from mode_connectivity.alignment.weight_matching import weight_matching
 from .geometry import (
     alignment_state,
@@ -33,9 +36,14 @@ from .protocol import (
 
 def weight_artifact(a, b, cfg):
     start = time.monotonic()
+    spec = (
+        git_rebasin_cifar_mlp_permutation_spec()
+        if cfg["model"] == "GitRebasinCifarMLP"
+        else vgg_features_permutation_spec(cfg["model"])
+    )
     with torch.no_grad():
         perm = weight_matching(
-            vgg_features_permutation_spec(cfg["model"]),
+            spec,
             a.state_dict(),
             b.state_dict(),
             max_iter=cfg["wm_sweeps"],

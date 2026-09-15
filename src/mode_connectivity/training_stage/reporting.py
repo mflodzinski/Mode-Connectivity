@@ -180,7 +180,7 @@ def report(cfg):
                 curves = []
                 for rep in range(replicates):
                     values = []
-                    for epoch in cfg["checkpoints"]:
+                    for epoch in cfg.get("control_checkpoints", cfg["checkpoints"]):
                         path = (
                             root(cfg)
                             / "controls"
@@ -193,12 +193,14 @@ def report(cfg):
                             ]
                         )
                     curves.append(values)
-                    ax.plot(cfg["checkpoints"], values, alpha=0.2, linewidth=0.7)
+                    control_epochs = cfg.get("control_checkpoints", cfg["checkpoints"])
+                    ax.plot(control_epochs, values, alpha=0.2, linewidth=0.7)
                 curves = np.asarray(curves)
                 mean = curves.mean(0)
                 sd = curves.std(0, ddof=1) if replicates > 1 else np.zeros_like(mean)
-                ax.plot(cfg["checkpoints"], mean, label=method)
-                ax.fill_between(cfg["checkpoints"], mean - sd, mean + sd, alpha=0.12)
+                control_epochs = cfg.get("control_checkpoints", cfg["checkpoints"])
+                ax.plot(control_epochs, mean, label=method)
+                ax.fill_between(control_epochs, mean - sd, mean + sd, alpha=0.12)
                 ax.set(
                     title=f"{subset} {metric} chord barrier", xlabel="completed epoch"
                 )
@@ -287,16 +289,24 @@ def report(cfg):
         )
         (directory / "sacct.txt").write_text(result.stdout + result.stderr)
         accounting = dict(available=result.returncode == 0)
+    limitations = [
+        "Sampled grids/subsets do not establish an everywhere low-loss path.",
+        "Heuristic alignment failure does not prove disconnected solutions.",
+        "Runtime and memory must be measured on DAIC; local tests do not validate allocations.",
+    ]
+    if cfg.get("experiment_profile") == "git_rebasin_cifar10_mlp":
+        limitations += [
+            "This is a PyTorch protocol replication; JAX and PyTorch RNG streams and floating-point trajectories are not bitwise identical.",
+            "The paper trains on all 50,000 examples, so alignment selection data was seen during endpoint training; no test result selects an alignment.",
+            "The literal reference implementation uses run-seeded augmentation as well as run-seeded initialization and batch order.",
+        ]
     summary = dict(
         profile_count=len(rows),
         replicates=replicates,
         final_endpoint_full_test=endpoint_results,
         accounting=accounting,
-        limitations=[
-            "Sampled grids/subsets do not establish an everywhere low-loss path.",
-            "Heuristic alignment failure does not prove disconnected solutions.",
-            "Runtime and memory must be measured on DAIC; local tests do not validate allocations.",
-        ],
+        reference=cfg.get("reference"),
+        limitations=limitations,
     )
     write_json(directory / "summary.json", summary)
     return summary

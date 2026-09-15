@@ -49,6 +49,12 @@ def seed_all(seed):
         torch.cuda.manual_seed_all(seed)
 
 
+def mixed_seed(seed, label):
+    """Stable integer seed for independently reproducible RNG streams."""
+    payload = f"{int(seed)}:{label}".encode()
+    return int.from_bytes(hashlib.sha256(payload).digest()[:8], "little") % (2**63)
+
+
 def rng_state():
     return dict(
         python=random.getstate(),
@@ -104,13 +110,22 @@ def make_subsets(train_labels, test_labels, cfg):
     rng = np.random.default_rng(cfg["split_seed"])
     all_train = np.arange(len(train_labels))
     val = stratified_take(train_labels, all_train, cfg["validation_size"], rng)
-    train = np.setdiff1d(all_train, val).tolist()
-    opt = stratified_take(train_labels, train, cfg["alignment_size"], rng)
+    heldout_train = np.setdiff1d(all_train, val).tolist()
+    train = (
+        all_train.tolist() if cfg.get("train_full_data", False) else heldout_train
+    )
+    opt = stratified_take(
+        train_labels, heldout_train, cfg["alignment_size"], rng
+    )
     train_eval = stratified_take(
-        train_labels, np.setdiff1d(train, opt), cfg["train_eval_size"], rng
+        train_labels,
+        np.setdiff1d(heldout_train, opt),
+        cfg["train_eval_size"],
+        rng,
     )
     subsets = dict(
         train=train,
+        train_full=all_train.tolist(),
         validation=val,
         alignment=opt,
         train_eval=train_eval,
@@ -208,7 +223,16 @@ class Data:
         self.subsets = verify_protocol(cfg)
         self.bases = {}
 
-    def loader(self, name, augment=False, shuffle=False, batch_size=None):
+    def loader(
+        self,
+        name,
+        augment=False,
+        shuffle=False,
+        batch_size=None,
+        raw=False,
+        order_seed=None,
+        worker_seed=None,
+    ):
         from torchvision import datasets, transforms
 
         is_test = name.startswith("test_")
@@ -218,25 +242,45 @@ class Data:
             self.bases[is_test] = datasets.CIFAR10(
                 self.cfg["data_root"], train=not is_test, download=False
             )
-        transform = transforms.Compose(
-            (
-                [transforms.RandomHorizontalFlip(), transforms.RandomCrop(32, 4)]
-                if augment
-                else []
+        if raw:
+            transform = transforms.PILToTensor()
+        else:
+            if self.cfg.get("data_recipe") == "git_rebasin_cifar10" and augment:
+                raise ValueError(
+                    "Git Re-Basin augmentation is applied to raw batches in training.py."
+                )
+            transform = transforms.Compose(
+                (
+                    [transforms.RandomHorizontalFlip(), transforms.RandomCrop(32, 4)]
+                    if augment
+                    else []
+                )
+                + [
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
+                    ),
+                ]
             )
-            + [
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-            ]
-        )
         dataset = CIFARView(
             self.bases[is_test], self.subsets["indices"][name], transform
         )
         workers = int(self.cfg["workers"])
+        generator = None
+        sampler = None
+        if order_seed is not None:
+            generator = torch.Generator().manual_seed(int(order_seed))
+            sampler = torch.randperm(len(dataset), generator=generator).tolist()
+            shuffle = False
+        worker_generator = torch.Generator().manual_seed(
+            int(worker_seed if worker_seed is not None else order_seed or 0)
+        )
         return DataLoader(
             dataset,
             batch_size=batch_size or self.cfg["eval_batch_size"],
             shuffle=shuffle,
+            sampler=sampler,
+            generator=worker_generator,
             num_workers=workers,
             pin_memory=self.cfg["device"].startswith("cuda"),
             persistent_workers=False,

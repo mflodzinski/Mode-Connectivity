@@ -2,10 +2,17 @@
 output_root: results/training_stage
 data_root: data
 model: VGG11
+experiment_profile: vgg_training_stage
+training_recipe: vgg_cifar10
+data_recipe: vgg_cifar10
+train_full_data: false
+test_monitor_each_epoch: false
+augmentation_seed_mode: run
 split_seed: 2026
 seed_pairs: [[0, 1], [2, 3], [4, 5]]
 stages: [1, 10, 60, 200]
 checkpoints: [0, 1, 2, 3, 5, 10, 20, 29, 30, 31, 59, 60, 61, 100, 150, 200]
+control_checkpoints: [0, 1, 2, 3, 5, 10, 20, 29, 30, 31, 59, 60, 61, 100, 150, 200]
 epochs: 200
 train_batch_size: 128
 eval_batch_size: 1000
@@ -41,3 +48,4 @@ wm_sweeps: 100
 atol: 0.00002
 rtol: 0.0001
 device: cuda
+onset_enabled: false

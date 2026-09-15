@@ -30,9 +30,15 @@ from .scheduling import build_dag, completed, prerequisite_tasks
 
 
 def validate_config(cfg):
-    if cfg["model"] not in {"VGG11", "VGG13", "VGG16", "VGG19"}:
+    if cfg["model"] not in {
+        "VGG11",
+        "VGG13",
+        "VGG16",
+        "VGG19",
+        "GitRebasinCifarMLP",
+    }:
         raise ValueError(
-            "model must be a supported VGG architecture without batch norm."
+            "model must be a supported no-BN VGG or GitRebasinCifarMLP."
         )
     if cfg["stages"] != sorted(set(cfg["stages"])) or len(cfg["stages"]) < 2:
         raise ValueError("stages must contain at least two distinct ordered epochs.")
@@ -80,6 +86,21 @@ def validate_config(cfg):
         raise ValueError(
             "Every fixed subset must have a positive, class-balanced size."
         )
+    if cfg.get("onset_enabled", False):
+        if cfg["model"] != "GitRebasinCifarMLP":
+            raise ValueError("The onset replication requires GitRebasinCifarMLP.")
+        if cfg["onset_epochs"] != sorted(set(cfg["onset_epochs"])):
+            raise ValueError("onset_epochs must be distinct and ordered.")
+        if not set(cfg["onset_epochs"]).issubset(cfg["checkpoints"]):
+            raise ValueError("Every onset epoch must have a saved checkpoint.")
+        if cfg["onset_points"] != 25:
+            raise ValueError("The exact Figure 3 evaluation uses 25 points.")
+        if cfg["train_batch_size"] != 100 or cfg["epochs"] != 100:
+            raise ValueError("Git Re-Basin CIFAR MLP uses batch 100 for 100 epochs.")
+        if cfg["augmentation_seed_mode"] not in {"run", "shared"}:
+            raise ValueError("augmentation_seed_mode must be run or shared.")
+        if cfg["onset_matching_seed"] != 123:
+            raise ValueError("The Figure 3 matching seed is 123.")
     if (
         cfg["validation_size"] >= 50000
         or cfg["selection_size"] > cfg["validation_size"]
@@ -112,6 +133,17 @@ def expected_outputs(cfg, task):
         return [directory / "history.json", directory / "recovery.pt"] + [
             checkpoint(cfg, task["seed"], e) for e in cfg["checkpoints"]
         ]
+    if operation == "onset":
+        from .onset import onset_paths
+
+        return list(onset_paths(cfg, task["replicate"], task["epoch"]))
+    if operation == "onset_report":
+        return [
+            root(cfg) / "onset_report/profiles.json",
+            root(cfg) / "onset_report/summary.json",
+            root(cfg) / "onset_report/figure3_replication.png",
+            root(cfg) / "onset_report/onset_full_chord.png",
+        ]
     if operation in ("base", "scale", "continue", "evaluate"):
         directory = pair_dir(cfg, task["replicate"], task["ea"], task["eb"])
         names = (
@@ -123,7 +155,10 @@ def expected_outputs(cfg, task):
     if operation == "controls":
         directory = root(cfg) / "controls" / str(task["replicate"])
         return (
-            [directory / f"diagonal_{e:03d}.json" for e in cfg["checkpoints"]]
+            [
+                directory / f"diagonal_{e:03d}.json"
+                for e in cfg.get("control_checkpoints", cfg["checkpoints"])
+            ]
             + [
                 directory / f"within_{s}_{e:03d}.json"
                 for s in cfg["seed_pairs"][task["replicate"]]
@@ -180,6 +215,16 @@ def dispatch(cfg, task, stop):
         from .checks import smoke
 
         return smoke(cfg)
+    if operation == "onset":
+        from .onset import evaluate_onset
+
+        return evaluate_onset(
+            cfg, task["replicate"], task["epoch"], stop
+        )
+    if operation == "onset_report":
+        from .onset import report_onset
+
+        return report_onset(cfg)
     if operation == "train":
         from .training import train
 

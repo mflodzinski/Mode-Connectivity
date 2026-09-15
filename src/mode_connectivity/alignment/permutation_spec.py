@@ -216,3 +216,14 @@ def mlp_permutation_spec(num_hidden_layers: int) -> PermutationSpec:
     axes_to_perm[f"Dense_{num_hidden_layers}.bias"] = (None,)
 
     return permutation_spec_from_axes_to_perm(axes_to_perm)
+
+
+def git_rebasin_cifar_mlp_permutation_spec() -> PermutationSpec:
+    """Permutation spec for the paper's 3072-512-512-512-10 MLP.
+
+    The module names intentionally mirror the Flax ``Dense_0`` ... ``Dense_3``
+    names in ``cifar10_mlp_train.py`` from Git Re-Basin.  PyTorch stores linear
+    kernels transposed relative to Flax, which is already reflected by
+    :func:`mlp_permutation_spec`.
+    """
+    return mlp_permutation_spec(3)
