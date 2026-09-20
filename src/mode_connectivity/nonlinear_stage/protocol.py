@@ -130,7 +130,26 @@ def selected_dir(cfg, pair_id):
     return root(cfg) / "selected" / pair_id
 
 
-def _source_record(cfg, source, reference_subsets=None):
+TRAINING_PROTOCOL_KEYS = (
+    "model",
+    "training_recipe",
+    "data_recipe",
+    "train_full_data",
+    "augmentation_seed_mode",
+    "split_seed",
+    "epochs",
+    "train_batch_size",
+    "lr",
+    "momentum",
+    "weight_decay",
+    "lr_step",
+    "validation_size",
+)
+
+
+def _source_record(
+    cfg, source, reference_subsets=None, reference_source_cfg=None
+):
     source_root = Path(source["root"])
     protocol_path, subsets_path = source_root / "protocol.json", source_root / "subsets.json"
     if not protocol_path.exists() or not subsets_path.exists():
@@ -144,8 +163,31 @@ def _source_record(cfg, source, reference_subsets=None):
     subsets = json.loads(subsets_path.read_text())
     if any(digest(v) != subsets["hashes"][k] for k, v in subsets["indices"].items()):
         raise ValueError(f"Corrupt subset indices in {source_root}")
-    if reference_subsets is not None and subsets != reference_subsets:
-        raise ValueError("Every source pair must use identical frozen subset indices.")
+    if reference_source_cfg is not None:
+        mismatched = {
+            key: (reference_source_cfg.get(key), source_cfg.get(key))
+            for key in TRAINING_PROTOCOL_KEYS
+            if reference_source_cfg.get(key) != source_cfg.get(key)
+        }
+        if mismatched:
+            raise ValueError(
+                "Source endpoint training protocols differ: "
+                + ", ".join(
+                    f"{key}={left!r}/{right!r}"
+                    for key, (left, right) in mismatched.items()
+                )
+            )
+    if reference_subsets is not None:
+        # The first source root owns the canonical fitting and evaluation
+        # subsets for this experiment. Other endpoint-only roots may contain
+        # different analysis-subset metadata, but their models must have seen
+        # exactly the same training/validation partition.
+        for name in ("train", "validation"):
+            if subsets["indices"][name] != reference_subsets["indices"][name]:
+                raise ValueError(
+                    f"Source pairs use different frozen {name} indices; "
+                    "the endpoints are not training-protocol matched."
+                )
     endpoints = []
     for seed in source["seeds"]:
         for epoch in cfg["stage_epochs"]:
@@ -160,6 +202,7 @@ def _source_record(cfg, source, reference_subsets=None):
         source_protocol_hash=source_protocol.get("hash"),
         source_code_hash=source_protocol.get("code_hash"),
         source_config=source_cfg,
+        source_subset_hashes=subsets["hashes"],
         endpoints=endpoints,
     )
 
@@ -170,10 +213,17 @@ def prepare(cfg):
     if protocol_path.exists():
         verify_protocol(cfg)
         return
-    records, subsets = [], None
+    records, subsets, reference_source_cfg = [], None, None
     for source in source_pairs(cfg):
-        current, record = _source_record(cfg, source, subsets)
+        current, record = _source_record(
+            cfg, source, subsets, reference_source_cfg
+        )
         subsets = current if subsets is None else subsets
+        reference_source_cfg = (
+            record["source_config"]
+            if reference_source_cfg is None
+            else reference_source_cfg
+        )
         records.append(record)
     selection = set(subsets["indices"]["selection"])
     validation_audit = [i for i in subsets["indices"]["validation"] if i not in selection]
