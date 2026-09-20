@@ -1,0 +1,37 @@
+# @package _global_
+output_root: results/nonlinear_stage_vgg11
+data_root: data
+model: VGG11
+device: cuda
+workers: 1
+
+# Each source is an existing training_stage result root. Multiple seed pairs may
+# share a root when they were trained under one protocol.
+source_pairs:
+  - {seeds: [0, 1], root: results/training_stage_vgg11_pair01_atol2e5}
+  - {seeds: [2, 3], root: results/training_stage_vgg11_pairs2345}
+  - {seeds: [4, 5], root: results/training_stage_vgg11_pairs2345}
+
+final_epoch: 200
+stage_epochs: [0, 1, 2, 3, 5, 10, 20, 30, 60, 100, 150, 200]
+
+fit_subset: alignment
+fit_batch_size: 128
+eval_batch_size: 1000
+fit_passes: 200
+fit_lr: 0.015
+fit_momentum: 0.9
+path_weight_decay: 0.0005
+validation_interval: 10
+selection_points: 11
+eval_points: 61
+dense_points: 201
+
+loss_confirmation_threshold: 0.02
+error_confirmation_threshold: 0.5
+dense_loss_tolerance: 0.01
+dense_error_tolerance: 0.2
+restart_noise: [0.0, 0.01, 0.05]
+path_seed: 1729
+
+defaults: []

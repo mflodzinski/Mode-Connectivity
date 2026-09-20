@@ -1,0 +1,208 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage[utf8]{inputenc}
+\setstretch{1.15}
+
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+\title{First Stage Evaluation\\[0.3cm]
+\large Non-Linear Mode Connectivity in Neural Networks\\and the Role of Permutation Symmetry}
+\author{Maciek Lodzinski\\[0.2cm]
+\small Supervisors: Dr. Jing Sun, Dr. David Tax\\
+\small Delft University of Technology}
+\date{January 2026}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Project Overview}
+
+Neural networks trained from different random initializations converge to distinct minima (modes) in the loss landscape. Mode connectivity investigates whether these modes can be connected by continuous paths along which the loss remains low. Garipov et al.\ (2018) demonstrated that such low-loss paths exist when parameterized as B\'{e}zier curves, enabling practical applications such as fast model ensembling and improved understanding of the loss landscape geometry.
+
+A closely related line of research concerns permutation symmetry: neural networks are invariant to permutations of neurons within hidden layers, meaning that functionally identical networks can occupy different locations in parameter space. Entezari et al.\ (2021) conjectured that most SGD solutions can be permuted so that there is no barrier on the linear interpolation between them. This suggests that the loss landscape may be fundamentally simpler than it appears, with apparently distinct basins being permutations of the same underlying solution.
+
+This thesis project combines both perspectives, investigating mode connectivity through multiple path-finding methods while exploring how permutation symmetry relates to the geometry of low-loss paths in order to better understand the loss landscape of neural networks.
+
+\section{Research Questions and Scope}
+
+The project addresses the following research questions:
+
+\begin{enumerate}
+    \item \textbf{RQ1:} How do different path-finding methods (B\'{e}zier curves, polygon chains, symmetry plane constrained paths) compare in terms of barrier height and path quality?
+    \item \textbf{RQ2:} What is the role of permutation symmetry in mode connectivity? Do paths between permutation-equivalent modes differ from paths between independently trained modes?
+    \item \textbf{RQ3:} Does constraining optimization to specific hyperplanes (e.g., the perpendicular bisector between endpoints) affect the quality of low-loss paths?
+    \item \textbf{RQ4:} How robust is mode connectivity to variations in initialization, regularization, and architectural choices?
+    \item \textbf{RQ5:} Are existing permutation-finding methods too weak or is the mode-permutation hypothesis incorrect.
+\end{enumerate}
+
+\textbf{Scope:} Experiments are conducted on two architectures---VGG16 ($\sim$15M parameters) and ConvFC---and two datasets---CIFAR-10 and Fashion-MNIST. Three independently trained models (seed0, seed1, seed2) serve as endpoints, along with mirror networks created via full neuron permutation.
+
+\section{Methodology}
+
+\subsection{Path-Finding Methods}
+
+Three methods are used to find low-loss paths between trained models $w_0$ and $w_1$:
+
+\begin{itemize}
+    \item \textbf{B\'{e}zier curve (1-bend):} A quadratic B\'{e}zier curve $\theta(t) = (1-t)^2 w_0 + 2t(1-t)\theta_{\text{mid}} + t^2 w_1$, where $\theta_{\text{mid}}$ is a trainable middle point initialized at the midpoint $(w_0 + w_1)/2$.
+    \item \textbf{Polygon chain:} A piecewise linear path with one trainable bend point, offering an unconstrained baseline.
+    \item \textbf{Symmetry plane constrained polygon:} A polygon chain where the middle bend is projected onto the perpendicular bisector hyperplane between $w_0$ and $w_1$ after each gradient step: $\theta_{\text{new}} = \theta - \frac{(\theta - \mathbf{m}) \cdot \mathbf{n}}{\|\mathbf{n}\|^2} \mathbf{n}$, where $\mathbf{m} = (w_0 + w_1)/2$ and $\mathbf{n} = w_1 - w_0$.
+\end{itemize}
+
+\subsection{Evaluation Protocol}
+
+All paths are evaluated at 61 uniformly spaced points $t \in [0, 1]$. At each point, batch normalization statistics are recalculated on the training set (without augmentation), and both training and test metrics are recorded. The primary connectivity metric is the \textbf{barrier height}:
+$$\text{Barrier Height} = \max_{t \in [0,1]}(\text{Error}(t)) - \frac{\text{Error}(0) + \text{Error}(1)}{2}$$
+
+\section{Completed Experiments and Findings}
+
+\subsection{Effect of L2 Regularization on Curve Training}
+
+B\'{e}zier curves were trained between seed0--seed1 and seed0--mirror endpoint pairs, with and without L2 regularization ($\lambda = 5 \times 10^{-4}$).
+
+\textbf{Results:} Both configurations successfully connected modes with low barriers. Without regularization, curves achieved near-zero training error (0.14\%) but exhibited larger test barriers, indicating overfitting of the path itself. With regularization, test generalization along the path improved at the cost of slightly higher training error. Multiple training runs with different random seeds produced consistent results, confirming that the observed connectivity patterns are robust properties of the loss landscape rather than artifacts of specific training trajectories.
+
+\subsection{Neuron Permutation Experiments}
+
+To investigate the effect of permutation invariance, 2-neuron swaps were performed in three different layers (early, middle, late) of VGG16. The L2 norm difference between the original and neuron-swapped interpolation paths was measured.
+
+\textbf{Results:} Neuron permutations broke linear mode connectivity, with early layers exhibiting greater sensitivity than later layers. However, training B\'{e}zier curves between a mode and its permuted version successfully found low-loss paths within a few epochs, demonstrating that trainable curves can overcome permutation-induced barriers.
+
+\textbf{Confirmation of prior work:} Our experiments showed identical 
+connectivity behavior between seed0--seed1 (different initializations) 
+and seed0--mirror (full permutation), which is consistent with the 
+conjecture by Entezari et al.\ (2021) that ``different final networks 
+[from different initializations] are [equivalent to] applying random 
+permutations to the same SGD solution.
+\subsection{Hyperplane-Constrained Path Finding}
+
+The perpendicular bisector (symmetry plane) between two endpoints $w_0$ and $w_1$ is a geometrically natural hyperplane: every point on it is equidistant from both endpoints. The original idea was to find a low-loss path from one endpoint to any point on this plane, and then mirror it to construct a full symmetric path between the two modes. To explore this, we constrained the middle bend of a polygon chain to lie on the symmetry plane by projecting it after each gradient step. The constraint was verified using the normalized distance $d_{\text{norm}} = \frac{|(\theta - \mathbf{m}) \cdot \mathbf{n}|}{\|\mathbf{n}\| \cdot \sqrt{N}}$, achieving machine-precision satisfaction ($d_{\text{norm}} \approx 7.2 \times 10^{-8}$).
+
+The constrained optimization found low-loss paths with no deterioration in quality compared to unconstrained optimization:
+
+\begin{table}[H]
+    \centering
+    \caption{Test Error and Barrier Height Comparison (seed0--mirror, VGG16/CIFAR-10)}
+    \label{tab:performance}
+    \begin{tabular}{l c c}
+        \toprule
+        \textbf{Method} & \textbf{Max Test Error (\%)} & \textbf{Barrier Height (\%)} \\
+        \midrule
+        Polygon Chain (unconstrained) & $9.21$ & $2.22$ \\
+        Symmetry Plane (constrained) & $8.81$ & $1.82$ \\
+        B\'{e}zier Curve & $9.37$ & $2.38$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The optimized middle bend moved approximately 64\% of the endpoint separation distance from the geometric midpoint, with this movement being primarily tangential to the symmetry plane. Observing that the constraint did not degrade connectivity raised a natural question: is the symmetry plane geometrically special, or would any hyperplane work equally well?
+
+To answer this, we tested two additional hyperplane types:
+
+\begin{table}[H]
+\centering
+\caption{Hyperplane Constraint Configurations}
+\begin{tabular}{lll}
+\toprule
+\textbf{Plane Type} & \textbf{Anchor Point} & \textbf{Normal Vector} \\
+\midrule
+Symmetry Plane & Midpoint $(w_0+w_1)/2$ & $w_1-w_0$ \\
+Random Plane (Midpoint) & Midpoint $(w_0+w_1)/2$ & Random unit vector \\
+Random Plane (Random) & Random $\alpha w_0+(1-\alpha)w_1$ & Random unit vector \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Results:} All three hyperplane constraints yielded nearly identical connectivity performance. Test error curves, training loss, and barrier heights showed no meaningful differences. The unconstrained polygon chain also produced similar results.
+
+\textbf{Interpretation:} Each hyperplane constraint removes exactly one direction from $\sim$15 million dimensional parameter space ($N$ to $N-1$ dimensions). This is an extremely weak constraint with negligible impact on the optimization landscape. Low-loss paths exist within any $(N-1)$-dimensional hyperplane, regardless of orientation or anchor point. The symmetry plane maintained connectivity not because of special geometric properties of the perpendicular bisector, but because any single-direction constraint is effectively non-restrictive in such high-dimensional spaces.
+
+\subsection{Initialization Strategy Robustness}
+
+Three initialization strategies for the trainable middle bend of B\'{e}zier curves were compared (without regularization):
+
+\begin{itemize}
+    \item \textbf{Biased linear:} $\theta_{\text{init}} = \alpha w_0 + (1-\alpha) w_1$ with $\alpha \in \{0.75, 0.9\}$
+    \item \textbf{Perturbed midpoint:} $\theta_{\text{init}} = 0.5(w_0 + w_1) + \epsilon$, $\epsilon \sim \mathcal{N}(0, \sigma^2 I)$
+    \item \textbf{Sphere-constrained:} Midpoint with noise, projected onto a sphere
+\end{itemize}
+
+\textbf{Results:} All strategies converged to low-loss paths, though barrier height increased with distance from the midpoint. Without regularization, the trained bend point remained at its initialized distance from the origin ($\sim$320 vs.\ $\sim$40 for regularized training), as there was no incentive to reduce the L2 norm.
+
+\textbf{Interpretation:} The robustness to initialization indicates that the mode connectivity optimization problem has favorable geometric properties. Low-loss paths between modes are abundant rather than rare, and the optimization landscape does not exhibit narrow basins or strong dependence on initial positioning.
+
+\subsection{Cross-Architecture Validation: ConvFC on Fashion-MNIST}
+
+To validate generalizability, the same connectivity experiments were conducted using a ConvFC architecture on Fashion-MNIST. Results were qualitatively similar to VGG16 on CIFAR-10, confirming that mode connectivity phenomena generalize across model architectures and datasets.
+
+\textbf{Notable differences:} The L2 norm along the trained curve path exhibited asymmetry around $t=0.5$, unlike the more symmetric behavior observed in VGG16, but that phenomenon can be explained by one mode exhibiting slightly better performance than the other. Despite this, the linear interpolation barrier remained symmetric. Barriers were visibly thinner than in VGG16/CIFAR-10.
+
+\section{Scheduled Experiments}
+
+The following experiments are planned for the remaining thesis period:
+
+\begin{enumerate}
+    \item \textbf{Permutation alignment algorithms:} Design, implement, and evaluate neuron alignment methods by:
+    \begin{enumerate}
+        \item sequentially finding optimal permutations between closely sampled modes along a low-loss path between modes, in order to test whether aligned modes exhibit linear mode connectivity, and comparing against existing alignment methods;
+        \item learning, for each layer, a transformation matrix $X$ such that $XW$ maps one mode to another, and then decomposing this transformation into two valid permutation matrices $P_1 W P_2$.
+    \end{enumerate}
+
+    \item \textbf{Stronger hyperplane constraints:} Evaluate constraints that remove more than one dimension (e.g., restricting the path to a $k$-dimensional subspace) to identify the dimensionality at which connectivity degrades.
+
+
+    \item \textbf{Evaluation of existing permutation-finding methods:} Train a mode, transform it so that it represents a different function while remaining in the same linear mode connectivity (LMC) basin, apply a random permutation (ensuring that an optimal permutation exists), and test whether existing permutation alignment methods can successfully recover the correct alignment.
+\end{enumerate}
+
+
+\section{Timeline}
+\begin{table}[H]
+\centering
+\begin{tabular}{l l l}
+\toprule
+\textbf{Weeks} & \textbf{Activity} & \textbf{Status} \\
+\midrule
+1--2 & Codebase setup, endpoint training, B\'{e}zier curve experiments & Completed \\
+3--4 & Neuron permutation experiments, symmetry plane development & Completed \\
+5--8 & Arbitrary hyperplane constraints, initialization experiments & Completed \\
+8--10 & ConvFC/Fashion-MNIST validation, evaluation methodology fixes & Completed \\
+10 & \textbf{First Stage Evaluation} & \textbf{Current} \\
+\midrule
+11--13 & Evaluation of existing permutation-finding methods & Planned \\
+14--17 & Permutation alignment algorithms, re-evaluation with fixed methodology & Planned \\
+18--20 & Stronger hyperplane constraints, scaling experiments & Planned \\
+21--30 & Thesis writing & Planned \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\section{References}
+
+\begin{itemize}
+    \item Garipov et al.\ (2018): Loss Surfaces, Mode Connectivity, and Fast Ensembling of DNNs.
+    \item Draxler et al.\ (2018): Essentially No Barriers in Neural Network Energy Landscape.
+    \item Freeman \& Bruna (2017): Topology and Geometry of Half-Rectified Network Optimization.
+    \item Frankle et al.\ (2020): Linear Mode Connectivity and the Lottery Ticket Hypothesis.
+    \item Entezari et al.\ (2021): The Role of Permutation Invariance in Linear Mode Connectivity of Neural Networks.
+    \item Ainsworth et al.\ (2023): Git Re-Basin: Merging Models Modulo Permutation Symmetries.
+    \item Zhan et al.\ (2025): Analyzing the Role of Permutation Invariance in Linear Mode Connectivity.
+    \item Crisostomi et al.\ (2024): Cycle-Consistent Multi-Model Merging (C$^2$M$^3$).
+\end{itemize}
+
+\end{document}

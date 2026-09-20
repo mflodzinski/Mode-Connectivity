@@ -8,6 +8,8 @@ repo-level runners import only the concrete module they need.
 __all__ = [
     "xor_curve_fitting",
     "xor_experiment",
+    "xor_joint_scale_path",
+    "xor_joint_scale_polygonal",
     "xor_permutation_scale_experiment",
     "xor_train_linear_barriers",
 ]

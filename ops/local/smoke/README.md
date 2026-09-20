@@ -13,8 +13,14 @@ GPU or Slurm resources.
 - `xor_permutation_scale_minimal.sh`
   Runs the reduced permutation-vs-scale comparison on the checkpoints produced
   by the training smoke script.
+- `xor_joint_scale_path_minimal.sh`
+  Runs a reduced path-only versus joint scale-and-Bezier comparison, including
+  the artificially scaled positive control.
+- `xor_joint_scale_polygonal_minimal.sh`
+  Runs the corresponding reduced comparison for polygonal paths with multiple
+  numbers of trainable internal bends.
 - `run_xor_smoke_suite.sh`
-  Runs the two scripts sequentially.
+  Runs all four scripts sequentially.
 
 ## Usage
 
@@ -29,4 +35,6 @@ Or run them separately:
 ```bash
 bash ops/local/smoke/xor_train_linear_minimal.sh
 bash ops/local/smoke/xor_permutation_scale_minimal.sh
+bash ops/local/smoke/xor_joint_scale_path_minimal.sh
+bash ops/local/smoke/xor_joint_scale_polygonal_minimal.sh
 ```

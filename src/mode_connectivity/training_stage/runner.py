@@ -292,6 +292,7 @@ def run_task(cfg, task):
         gpu = cfg["device"].startswith("cuda") and task["operation"] not in (
             "prepare",
             "gate",
+            "onset_report",
             "report",
         )
         try:

@@ -1,0 +1,172 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[utf8]{inputenc}
+\usepackage{amssymb}
+\usepackage{enumitem}
+\usepackage{float}
+
+\setstretch{1.15}
+\geometry{a4paper, margin=1in}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+\title{Linear and Non-Linear Mode Connectivity in Neural Networks\\and the Role of Symmetries\\ \vspace{0.3cm}}
+\author{Maciek Lodzinski}
+\date{March 25, 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Recap: Motivation}
+
+Permutation symmetry is not the only symmetry present in neural networks. For architectures with positively homogeneous activations such as ReLU, there is also a layerwise scaling symmetry: one may multiply a hidden unit by a positive constant and compensate for this change in the adjacent layer without changing the represented function. This suggests that alignment methods might benefit from searching not only over permutations, but over a larger class of transformations that includes both permutation and scaling.
+
+The objective is not simply to make two networks look similar in parameter space. Rather, the goal is to find a symmetry-transformed representative of one model such that interpolation between the two models has a lower loss barrier.
+
+\section{Recap: Scale-Aware Extension of Sinkhorn Re-Basin}
+The proposed extension starts from Sinkhorn re-basin, which already optimizes soft permutation matrices in a differentiable way, and augments each layerwise alignment variable from \(S_\ell\) to
+\[
+M_\ell = S_\ell D_\ell,
+\]
+where \(D_\ell\) is a positive diagonal scaling matrix. The intuition is that permutation may identify corresponding neurons, while scaling may additionally correct differences in internal gauge, that is, in how magnitude is distributed across adjacent layers.
+
+For each hidden layer,
+\[
+S_\ell = \mathrm{Sinkhorn}(Z_\ell/\tau), \qquad
+D_\ell = \mathrm{diag}(e^{u_\ell}), \qquad
+M_\ell = S_\ell D_\ell.
+\]
+The transformed model is then constructed consistently across adjacent layers:
+\[
+W_1' = M_1 W_1^B,\qquad
+W_\ell' = M_\ell W_\ell^B M_{\ell-1}^{-1},\qquad
+W_L' = W_L^B M_{L-1}^{-1}.
+\]
+The optimization target is the average interpolation loss on a small grid of \(\alpha\) values between the reference model \(A\) and the transformed model \(B'\), together with a small regularizer that keeps the learned log-scales near zero:
+\[
+J = J_{\mathrm{bar}} + \lambda_{\mathrm{scale}} \sum_\ell \|u_\ell\|_2^2.
+\]
+
+The main reason Sinkhorn is a natural base method for this extension is that both the permutation variables and the scale variables are continuous, so they can be optimized jointly in the same gradient-based loop. This makes the change minimal and easy to compare against the original permutation-only baseline.
+
+\section{Experimental Modes}
+
+I considered four experimental modes for the method.
+
+\paragraph{permutation\_only}
+Train only the Sinkhorn permutation variables. No scale variables are active. This is the main baseline. It is interesting because it tells us how much improvement comes purely from finding neuron correspondences.
+
+\paragraph{joint\_scale}
+Train permutation and scale together from scratch. This is the most flexible optimization from the start. If this variant performs best, it would suggest that scale helps the optimizer find a better basin or path, not merely refine an already good permutation. However, it may also be less stable.
+
+\paragraph{perm\_then\_joint\_scale}
+First train permutation only. Then continue training with both permutation and scale active. This tests the hypothesis that scale is useful, but only after a stable permutation structure has already been found. In principle this should be more stable, since it starts from an already found local minimum.
+
+\paragraph{perm\_then\_scale\_only}
+First train permutation only. Then freeze the permutation and train only scale. This isolates the marginal value of scale after correspondence is fixed. If this improves over permutation\_only, then scale is helping even without changing the discovered neuron matching.
+
+\subsection{Why These Four Modes Are Useful}
+
+These four modes together are useful because they disentangle several different questions.
+
+\begin{itemize}
+    \item \textbf{permutation\_only vs joint\_scale}: asks whether scale is useful at all when allowed from the start.
+    \item \textbf{permutation\_only vs perm\_then\_scale\_only}: asks whether scale can improve a fixed permutation.
+    \item \textbf{joint\_scale vs perm\_then\_joint\_scale}: asks whether staged optimization is better than joint-from-scratch optimization.
+    \item \textbf{perm\_then\_joint\_scale vs perm\_then\_scale\_only}: asks whether, after warm start, permutation still needs to move, or whether scale refinement alone is enough.
+\end{itemize}
+
+\section{Already Run Experiments}
+
+After some time and a hyperparameter sweep, I was able to reproduce, for VGG11 on CIFAR-10, the results of the original Sinkhorn re-basin method. I chose VGG11 on CIFAR-10 because it is a standard benchmark setting in this line of work.
+
+So far, I have also run one experiment with scale invariance included on the same VGG11/CIFAR-10 setup, using the same hyperparameters as for the permutation-only method except for \(\lambda_{\mathrm{scale}}\), which penalizes large deviations from identity scaling. Because of that, there is still a possibility that the optimal hyperparameters for the permutation-plus-scale method differ from those of the permutation-only baseline, and that further gains are possible after a dedicated sweep.
+
+\subsection{Current Quantitative Results}
+
+Table~\ref{tab:main-results} summarizes the current results. The scale-aware variant improves over the permutation-only baseline on all main interpolation metrics that matter here: mean interpolation loss, barrier above the average endpoint loss, barrier above the worse endpoint, and minimum interpolation accuracy.
+
+\begin{table}[h]
+    \centering
+    \caption{Current results on VGG11 / CIFAR-10. Lower is better for loss-based metrics; higher is better for accuracy.}
+    \label{tab:main-results}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{lccccc}
+        \toprule
+        Method & Mean interp. loss & Barrier (avg) & Barrier (max ep.) & Min interp. acc. & Endpoint acc. \\
+        \midrule
+        Naive & 1.4428 & 1.0445 & 1.9103 & 10.00 & 91.10 \\
+        Sinkhorn (perm only) & 0.4834 & 0.0851 & 0.3641 & 81.48 & 91.10 \\
+        Sinkhorn + scale & \textbf{0.4684} & \textbf{0.0700} & \textbf{0.3280} & \textbf{81.58} & 91.10 \\
+        \bottomrule
+    \end{tabular}%
+    }
+\end{table}
+
+To make the improvement easier to interpret, Table~\ref{tab:improvements} reports the gain of the scale-aware method over permutation-only Sinkhorn.
+
+\begin{table}[h]
+    \centering
+    \caption{Improvement of the scale-aware method over permutation-only Sinkhorn.}
+    \label{tab:improvements}
+    \begin{tabular}{lcc}
+        \toprule
+        Metric & Absolute change & Interpretation \\
+        \midrule
+        Mean interpolation loss & \(-0.0151\) & lower is better \\
+        Barrier (avg) & \(-0.0151\) & lower is better \\
+        Barrier (max endpoint) & \(-0.0246\) & lower is better \\
+        Minimum interpolation accuracy & \(+0.97\) p.p. & higher is better \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Although an improvement of 1 percentage point may seem modest at first glance, it is meaningful in this setting because the baseline minimum interpolation accuracy is \(81.41\) while the natural upper bound is given by the endpoint accuracy of \(91.10\). More importantly, it suggests that scale invariance may play a non-negligible role in the one-basin hypothesis and should be taken seriously as part of the alignment problem. This is encouraging, although the result should still be treated as preliminary until a proper validation protocol and a dedicated hyperparameter sweep are completed.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]{loss_com.png}
+    
+    \vspace{0.5cm}
+    
+    \includegraphics[width=0.9\linewidth]{acc_com.png}
+    \caption{Interpolation loss (top) and interpolation accuracy (bottom) for naive interpolation, permutation-only Sinkhorn, and Sinkhorn with scale invariance. Higher accuracy and lower loss curves correspond to the experiment with scale invariance included.}
+    \label{fig:loss-acc-comparison}
+\end{figure}
+
+\subsection{Methodological Note}
+
+At the moment, the alignment itself was trained on the training set, and both hyperparameter selection and final reporting were effectively based on the test set. Because of that, the current final metrics are optimistic and may decrease slightly once a proper train/validation/test split is introduced.
+
+However, the same train/test-only protocol was also used for the permutation-only baseline. Therefore, although the absolute numbers may shift downward under a corrected protocol, the current positive difference between permutation-only and permutation-plus-scale should still remain meaningful as a first indication that the scale-aware extension is promising.
+
+I also ran a functional-equivalence sanity check to ensure that the resulting permutation-plus-scale transformed network remains functionally identical to the intended aligned model. This suggests that the current result is not due to an implementation bug in the symmetry transformation itself.
+
+Overall, the first result looks promising and justifies further experiments on other architectures and datasets, together with a more careful hyperparameter sweep.
+
+\section{Plans for the Future}
+
+The next steps are:
+\begin{itemize}
+    \item implement and test all four permutation-plus-scale training modes,
+    \item run a dedicated hyperparameter sweep for the scale-aware method,
+    \item introduce a proper train/validation/test split,
+    \item extend experiments to other architectures and datasets.
+\end{itemize}
+
+\section{References}
+
+\begin{enumerate}
+    \item Pe\~na, F. A. G., Belilovsky, E., \& Hjelm, R. D. (2023). \textit{Re-Basin via Implicit Sinkhorn Differentiation}. Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition.
+\end{enumerate}
+
+\end{document}

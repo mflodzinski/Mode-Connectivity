@@ -1,0 +1,296 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[utf8]{inputenc}
+\usepackage{amssymb}
+\usepackage{enumitem}
+
+\setstretch{1.15}
+\geometry{a4paper, margin=1in}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+\title{Non-Linear Mode Connectivity in Neural Networks\\and the Role of Permutation Symmetry\\ \vspace{0.3cm}}
+\author{Maciek Lodzinski}
+\date{March 11, 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Symmetry-Aware Alignment for Linear Mode Connectivity}
+
+\subsection{Motivation}
+
+Permutation invariance is not the only symmetry present in neural networks. For architectures with positively homogeneous activations such as ReLU, there is also a layerwise scaling symmetry: one may multiply a hidden unit by a positive constant and compensate for this change in the adjacent layer without changing the represented function. This raises the question of whether alignment methods should search not only over permutations, but over a larger class of transformations that includes both permutation and scaling.
+
+The main objective is not to make two networks look similar in parameter space. Rather, the goal is to find a symmetry-transformed representative of one network such that interpolation between the two networks has low loss barrier.
+
+\subsection{Why Sinkhorn is the Best Base Method for Scale Augmentation}
+
+Among the main re-basin families, Sinkhorn is the most natural method to extend with scaling. The reason is not that the other methods are impossible to modify, but that their optimization structure makes a minimal scale-aware extension less clean.
+
+\paragraph{Compared with activation matching.}
+Activation matching is formulated as a \emph{linear assignment problem} (LAP). For activations \(Z^{(A)}, Z^{(B)} \in \mathbb{R}^{d \times n}\) at layer \(\ell\), the permutation is chosen by
+\[
+P_\ell
+=
+\arg\min_{P \in S_d}
+\sum_{i=1}^n \|Z^{(A)}_{:,i} - P Z^{(B)}_{:,i}\|^2
+=
+\arg\max_{P \in S_d}
+\langle P, Z^{(A)}(Z^{(B)})^\top \rangle_F.
+\]
+
+However, if scale variables are added, the formulation becomes less clean. In particular, the activation statistics themselves change under scaling, so the similarity matrix used for matching is no longer fixed independently of the scale variables.
+
+\paragraph{Compared with weight matching.}
+Weight matching is formulated as a coupled optimization over layerwise permutations:
+\[
+\arg\min_{\pi} \|\mathrm{vec}(\Theta^A) - \mathrm{vec}(\pi(\Theta^B))\|^2
+=
+\arg\max_{\pi} \mathrm{vec}(\Theta^A)\cdot \mathrm{vec}(\pi(\Theta^B)).
+\]
+Written in terms of the weights, this becomes
+\[
+\arg\max_{\pi=\{P_i\}}
+\langle W_1^{(A)}, P_1 W_1^{(B)} \rangle_F
++
+\langle W_2^{(A)}, P_2 W_2^{(B)} P_1^\top \rangle_F
++ \cdots +
+\langle W_L^{(A)}, W_L^{(B)} P_{L-1}^\top \rangle_F.
+\]
+This is the \emph{sum of bilinear assignments problem} (SOBLAP). 
+
+Now consider adding scaling. If one replaces \(P_\ell\) by \(P_\ell D_\ell\), where \(D_\ell = \mathrm{diag}(s_\ell)\) is a diagonal matrix and each diagonal entry of \(D_\ell\) specifies the scaling of one hidden unit or channel, then the transformed weights become coupled not only through permutations but also through continuous scaling variables and their inverses in adjacent layers. The resulting objective is no longer a clean sequence of LAP subproblems. Therefore weight matching can in principle be extended with scale, but doing so changes the structure of the approximation algorithm much more substantially than in Sinkhorn.
+
+\paragraph{Compared with STE.}
+The straight-through estimator (STE) variant of Git Re-Basin directly optimizes an interpolation-related loss:
+\[
+\min_{\widetilde{\Theta}_B}
+\mathcal{L}\!\left(
+\frac{1}{2}
+\left(
+\Theta^A + \mathrm{proj}(\widetilde{\Theta}_B)
+\right)
+\right),
+\qquad
+\mathrm{proj}(\Theta)
+=
+\arg\max_{\pi}
+\mathrm{vec}(\Theta)\cdot \mathrm{vec}(\pi(\Theta^B)).
+\]
+Here the forward pass uses a hard projection to a realizable permutation of \(\Theta^B\), while the backward pass uses a straight-through gradient through \(\widetilde{\Theta}_B\).
+
+To include scale, one would replace the permutation action by
+\[
+M_\ell = P_\ell D_\ell,
+\qquad
+D_\ell = \mathrm{diag}(e^{u_\ell}),
+\]
+so that the transformed network is built through
+\[
+W_\ell' = M_\ell W_\ell^B M_{\ell-1}^{-1}.
+\]
+This makes the optimization mixed: the permutation part remains discrete or straight-through, the scale part is continuous, and both interact through the interpolation loss and the inverse transformations across layers. Thus STE can be extended with scale, but the resulting procedure is more complex and less clean as a first method than the Sinkhorn formulation.
+
+\subsection{Why Sinkhorn and the Proposed Scale-Aware Extension}
+
+Sinkhorn re-basin is the most natural starting point for a minimal scale-aware extension because it already replaces hard layerwise permutations with differentiable \emph{soft permutations}. For each hidden layer \(\ell\), it learns a matrix of \emph{logits} \(Z_\ell \in \mathbb{R}^{n_\ell \times n_\ell}\), where \(n_\ell\) is the width of the layer. The entries of \(Z_\ell\) are unconstrained real-valued scores: a large value of \((Z_\ell)_{ij}\) indicates that unit \(i\) in one model is currently considered a strong candidate to match unit \(j\) in the other model. Thus, \(Z_\ell\) is not itself a permutation matrix, but rather a learnable score matrix from which a soft alignment is constructed.
+
+From \(Z_\ell\), the method computes a doubly stochastic matrix
+\[
+S_\ell = \mathrm{Sinkhorn}(Z_\ell / \tau),
+\]
+where \(\tau > 0\) is the temperature parameter. The role of the Sinkhorn operator is to convert the unconstrained score matrix into a \emph{soft permutation matrix}: a matrix with nonnegative entries whose rows and columns each sum to 1. Intuitively, each unit distributes its correspondence mass across the units in the other model while respecting a one-to-one matching structure in a relaxed sense. When \(\tau\) is small, the matrix becomes sharper and closer to a hard permutation; when \(\tau\) is larger, the matrix becomes more diffuse. Concretely, the Sinkhorn operator applies alternating row and column normalizations to \(Z_\ell / \tau\) until the matrix is approximately doubly stochastic, thereby relaxing the discrete permutation constraint into a continuous optimization problem over the Birkhoff polytope.
+
+The original Sinkhorn method therefore proceeds by:
+\begin{enumerate}
+    \item initializing layerwise alignment logits \(Z_\ell\),
+    \item computing soft permutation matrices \(S_\ell = \mathrm{Sinkhorn}(Z_\ell / \tau)\),
+    \item inserting the \(S_\ell\) consistently into the network so that hidden coordinates are aligned across adjacent layers,
+    \item interpolating between model \(A\) and the transformed version of \(B\),
+    \item evaluating an objective such as midpoint loss on real data,
+    \item backpropagating through the soft alignment matrices and updating \(Z_\ell\) with gradient descent.
+\end{enumerate}
+
+Its main advantage is that the alignment variables are already optimized in a differentiable way, and the objective can be the actual quantity of interest, such as interpolation loss, rather than only a surrogate matching score.
+
+This same structure also makes Sinkhorn the best base method for introducing scale. The proposed extension is intentionally minimal: instead of using only a soft permutation matrix \(S_\ell\), I augment each layer with a positive diagonal scaling matrix
+\[
+D_\ell = \mathrm{diag}(e^{u_\ell}),
+\]
+where \(u_\ell \in \mathbb{R}^{n_\ell}\) are learnable log-scale parameters and the exponential guarantees positive scaling factors. The layerwise alignment variable then becomes
+\[
+M_\ell = S_\ell D_\ell.
+\]
+
+The important point is that this modification leaves the overall Sinkhorn framework essentially unchanged. Both
+the permutation structure through \(Z_\ell \mapsto S_\ell\) and the scale structure through \(u_\ell \mapsto D_\ell\), are continuous and can therefore be optimized jointly in the same gradient-based loop under the same interpolation-loss objective. In this sense, the extension is conceptually minimal:
+\[
+S_\ell
+\quad \longrightarrow \quad
+M_\ell = S_\ell D_\ell.
+\]
+
+Thus, the proposed method is a clean ablation of the original Sinkhorn approach:
+\begin{quote}
+Does adding scaling symmetry to Sinkhorn re-basin reduce interpolation barrier relative to permutation-only Sinkhorn?
+\end{quote}
+
+\subsection{Mathematical Formulation}
+
+Let \(A\) and \(B\) be two networks with the same architecture. For each hidden layer \(\ell\), define:
+\[
+S_\ell = \mathrm{Sinkhorn}(Z_\ell / \tau),
+\qquad
+D_\ell = \mathrm{diag}(e^{u_\ell}),
+\qquad
+M_\ell = S_\ell D_\ell.
+\]
+
+The transformed version of model \(B\) is constructed layerwise by applying the hidden-coordinate change consistently across adjacent layers. In the simplest matrix notation for feedforward layers:
+\[
+W_1' = M_1 W_1^B,
+\]
+\[
+W_\ell' = M_\ell W_\ell^B M_{\ell-1}^{-1},
+\qquad \ell = 2, \dots, L-1,
+\]
+\[
+W_L' = W_L^B M_{L-1}^{-1}.
+\]
+For hidden biases:
+\[
+b_\ell' = M_\ell b_\ell^B.
+\]
+
+Given the transformed model \(B'\), define an interpolation grid
+\[
+\mathcal{A} = \{0.25, 0.5, 0.75\},
+\]
+and interpolated parameters
+\[
+\theta_\alpha = (1-\alpha)\theta^A + \alpha \theta^{B'}.
+\]
+
+The barrier objective is approximated by the average interpolation loss:
+\[
+J_{\mathrm{bar}} =
+\frac{1}{|\mathcal{A}|}
+\sum_{\alpha \in \mathcal{A}}
+\mathcal{L}(\theta_\alpha).
+\]
+
+For the minimal version of the method, the only additional regularizer is a small penalty on the log-scales:
+\[
+J_{\mathrm{scale}} =
+\sum_{\ell} \|u_\ell\|_2^2.
+\]
+
+The total objective is therefore:
+\[
+J = J_{\mathrm{bar}} + \lambda_{\mathrm{scale}} J_{\mathrm{scale}}.
+\]
+
+
+\subsection{Relationship to REPAIR}
+
+REPAIR is highly relevant because it also exploits the importance of scaling and internal statistics for interpolation quality. In short, REPAIR is a post-processing method applied \emph{after} an alignment or merging step. Starting from an interpolated model
+\[
+\theta_\alpha = (1-\alpha)\theta^A + \alpha \theta^B,
+\]
+REPAIR adjusts hidden preactivations so that their first- and second-order statistics are better matched along the interpolation path.
+
+More concretely, if \(z_\ell\) denotes the preactivation vector at layer \(\ell\), REPAIR applies an affine channelwise transformation
+\[
+z_\ell^{\mathrm{repair}} = a_\ell \odot z_\ell + c_\ell,
+\]
+where \(a_\ell\) is a per-channel scaling vector, \(c_\ell\) is a per-channel shift (bias) vector, and \(\odot\) denotes elementwise multiplication. The purpose is to choose \(a_\ell\) and \(c_\ell\) so that the mean and standard deviation of the repaired activations match a desired interpolated target, typically
+\[
+\mu_\ell^{\mathrm{target}} = (1-\alpha)\mu_\ell^A + \alpha \mu_\ell^B,
+\qquad
+\sigma_\ell^{\mathrm{target}} = (1-\alpha)\sigma_\ell^A + \alpha \sigma_\ell^B.
+\]
+A natural affine choice is then
+\[
+a_\ell = \frac{\sigma_\ell^{\mathrm{target}}}{\sigma_\ell^{\mathrm{interp}}},
+\qquad
+c_\ell = \mu_\ell^{\mathrm{target}} - a_\ell \odot \mu_\ell^{\mathrm{interp}},
+\]
+where \(\mu_\ell^{\mathrm{interp}}\) and \(\sigma_\ell^{\mathrm{interp}}\) are the empirical activation statistics of the interpolated model before repair.
+
+Thus, REPAIR is essentially equivalent to applying a channelwise \emph{scale and bias} correction after alignment, with the goal of repairing the interpolated path rather than changing the alignment itself.
+
+\paragraph{Similarity.}
+Both approaches are motivated by the idea that permutation alone may be insufficient for good interpolation, and that channelwise magnitude or statistics mismatch can play an important role.
+
+\paragraph{Difference.}
+The key distinction is where the scaling enters the pipeline.
+
+REPAIR applies rescaling and shifting \emph{after} alignment, in order to improve the interpolation path. By contrast, the proposed method includes scaling \emph{inside} the alignment optimization itself. In other words:
+\begin{itemize}
+    \item REPAIR asks: once a path is chosen, how can it be repaired by applying a channelwise affine correction?
+    \item the proposed method asks: can a better path be obtained in the first place by searching a larger symmetry class that already includes channelwise scaling?
+\end{itemize}
+
+So although both methods exploit scale-related effects, they are not the same. REPAIR does not search over the symmetry orbit of one endpoint; instead, it modifies the statistics of the interpolated model after the alignment has already been fixed.
+
+This makes REPAIR a natural comparison point. The most informative comparison set is:
+\begin{enumerate}
+    \item permutation-only Sinkhorn,
+    \item permutation-plus-scale Sinkhorn,
+    \item permutation-only Sinkhorn + REPAIR,
+    \item permutation-plus-scale Sinkhorn + REPAIR.
+\end{enumerate}
+
+\subsection{Verification and Analysis}
+
+The proposed method should be evaluated with the following checks.
+
+\paragraph{Barrier reduction.}
+Does permutation-plus-scale Sinkhorn reduce the interpolation barrier more than permutation-only Sinkhorn?
+\paragraph{Hard projection.}
+Does the improvement survive after projecting soft alignments to hard permutations?
+\paragraph{Scale usage.}
+Are the learned scales non-trivial, or do they remain close to 1? This helps determine whether scale invariance is actually being used.
+\paragraph{Comparison with REPAIR.}
+If REPAIR still adds large gains after permutation-plus-scale alignment, then the proposed method and REPAIR are not equivalent. If gains largely disappear, then the proposed method may already be capturing part of the same phenomenon.
+
+\subsection{Performance Comparison}
+
+The expected qualitative ordering is not obvious a priori.
+
+\begin{itemize}
+    \item \textbf{No alignment} should have the highest barrier.
+    \item \textbf{Permutation-only Sinkhorn} should reduce the barrier if a permutation mismatch is present.
+    \item \textbf{Permutation-plus-scale Sinkhorn} should improve over permutation-only Sinkhorn if scaling mismatch is a meaningful part of the basin separation.
+    \item \textbf{REPAIR} may further reduce barrier by fixing activation-statistics mismatch not fully captured by symmetry-aware alignment.
+\end{itemize}
+
+\section{Iterative Permutation Finding Along a Low-Loss Path}
+
+As an additional experiment, I tested whether permutation-finding methods could be applied \emph{locally} along an already trained low-loss path and then composed into a single global permutation between the endpoints.
+
+I trained polygonal-chain low-loss paths with different numbers of trainable intermediate points, and then applied several permutation-finding methods to adjacent pairs of points along the path. The hope was that, since neighboring points on the path already have low barrier, local permutations might be easier to find and could compose into a useful global alignment.
+
+In practice, this failed. The composed permutations did not improve linear interpolation. The reason is that existing permutation-finding methods are not designed for moving the endpoints closer in parameter space (which was the main idea of the method). Weight matching tries to maximize similarity under its own matching surrogate, but this does not imply that the aligned models become closer in parameter space. STE is closer to the true basin objective, but in this iterative setting the midpoint barrier between adjacent points is already near zero by construction, so the optimization has little useful signal.
+
+Overall, this experiment suggests that local permutation finding along a precomputed low-loss path does not automatically yield a useful global transformation between the endpoints. This negative result is still informative: it indicates that endpoint alignment should be optimized directly, rather than inferred by composing local permutations along an existing curve.
+
+\section{References}
+
+\begin{enumerate}
+    \item Ainsworth, S. K., Hayase, J., \& Srinivasa, S. (2023). \textit{Git Re-Basin: Merging Models modulo Permutation Symmetries}. arXiv.
+    \item Pe\~na, F. A. G., Belilovsky, E., \& Hjelm, R. D. (2023). \textit{Re-Basin via Implicit Sinkhorn Differentiation}. Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition.
+    \item Jordan, K., et al. (2024). \textit{REPAIR: Renormalizing Permuted Activations for Interpolation Repair}. Neural Networks.
+\end{enumerate}
+
+\end{document}

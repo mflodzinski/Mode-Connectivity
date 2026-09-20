@@ -42,6 +42,10 @@ the experiment runs. The final report contains aggregate JSON/CSV data, heatmap
 figures, absolute interpolation profiles, audit discrepancies, and available
 Slurm accounting output.
 
+To train endpoints without scheduling any alignment work, use
+`submit_endpoints.sh`. This is used by the nonlinear training-stage experiment
+when additional seed pairs are missing.
+
 ## Git Re-Basin CIFAR-10 MLP reproduction and extension
 
 The MLP preset trains only seed pair `(0, 1)`. It reproduces the Figure 3

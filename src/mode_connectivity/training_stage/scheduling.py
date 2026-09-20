@@ -169,6 +169,12 @@ def prerequisite_tasks(tasks, target):
 
 
 def select_tasks(tasks, mode):
+    if mode == "endpoints":
+        return [
+            task
+            for task in tasks
+            if task["operation"] in {"prepare", "smoke", "train"}
+        ]
     if mode in ("all", "main"):
         return tasks  # main also schedules missing prerequisites; completed pilot is reused.
     gate_ids = {t["id"] for t in prerequisite_tasks(tasks, "gate")}
@@ -188,6 +194,17 @@ def completed(cfg, task):
         and record.get("protocol_hash") == protocol_hash(cfg)
         and all(Path(p).exists() for p in record.get("outputs", []))
     )
+
+
+def queued_state(job_ref):
+    """Return a live Slurm state, or empty text for an expired/unknown job."""
+    query = subprocess.run(
+        ["squeue", "-h", "-j", job_ref, "-o", "%T|%r"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return query.stdout.strip() if query.returncode == 0 else ""
 
 
 def dependency_expression(task, refs):
@@ -267,12 +284,9 @@ def submit(
             job_ref = old["job"] + (
                 f"_{old['index']}" if old["index"] is not None else ""
             )
-            state = subprocess.run(
-                ["squeue", "-h", "-j", job_ref, "-o", "%T|%r"],
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout.strip()
+            # Slurm commonly returns 1 once a completed job has aged out of
+            # squeue. That means the registry entry is stale, not an error.
+            state = queued_state(job_ref)
             if (
                 state
                 and "DependencyNeverSatisfied" not in state
@@ -370,7 +384,9 @@ def main():
     from omegaconf import OmegaConf
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["pilot", "main", "all"], default="all")
+    parser.add_argument(
+        "--mode", choices=["endpoints", "pilot", "main", "all"], default="all"
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument(
