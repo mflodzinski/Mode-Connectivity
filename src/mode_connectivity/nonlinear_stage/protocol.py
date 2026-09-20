@@ -146,6 +146,20 @@ TRAINING_PROTOCOL_KEYS = (
     "validation_size",
 )
 
+TRAINING_PROTOCOL_DEFAULTS = {
+    # Older training-stage manifests predate these explicit fields. Their
+    # training code used the same defaults through cfg.get(..., default).
+    "train_full_data": False,
+    "augmentation_seed_mode": "run",
+}
+
+
+def _training_protocol_value(source_cfg, key):
+    value = source_cfg.get(key, TRAINING_PROTOCOL_DEFAULTS.get(key))
+    if value is None and key in TRAINING_PROTOCOL_DEFAULTS:
+        return TRAINING_PROTOCOL_DEFAULTS[key]
+    return value
+
 
 def _source_record(
     cfg, source, reference_subsets=None, reference_source_cfg=None
@@ -165,9 +179,13 @@ def _source_record(
         raise ValueError(f"Corrupt subset indices in {source_root}")
     if reference_source_cfg is not None:
         mismatched = {
-            key: (reference_source_cfg.get(key), source_cfg.get(key))
+            key: (
+                _training_protocol_value(reference_source_cfg, key),
+                _training_protocol_value(source_cfg, key),
+            )
             for key in TRAINING_PROTOCOL_KEYS
-            if reference_source_cfg.get(key) != source_cfg.get(key)
+            if _training_protocol_value(reference_source_cfg, key)
+            != _training_protocol_value(source_cfg, key)
         }
         if mismatched:
             raise ValueError(
