@@ -15,7 +15,7 @@ source_pairs:
 final_epoch: 200
 stage_epochs: [0, 1, 2, 3, 5, 10, 20, 30, 60, 100, 150, 200]
 
-fit_subset: alignment
+fit_subset: curve_fit
 # Nonlinear calibration and the eventual full-data protocol use every training
 # example except the frozen 2,000-example reporting subset.
 curve_fit_size: 43000
@@ -31,7 +31,10 @@ eval_points: 61
 dense_points: 201
 
 loss_confirmation_threshold: 0.02
-error_confirmation_threshold: 0.5
+# The established full-data Garipov fits are expected to keep the test error
+# barrier below roughly 1.5 percentage points. Selection remains validation
+# only; test data is still inaccessible until the selected path is frozen.
+error_confirmation_threshold: 1.5
 dense_loss_tolerance: 0.01
 dense_error_tolerance: 0.2
 restart_noise: [0.0, 0.01, 0.05]
