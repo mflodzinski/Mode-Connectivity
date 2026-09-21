@@ -10,6 +10,7 @@ from .geometry import PathModel, artifact, path_geometry, path_profile, read_end
 from .protocol import (
     Data,
     StopRequested,
+    digest,
     load,
     path_dir,
     restore_rng,
@@ -18,6 +19,18 @@ from .protocol import (
     seed_all,
     seed_for,
     write_json,
+)
+
+
+FIT_SETTING_KEYS = (
+    "fit_subset",
+    "fit_batch_size",
+    "fit_passes",
+    "fit_lr",
+    "fit_momentum",
+    "path_weight_decay",
+    "validation_interval",
+    "selection_points",
 )
 
 
@@ -41,24 +54,34 @@ def score(profile, completed_passes):
     )
 
 
-def fit(cfg, pair, family, restart, noise, stop):
+def fit(cfg, pair, family, restart, noise, stop, overrides=None):
+    settings = {key: cfg[key] for key in FIT_SETTING_KEYS}
+    settings.update(overrides or {})
+    if int(settings["fit_passes"]) % int(settings["validation_interval"]):
+        raise ValueError("Fit passes must be divisible by the validation interval.")
     directory = path_dir(cfg, pair["id"], family, restart)
     directory.mkdir(parents=True, exist_ok=True)
     recovery_path = directory / "recovery.pt"
     history_path, output_path = directory / "history.json", directory / "path.pt"
-    seed = seed_for(cfg, pair["id"], family, restart)
+    seed = int(settings.get("seed", seed_for(cfg, pair["id"], family, restart)))
+    settings["seed"] = seed
+    settings_hash = digest(settings)
     seed_all(seed)
     endpoints, _ = read_endpoints(cfg, pair)
     generator = torch.Generator(device=cfg["device"]).manual_seed(seed)
     path = PathModel(endpoints[0], endpoints[1], family, noise, generator).to(cfg["device"])
     optimizer = torch.optim.SGD(
-        path.controls.parameters(), lr=cfg["fit_lr"], momentum=cfg["fit_momentum"]
+        path.controls.parameters(),
+        lr=settings["fit_lr"],
+        momentum=settings["fit_momentum"],
     )
     data = Data(cfg, allow_test=False)
     selection = data.loader("selection")
     completed, updates, examples, history = 0, 0, 0, []
     if recovery_path.exists():
         state = load(recovery_path)
+        if state.get("settings_hash") != settings_hash:
+            raise ValueError("Recovery state belongs to different fit settings.")
         path.load_control_state(state["controls"])
         optimizer.load_state_dict(state["optimizer"])
         completed, updates, examples = state["pass"], state["updates"], state["examples"]
@@ -68,7 +91,7 @@ def fit(cfg, pair, family, restart, noise, stop):
         current = path.control_state()
         path.load_control_state(path.linear_control_state())
         initial_profile = path_profile(
-            path, selection, cfg["device"], cfg["selection_points"]
+            path, selection, cfg["device"], settings["selection_points"]
         )
         initial_score = score(initial_profile, 0)
         best = artifact(path, cfg, pair, family, restart, 0.0, 0, initial_score)
@@ -88,20 +111,21 @@ def fit(cfg, pair, family, restart, noise, stop):
                 "examples": examples,
                 "history": history,
                 "best": best,
+                "settings_hash": settings_hash,
                 "rng": rng_state(),
             },
         )
         write_json(history_path, history)
 
     started = time.monotonic()
-    while completed < cfg["fit_passes"]:
-        lr = learning_rate(cfg["fit_lr"], completed, cfg["fit_passes"])
+    while completed < settings["fit_passes"]:
+        lr = learning_rate(settings["fit_lr"], completed, settings["fit_passes"])
         for group in optimizer.param_groups:
             group["lr"] = lr
         loader = data.loader(
-            cfg["fit_subset"],
+            settings["fit_subset"],
             augment=True,
-            batch_size=cfg["fit_batch_size"],
+            batch_size=settings["fit_batch_size"],
             order_seed=seed_for(cfg, pair["id"], f"{family}-pass", completed),
         )
         path.train()
@@ -111,7 +135,7 @@ def fit(cfg, pair, family, restart, noise, stop):
             optimizer.zero_grad(set_to_none=True)
             logits, path_l2 = path.forward_with_l2(x, t)
             nll = torch.nn.functional.cross_entropy(logits, y)
-            loss = nll + 0.5 * cfg["path_weight_decay"] * path_l2
+            loss = nll + 0.5 * settings["path_weight_decay"] * path_l2
             if not torch.isfinite(loss):
                 raise FloatingPointError("Nonfinite path-training objective.")
             loss.backward()
@@ -119,9 +143,12 @@ def fit(cfg, pair, family, restart, noise, stop):
             updates += 1
             examples += len(y)
         completed += 1
-        if completed % cfg["validation_interval"] == 0 or completed == cfg["fit_passes"]:
+        if (
+            completed % settings["validation_interval"] == 0
+            or completed == settings["fit_passes"]
+        ):
             validation = path_profile(
-                path, selection, cfg["device"], cfg["selection_points"]
+                path, selection, cfg["device"], settings["selection_points"]
             )
             candidate_score = score(validation, completed)
             if candidate_score < tuple(best["selected_score"]):
@@ -145,6 +172,8 @@ def fit(cfg, pair, family, restart, noise, stop):
             raise StopRequested("Interrupted after a complete path-training pass.")
     path.load_control_state(best["controls"])
     best["geometry"] = path_geometry(path)
+    best["fit_settings"] = settings
+    best["fit_settings_hash"] = settings_hash
     save(output_path, best)
     write_json(history_path, history)
     recovery_path.unlink(missing_ok=True)
@@ -156,4 +185,6 @@ def fit(cfg, pair, family, restart, noise, stop):
         score=best["selected_score"],
         updates=updates,
         examples=examples,
+        settings=settings,
+        settings_hash=settings_hash,
     )

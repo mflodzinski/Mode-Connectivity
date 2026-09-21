@@ -249,8 +249,18 @@ def prepare(cfg):
     validation_audit = [i for i in subsets["indices"]["validation"] if i not in selection]
     if len(validation_audit) != 4000:
         raise ValueError("Expected 4,000 validation examples outside selection.")
+    train_eval = set(subsets["indices"]["train_eval"])
+    curve_candidates = [i for i in subsets["indices"]["train"] if i not in train_eval]
+    curve_fit_size = int(cfg["curve_fit_size"])
+    if curve_fit_size <= 0 or curve_fit_size > len(curve_candidates):
+        raise ValueError(
+            f"curve_fit_size must be in [1, {len(curve_candidates)}]."
+        )
+    curve_fit = curve_candidates[:curve_fit_size]
     subsets["indices"]["validation_audit"] = validation_audit
     subsets["hashes"]["validation_audit"] = digest(validation_audit)
+    subsets["indices"]["curve_fit"] = curve_fit
+    subsets["hashes"]["curve_fit"] = digest(curve_fit)
     destination.mkdir(parents=True, exist_ok=True)
     write_json(destination / "subsets.json", subsets)
     revision = subprocess.run(

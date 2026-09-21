@@ -37,8 +37,12 @@ TIMES = {
     "test": "00:30:00",
     "endpoint_test": "00:30:00",
     "report": "00:20:00",
+    "calibration_report": "00:20:00",
 }
-CPU_ONLY = {"prepare", "gate", "screen", "freeze", "selection_gate", "report"}
+CPU_ONLY = {
+    "prepare", "gate", "screen", "freeze", "selection_gate", "report",
+    "calibration_report",
+}
 
 
 def build_dag(cfg, targets=None):
@@ -159,7 +163,73 @@ def prerequisite_tasks(tasks, target):
     return [task for task in tasks if task["id"] in wanted]
 
 
+def build_calibration_dag(cfg):
+    """Focused equal-budget hyperparameter check for the final-final control."""
+    tasks = []
+
+    def add(task_id, operation, dependencies=(), **values):
+        tasks.append(
+            dict(
+                id=task_id,
+                operation=operation,
+                dependencies=list(dict.fromkeys(dependencies)),
+                **values,
+            )
+        )
+        return task_id
+
+    add("prepare", "prepare")
+    add("smoke", "smoke", ["prepare"])
+    pair = next(
+        item
+        for item in primary_pairs(cfg)
+        if item["replicate"] == 0
+        and item["kind"] == "same"
+        and item["n"] == cfg["final_epoch"]
+    )
+    validations = []
+    for index, spec in enumerate(cfg["calibration_specs"]):
+        restart = 100 + index
+        fit_id = add(
+            f"fit_calibration_{index}",
+            "fit",
+            ["smoke"],
+            array_group="fit_calibration",
+            replicate=0,
+            index=index,
+            pair_id=pair["id"],
+            family="bezier",
+            restart=restart,
+            noise=0.0,
+            fit_overrides=dict(
+                fit_subset="curve_fit",
+                fit_passes=int(spec["passes"]),
+                fit_lr=float(spec["lr"]),
+                path_weight_decay=float(spec["weight_decay"]),
+                validation_interval=5,
+                seed=int(cfg["path_seed"]),
+            ),
+        )
+        validations.append(
+            add(
+                f"validate_calibration_{index}",
+                "validate",
+                [fit_id],
+                array_group="validate_calibration",
+                replicate=0,
+                index=index,
+                pair_id=pair["id"],
+                family="bezier",
+                restart=restart,
+            )
+        )
+    add("calibration_report", "calibration_report", validations)
+    return tasks
+
+
 def select_tasks(cfg, mode):
+    if mode == "calibration":
+        return build_calibration_dag(cfg)
     base = build_dag(cfg)
     if mode == "pilot":
         return prerequisite_tasks(base, "gate")
@@ -316,7 +386,11 @@ def main():
     from omegaconf import OmegaConf
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["pilot", "main", "confirm", "all"], default="all")
+    parser.add_argument(
+        "--mode",
+        choices=["calibration", "pilot", "main", "confirm", "all"],
+        default="all",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--partition", default=os.environ.get("MC_PARTITION", "general"))

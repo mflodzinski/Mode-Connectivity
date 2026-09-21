@@ -23,6 +23,21 @@ differ.
 
 ## 2. Engineering pilot
 
+If the initial 5,000-example pilot fails its final-final positive control, run
+the focused equal-budget calibration before changing the main protocol:
+
+```bash
+bash ops/slurm/nonlinear_stage/submit_calibration.sh --dry-run
+bash ops/slurm/nonlinear_stage/submit_calibration.sh
+```
+
+This submits six final-final Bezier fits on the 43,000 training examples that
+are disjoint from `train_eval`. Each fit uses 25 passes (1.075M examples), with
+learning rates `0.005`, `0.015`, and `0.03`, both with and without path weight
+decay. All trials use the same random stream. Results are written to
+`results/nonlinear_stage_vgg11_calibration/calibration/results.json` and
+`barriers.png`. Use a separate output root for any subsequent calibration.
+
 Inspect the commands, then submit the 28 logical pilot tasks:
 
 ```bash

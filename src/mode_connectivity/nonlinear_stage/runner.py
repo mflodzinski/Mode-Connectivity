@@ -15,6 +15,7 @@ from pathlib import Path
 import torch
 
 from .evaluation import (
+    calibration_report,
     dense_audit,
     endpoint_test,
     evaluate_test,
@@ -65,6 +66,16 @@ def validate_config(cfg):
         raise ValueError("The 2 CPU / 4 GB protocol permits zero or one loader worker.")
     if cfg["restart_noise"] != [0.0, 0.01, 0.05]:
         raise ValueError("Restart noise levels are frozen by the protocol.")
+    if int(cfg["curve_fit_size"]) <= 0 or int(cfg["curve_fit_size"]) > 43000:
+        raise ValueError("curve_fit_size must leave the 2,000-example train audit disjoint.")
+    names = [spec["name"] for spec in cfg["calibration_specs"]]
+    if not names or len(names) != len(set(names)):
+        raise ValueError("Calibration specifications need unique names.")
+    for spec in cfg["calibration_specs"]:
+        if int(spec["passes"]) <= 0 or int(spec["passes"]) % 5:
+            raise ValueError("Calibration passes must be positive multiples of five.")
+        if float(spec["lr"]) <= 0 or float(spec["weight_decay"]) < 0:
+            raise ValueError("Calibration LR must be positive and weight decay nonnegative.")
 
 
 def expected_outputs(cfg, task):
@@ -105,6 +116,11 @@ def expected_outputs(cfg, task):
             root(cfg) / "report/runtime.csv",
             root(cfg) / "report/issues.csv",
         ]
+    if op == "calibration_report":
+        return [
+            root(cfg) / "calibration/results.json",
+            root(cfg) / "calibration/barriers.png",
+        ]
     return []
 
 
@@ -133,7 +149,7 @@ def dispatch(cfg, task, stop):
         from .fitting import fit
         return fit(
             cfg, pair_by_id(cfg, task["pair_id"]), task["family"],
-            task["restart"], task["noise"], stop,
+            task["restart"], task["noise"], stop, task.get("fit_overrides"),
         )
     if op == "validate":
         return evaluate_validation(
@@ -156,6 +172,8 @@ def dispatch(cfg, task, stop):
     if op == "report":
         from .reporting import report
         return report(cfg)
+    if op == "calibration_report":
+        return calibration_report(cfg)
     raise ValueError(op)
 
 
@@ -190,7 +208,8 @@ def run_task(cfg, task, all_tasks):
         )
         write_json(status_path, record)
         gpu = str(cfg["device"]).startswith("cuda") and task["operation"] not in {
-            "prepare", "gate", "screen", "freeze", "selection_gate", "report"
+            "prepare", "gate", "screen", "freeze", "selection_gate", "report",
+            "calibration_report",
         }
         try:
             if gpu:

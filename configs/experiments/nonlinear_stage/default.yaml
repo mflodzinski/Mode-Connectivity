@@ -16,6 +16,9 @@ final_epoch: 200
 stage_epochs: [0, 1, 2, 3, 5, 10, 20, 30, 60, 100, 150, 200]
 
 fit_subset: alignment
+# Nonlinear calibration and the eventual full-data protocol use every training
+# example except the frozen 2,000-example reporting subset.
+curve_fit_size: 43000
 fit_batch_size: 128
 eval_batch_size: 1000
 fit_passes: 200
@@ -33,5 +36,16 @@ dense_loss_tolerance: 0.01
 dense_error_tolerance: 0.2
 restart_noise: [0.0, 0.01, 0.05]
 path_seed: 1729
+
+# Six equal-example-budget final-final calibration trials. With 43,000 fitting
+# examples and 25 passes, each trial processes 1.075M examples, close to the
+# failed 5,000 x 200 pilot, while testing data coverage, LR, and regularization.
+calibration_specs:
+  - {name: full_lr005_wd5e4, passes: 25, lr: 0.005, weight_decay: 0.0005}
+  - {name: full_lr015_wd5e4, passes: 25, lr: 0.015, weight_decay: 0.0005}
+  - {name: full_lr030_wd5e4, passes: 25, lr: 0.030, weight_decay: 0.0005}
+  - {name: full_lr005_wd0, passes: 25, lr: 0.005, weight_decay: 0.0}
+  - {name: full_lr015_wd0, passes: 25, lr: 0.015, weight_decay: 0.0}
+  - {name: full_lr030_wd0, passes: 25, lr: 0.030, weight_decay: 0.0}
 
 defaults: []

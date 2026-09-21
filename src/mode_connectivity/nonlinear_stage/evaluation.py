@@ -102,6 +102,95 @@ def confirmation_targets(cfg):
     return json.loads(path.read_text())["targets"]
 
 
+def calibration_report(cfg):
+    """Summarize equal-budget final-final path-fitting calibration trials."""
+    final_pair = next(
+        pair
+        for pair in primary_pairs(cfg)
+        if pair["replicate"] == 0
+        and pair["kind"] == "same"
+        and pair["n"] == cfg["final_epoch"]
+    )
+    rows = []
+    for index, spec in enumerate(cfg["calibration_specs"]):
+        restart = 100 + index
+        value = json.loads(
+            validation_path(cfg, final_pair["id"], "bezier", restart).read_text()
+        )
+        audit = value["subsets"]["validation_audit"]["curve"]
+        train = value["subsets"]["train_eval"]["curve"]
+        status = json.loads(
+            (root(cfg) / "status" / f"fit_calibration_{index}.json").read_text()
+        )
+        result = status["result"]
+        rows.append(
+            dict(
+                index=index,
+                name=spec["name"],
+                settings=result["settings"],
+                selected_pass=result["selected_pass"],
+                updates=result["updates"],
+                examples=result["examples"],
+                validation_audit=dict(
+                    loss_chord=audit["loss"]["chord"],
+                    loss_worse=audit["loss"]["worse"],
+                    error_chord=audit["error"]["chord"],
+                    error_worse=audit["error"]["worse"],
+                    max_loss=audit["max_loss"],
+                ),
+                train_eval=dict(
+                    loss_chord=train["loss"]["chord"],
+                    error_chord=train["error"]["chord"],
+                    max_loss=train["max_loss"],
+                ),
+                passes_gate=(
+                    audit["loss"]["chord"] <= cfg["loss_confirmation_threshold"]
+                    and audit["error"]["chord"]
+                    <= cfg["error_confirmation_threshold"]
+                ),
+            )
+        )
+    best = min(
+        rows,
+        key=lambda row: (
+            row["validation_audit"]["loss_chord"],
+            row["validation_audit"]["max_loss"],
+            row["validation_audit"]["error_chord"],
+            row["index"],
+        ),
+    )
+    destination = root(cfg) / "calibration"
+    destination.mkdir(parents=True, exist_ok=True)
+    output = dict(
+        pair=final_pair,
+        loss_threshold=cfg["loss_confirmation_threshold"],
+        error_threshold=cfg["error_confirmation_threshold"],
+        successful=sum(row["passes_gate"] for row in rows),
+        best=best["name"],
+        rows=rows,
+    )
+    write_json(destination / "results.json", output)
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    figure, axes = plt.subplots(2, 1, figsize=(9, 7), sharex=True)
+    labels = [row["name"] for row in rows]
+    axes[0].bar(labels, [row["validation_audit"]["loss_chord"] for row in rows])
+    axes[0].axhline(cfg["loss_confirmation_threshold"], color="black", linestyle="--")
+    axes[0].set_ylabel("Validation loss chord barrier")
+    axes[1].bar(labels, [row["validation_audit"]["error_chord"] for row in rows])
+    axes[1].axhline(cfg["error_confirmation_threshold"], color="black", linestyle="--")
+    axes[1].set_ylabel("Validation error chord barrier (pp)")
+    axes[1].tick_params(axis="x", rotation=30)
+    figure.tight_layout()
+    figure.savefig(destination / "barriers.png", dpi=180)
+    plt.close(figure)
+    return dict(successful=output["successful"], trials=len(rows), best=best["name"])
+
+
 def candidate_specs(cfg, pair):
     result = [("bezier", 0)]
     positive = (
