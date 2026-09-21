@@ -149,6 +149,8 @@ TRAINING_PROTOCOL_KEYS = (
 TRAINING_PROTOCOL_DEFAULTS = {
     # Older training-stage manifests predate these explicit fields. Their
     # training code used the same defaults through cfg.get(..., default).
+    "training_recipe": "vgg_cifar10",
+    "data_recipe": "vgg_cifar10",
     "train_full_data": False,
     "augmentation_seed_mode": "run",
 }
