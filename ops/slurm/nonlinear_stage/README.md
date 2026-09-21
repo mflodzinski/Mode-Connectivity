@@ -66,6 +66,21 @@ PY
 
 Do not continue unless this prints `complete`.
 
+If an architecture-specific error-barrier expectation is explicitly rejected
+after reviewing the validation-only pilot, record the decision without erasing
+the failed gate or accessing test data:
+
+```bash
+bash ops/slurm/nonlinear_stage/accept_pilot.sh \
+  results/nonlinear_stage_vgg11_fullfit \
+  --family bezier --restart 1
+```
+
+This requires the selected candidate to pass the configured loss threshold,
+reruns the dense-grid and resource checks, saves the original gate as
+`status/gate.failed.json`, and records the waived error threshold and reason in
+the replacement `gate.json`.
+
 ## 3. Primary paths
 
 ```bash
