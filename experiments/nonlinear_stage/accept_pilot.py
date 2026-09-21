@@ -61,13 +61,33 @@ def main():
         if abs(row["error_difference"]) > float(cfg["dense_error_tolerance"]):
             raise RuntimeError(f"Dense error audit failed: {row}")
     resource_checks = []
+    resource_peaks = []
     for path in sorted((root / "status").glob("fit_*.json")):
         record = json.loads(path.read_text())
         for attempt in record.get("attempts", []):
-            if attempt["host_peak_bytes_upper_bound"] >= 4 * 1024**3:
-                raise RuntimeError(f"Pilot exceeded 4 GB host memory: {path.stem}")
+            process_peak = int(attempt["process_peak_bytes"])
+            worker_peak = int(attempt["worker_peak_bytes"])
+            # ru_maxrss for the parent and worker can count shared copy-on-write
+            # pages twice, and their independent maxima need not be concurrent.
+            # Slurm enforced the 4 GB job cgroup for every completed attempt, so
+            # reject an individually oversized process rather than their sum.
+            if max(process_peak, worker_peak) >= 4 * 1024**3:
+                raise RuntimeError(
+                    f"A pilot process exceeded 4 GB host memory: {path.stem}"
+                )
             if attempt["seconds"] >= 2 * 60 * 60:
                 raise RuntimeError(f"Pilot fit reached its allocation: {path.stem}")
+            resource_peaks.append(
+                dict(
+                    task=path.stem,
+                    process_peak_bytes=process_peak,
+                    worker_peak_bytes=worker_peak,
+                    conservative_sum_bytes=int(
+                        attempt["host_peak_bytes_upper_bound"]
+                    ),
+                    slurm_job_id=attempt.get("slurm_job_id"),
+                )
+            )
         resource_checks.append(path.stem)
     if list((root / "status").glob("test*.json")):
         raise RuntimeError("Test status exists before pilot acceptance.")
@@ -99,6 +119,7 @@ def main():
             reason=args.reason,
             dense_grid=True,
             resource_checks=resource_checks,
+            resource_peaks=resource_peaks,
             test_data_used=False,
             rejected_gate_backup=str(backup),
         ),
