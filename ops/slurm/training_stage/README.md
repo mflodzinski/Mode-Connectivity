@@ -46,6 +46,28 @@ To train endpoints without scheduling any alignment work, use
 `submit_endpoints.sh`. This is used by the nonlinear training-stage experiment
 when additional seed pairs are missing.
 
+## Alignment-only VGG11 parameter retry
+
+If the VGG11/CIFAR-10 endpoints are already complete, rerun only Sinkhorn and
+fixed-permutation Sinkhorn+scale with a validation-only grid search:
+
+```bash
+bash ops/slurm/training_stage/submit_alignment_grid.sh \
+  results/training_stage_vgg11_pair01_atol2e5 \
+  results/training_stage_vgg11_alignment_grid
+```
+
+The default Sinkhorn grid is learning rate `{0.005, 0.01, 0.05}` by temperature
+`{1.0, 1.5}` with `l=1`. After selecting one global setting across all stage
+pairs, the scale-only grid is learning rate `{0.01, 0.05}` by scale penalty
+`{1e-4, 1e-3, 1e-2}`. Override these with the `BASE_LRS`, `TAUS`,
+`SINKHORN_L`, `SCALE_LRS`, and `LAMBDA_SCALES` environment variables.
+
+The job reuses the source `endpoints/` directory and frozen subset indices; it
+does not submit training or inspect test data. Rankings are written to
+`selected_base.json` and `selected_scale.json`. The chosen artifacts are linked
+under `selected/pairs/`.
+
 ## Git Re-Basin CIFAR-10 MLP reproduction and extension
 
 The MLP preset trains only seed pair `(0, 1)`. It reproduces the Figure 3

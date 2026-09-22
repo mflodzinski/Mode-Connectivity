@@ -27,26 +27,26 @@
 ]
 
 \begin{abstract}
-Permutation symmetry is often invoked to explain why independently trained
-neural networks appear separated under linear interpolation.  We show that
-this explanation is incomplete in two distinct ways.  First, exhaustive
-enumeration on minimal-width XOR networks finds trained endpoint pairs for
-which no hidden-unit permutation prevents interpolation error.  This occurs
-under both full-batch gradient descent and minibatch stochastic gradient
-descent: only $6$ of $28$ successful endpoint pairs are classification-linearly
-connected after the best permutation in either protocol.  Second, the relevant
-exact symmetry class is larger than permutation.  Positive ReLU scaling,
-optimized after the exhaustive best permutation, reduces mean loss barriers
-from $0.357$ to $0.247$, $0.111$ to $0.025$, and $0.023$ to $0.005$ at hidden
-widths $3$, $5$, and $7$, and never worsens a tested pair.  Separate nonlinear
-path experiments exhibit a sharp empirical change between widths two and
-three, showing that architectural redundancy affects connectivity beyond the
-choice of symmetry representative.  Finally, a shared-training benchmark
-links alignment difficulty to training history, and fixed VGG/CIFAR-10 pairs
-show consistent gains from scaling beyond permutation.  The resulting picture
-separates two mechanisms: symmetry determines which equivalent representatives
-are compared, whereas redundancy determines which low-loss paths are
-available.
+The one-basin modulo permutation hypothesis, introduced by Entezari et al. and
+later operationalized by Git Re-Basin, proposes that independently trained
+neural networks can often be made linearly mode connected by permuting hidden
+units.  We test the limits of this explanation.  Exhaustive enumeration on
+minimal-width XOR networks gives a counterexample among gradient-trained
+solutions: under both full-batch gradient descent and minibatch stochastic
+gradient descent, successful endpoints can remain linearly incompatible under
+every hidden-unit permutation.  Permutation is also not the complete exact
+symmetry relevant to interpolation.  Exploiting positive ReLU scaling lowers
+the barrier beyond permutation alignment throughout our controlled XOR study
+and across all evaluated VGG/CIFAR-10 architectures.  Nonlinear path
+experiments further reveal a sharp width-dependent change in connectivity,
+showing that architectural redundancy matters independently of symmetry.
+Finally, a controlled branching experiment identifies an early transition in
+training geometry: branches that share training through this transition remain
+linearly compatible after symmetry alignment, whereas branches allowed to
+diverge earlier develop persistent aligned barriers.  These findings separate
+two mechanisms: symmetry determines which equivalent representatives are
+compared, whereas redundancy and training history determine which low-loss
+paths remain available.
 \end{abstract}
 
 \section{Introduction}
@@ -145,24 +145,87 @@ cost~\citep{wortsman2022model}.  Our focus is the geometric prerequisite---a
 low-barrier segment---rather than a claim that an aligned midpoint must
 outperform its endpoints.
 
+\section{Scale-Aware Alignment}
+\label{sec:method}
+
+Permutation is only one part of the exact symmetry group of a ReLU network.
+Positive homogeneity, $\sigma(cz)=c\sigma(z)$ for $c>0$, permits the incoming
+weights and bias of a unit to be multiplied by $c$ when its outgoing weight is
+divided by $c$.  In matrix form, for positive diagonal $D$,
+\begin{equation}
+(W_2D^{-1})\sigma(DW_1x)=W_2\sigma(W_1x).
+\label{eq:scale}
+\end{equation}
+Permutation and scaling therefore form an exact monomial action.  Scaling does
+not change either endpoint function, but it changes the cross-model terms
+created inside a linear parameter interpolation and can therefore change the
+barrier.  This motivates studying connectivity under a richer symmetry class
+before attributing a residual barrier to genuinely distinct basins.
+
+For scalable optimization, we relax each hard permutation to
+\begin{equation}
+S_\ell=\operatorname{Sinkhorn}(Z_\ell/\tau),\qquad
+D_\ell=\operatorname{diag}(e^{u_\ell}),
+\label{eq:monomial}
+\end{equation}
+where $Z_\ell$ contains unconstrained assignment scores and $u_\ell$ contains
+log-scales.  On layer-$\ell$ outputs we apply $S_\ell D_\ell$ and on the next
+layer's inputs the compensating $D_\ell^{-1}S_\ell^\top$.  After projecting
+$S_\ell$ to a hard assignment, this is exactly function preserving.  During
+soft optimization, the transpose is the standard differentiable Sinkhorn
+approximation rather than an exact inverse.
+
+We consider two variants.  \emph{Joint permutation+scale} optimizes $Z_\ell$
+and $u_\ell$ together.  \emph{Scale refinement} first obtains and freezes a
+hard permutation, then optimizes $u_\ell$ alone.  On XOR, the frozen
+permutation can be the exhaustive optimum, making the incremental contribution
+of scale identifiable.  A quadratic penalty on $u_\ell$ controls the unbounded
+scale gauge.
+
+The optimization objective is experiment-specific.  For XOR we directly
+minimize a differentiable estimate of Eq.~\ref{eq:barrier}: the maximum excess
+binary cross-entropy over $31$ interpolation points, plus log-scale
+regularization.  For VGG, evaluating the full path at every update is costly,
+so alignment minimizes calibration loss at the midpoint; reported barriers
+are then computed from the test-set interpolation after hard projection.  This
+distinction avoids conflating the scalable proxy used on VGG with the barrier
+objective used in the controlled experiment.
+
 \section{Experiment I: Permutation Is Not Enough}
 \label{sec:xor}
 
-\subsection{An exhaustive counterexample}
+\paragraph{Question.}
+When permutation-based LMC fails, did the alignment algorithm fail, or does no
+permutation work?  We answer this in the smallest nontrivial setting: a
+one-hidden-layer ReLU network of width $h=2$ trained on the four XOR examples.
+There are only $2!=2$ hidden-unit permutations, so the symmetry class can be
+searched exactly.
 
-At the minimal width $h=2$, only the identity and swap are valid permutations.
-Several independently trained pairs retain a substantial barrier under both.
-Figure~\ref{fig:xor-counterexample} shows representative cases.  Alignment
-succeeds for seeds 2 and 4 because their parameters are nearly identical after
-a swap.  In contrast, seeds 9 and 12 implement the same XOR labels and have
-visually similar decision boundaries, yet their internal weights are not
-related by either permutation and the barrier remains.  A second failure mode
-occurs when perfect-accuracy solutions implement different boundaries away from
-the four training inputs.  Since the search enumerates the full group, these
-failures cannot be blamed on the permutation optimizer.  They form a concrete
-counterexample to a universal permutation-only LMC claim for trained networks;
-they do not contradict a claim restricted to sufficiently wide networks or to
-``most'' solutions.
+\paragraph{Training and evaluation.}
+Models are initialized independently and retained only if they reach $100\%$
+endpoint accuracy and low binary cross-entropy.  Our primary protocol uses
+full-batch GD.  As a robustness check against the interpretation that the
+effect is specific to deterministic optimization, we repeat the experiment
+with minibatch SGD using batch size two and reshuffling each epoch.  For each
+protocol, eight successful endpoints give $28$ pairs.  We enumerate identity
+and swap and evaluate classification error along each interpolation.
+
+\paragraph{Result.}
+For both training protocols, only $6/28$ pairs preserve $100\%$ accuracy along
+the best-permuted segment; the remaining $22/28$ incur interpolation error
+under both possible permutations.  Figure~\ref{fig:xor-counterexample} shows a
+successful pair and a representative full-batch failure.  In the failure,
+both endpoints correctly implement XOR and have similar decision boundaries,
+but no hidden-unit relabeling makes their straight interpolation compatible.
+Because the search is exhaustive, this result cannot be attributed to weight
+matching, Sinkhorn relaxation, or alignment initialization.
+
+The conclusion is deliberately scoped.  These trained endpoints refute a
+universal claim that permutation-based LMC follows automatically from SGD or
+GD.  They do not contradict the sufficiently-wide, high-probability one-basin
+conjecture.  They also complement the hand-constructed counterexample of
+\citet{ainsworth2023git}: LMC failure is not confined to endpoints chosen
+algebraically outside a standard training procedure.
 
 \begin{figure*}[t]
     \centering
@@ -183,6 +246,19 @@ they do not contradict a claim restricted to sufficiently wide networks or to
     points correctly.}
     \label{fig:xor-counterexample}
 \end{figure*}
+
+\section{Experiment II: A Richer Symmetry Explains More LMC}
+\label{sec:scale-results}
+
+\paragraph{Question and setup.}
+Does positive scaling improve compatibility once permutation-search error has
+been removed?  We train full-batch GD XOR networks at widths $h=3,5,7$, giving
+$21$, $36$, and $10$ valid endpoint pairs.  For each pair we enumerate all
+$h!$ permutations and select the one with the smallest sampled loss barrier.
+We then freeze this oracle permutation and optimize only positive scales.
+Final barriers use $61$ interpolation points.  We also report raw interpolation
+and practical Sinkhorn baselines.  Additional optimization details appear in
+Appendix~\ref{app:details}.
 
 \subsection{Width lowers the oracle barrier}
 
@@ -221,40 +297,7 @@ Oracle+scale $\leq$ oracle & $21/21$ & $36/36$ & $10/10$ \\
 \end{tabular}
 \end{table*}
 
-\subsection{Nonlinear connectivity changes at width three}
-
-Permutation-based LMC and general mode connectivity need not change at the same
-width.  At $h=2$, extensive B\'ezier and polygonal searches find low-loss paths
-only for essentially identical endpoints; additional bends do not recover
-nontrivial connections.  At $h=3$, all studied endpoint pairs are connected by
-low-loss paths.  Most are found directly; for one difficult pair, low-loss
-paths through a third trained mode establish connectivity by concatenation.
-Figure~\ref{fig:nonlinear-width} contrasts a width-$2$ failure with a width-$3$
-success between models having different decision boundaries.
-
-This is evidence about the paths found by the tested parameterizations, not a
-topological impossibility theorem for width two.  Nevertheless, the sharp
-empirical transition is informative: adding a single hidden unit provides
-representational slack that permits a curved route even when the best straight
-symmetry-aligned route can retain loss.  Width therefore affects connectivity
-through more than an enlarged permutation group.
-
-\begin{figure*}[t]
-    \centering
-    \includegraphics[width=\linewidth]{unsuccesful_10-14_bezier_3bend.png}
-    \vspace{-1ex}
-    \includegraphics[width=\linewidth]{3hidden_xor_bezier.png}
-    \caption{Nonlinear XOR paths.  \emph{Top:} a representative width-$2$
-    pair for which optimizing a B\'ezier path does not remove the high-loss
-    region.  \emph{Bottom:} at width $3$, a low-loss path connects endpoints
-    with different decision boundaries.  The rows visualize predictions along
-    the learned path.}
-    \label{fig:nonlinear-width}
-\end{figure*}
-
-\section{Scale Improves on the Permutation Oracle}
-\label{sec:scale-results}
-
+\paragraph{Scale beyond the oracle permutation.}
 The decisive comparison in Table~\ref{tab:xor-scale} is between oracle
 permutation and oracle+scale.  The hard assignment is identical in the two
 conditions, so the improvements can only come from selecting a different
@@ -298,17 +341,70 @@ and outgoing weights without changing endpoint predictions.
     \label{fig:xor-profiles}
 \end{figure*}
 
-\section{When Does Alignment Become Difficult?}
+\section{Experiment III: Width Changes Nonlinear Connectivity}
+\label{sec:nonlinear}
+
+\paragraph{Question and setup.}
+Residual linear barriers need not indicate disconnected low-loss sets.  To
+test whether width affects available routes rather than only alignment, we
+optimize quadratic B\'ezier curves and polygonal chains between independently
+trained XOR endpoints.  Paths use up to ten trainable interior points and
+minimize the maximum loss over $31$ sampled path locations.
+
+\paragraph{Result.}
+At $h=2$, extensive searches find low-loss nonlinear paths only between
+essentially identical endpoints; additional bends do not recover nontrivial
+connections.  At $h=3$, all studied endpoint pairs are connected by low-loss
+paths.  Most are found directly; for one difficult pair, concatenating
+low-loss paths through a third trained mode establishes connectivity.
+Figure~\ref{fig:nonlinear-width} contrasts representative outcomes.
+
+This result is empirical, not a proof that no width-$2$ path exists outside the
+tested families.  Nevertheless, the abrupt change after adding one unit
+supports a distinction that endpoint alignment alone cannot make: symmetry
+selects among equivalent representatives at fixed capacity, while width
+changes the representational resources available along a path.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\linewidth]{unsuccesful_10-14_bezier_3bend.png}
+    \vspace{-1ex}
+    \includegraphics[width=\linewidth]{3hidden_xor_bezier.png}
+    \caption{Nonlinear XOR paths.  \emph{Top:} a representative width-$2$
+    pair for which optimizing a B\'ezier path does not remove the high-loss
+    region.  \emph{Bottom:} at width $3$, a low-loss path connects endpoints
+    with different decision boundaries.  Rows visualize predictions along the
+    learned path.}
+    \label{fig:nonlinear-width}
+\end{figure*}
+
+\section{Experiment IV: An Early Transition in Training Connectivity}
 \label{sec:training-stage}
 
-The shared-training construction provides a dynamic view.  Two VGG16 branches
-are identical until the split, after which SGD noise makes them diverge.  A
-random known permutation is then added to one endpoint.  Figure
-\ref{fig:training-stage} plots test-error barrier against endpoint distance
-before and after weight matching.  Late splits lie in the lower-left: their
-endpoints remain close, the reference path already has low barrier, and weight
-matching reliably removes the artificial mismatch.  Early splits lie farther
-away and retain much larger barriers.
+\paragraph{Setup.}
+Two VGG16/CIFAR-10 branches share an initialization and the first $n$ of
+$N=200$ epochs, then train independently with different minibatch orders and
+augmentations.  A known random channel permutation is applied to one endpoint,
+and weight matching attempts to recover compatibility.  The inverse planted
+permutation supplies a reference, while repeated layer-update orders measure
+search variability.  This design varies shared training history; it is not a
+checkpoint-by-checkpoint decomposition of raw, scale, and nonlinear barriers.
+
+\paragraph{Result.}
+Figure~\ref{fig:training-stage} plots test-error barrier against endpoint
+distance.  Late splits lie in the lower-left: their endpoints remain close,
+the reference path has low barrier, and matching reliably removes the planted
+mismatch.  Early splits lie farther away and retain larger barriers.
+
+A denser sweep over the first training epochs localizes a sharp transition in
+this run.  After alignment, the test-loss barrier is $0.120$ when the branches
+share five epochs and train independently for $195$, but falls to $0.001$ for
+the $6/194$ split and remains near zero for all later splits.  Thus, sharing one
+additional early epoch qualitatively changes the linear geometry of the final
+solutions.  Branches separated after this transition remain in a common linear
+basin modulo symmetry despite different subsequent minibatches and
+augmentations; branches separated earlier develop residual barriers that
+permutation alignment does not remove.
 
 For every shared-split pair, the recovered alignment is at least as good as the
 known inverse permutation and often better.  Repeating weight matching with
@@ -324,7 +420,10 @@ of $34.1$ points at a comparable distance.  The experiment suggests that
 weight similarity is a useful proxy when trajectories share substantial
 history, but ceases to characterize linear compatibility once their learned
 representations diverge.  This motivates optimizing interpolation loss within
-a broader symmetry orbit, as in Section~\ref{sec:method}.
+a broader symmetry orbit, as in Section~\ref{sec:method}.  The result identifies
+a transition in linear compatibility; because curved paths were not optimized
+for every shared-split pair, it does not by itself establish that the residual
+pairs are connected only nonlinearly.
 
 \begin{figure*}[t]
     \centering
@@ -333,14 +432,24 @@ a broader symmetry orbit, as in Section~\ref{sec:method}.
     denote shared/independent epochs.  Circles are original endpoints; squares
     are endpoints after applying a random permutation and weight matching.
     Red denotes independent initialization.  Later splits remain closer and
-    have lower barriers after alignment.}
+    have lower barriers after alignment; the dense early-epoch sweep discussed
+    in the text places the sharp loss-barrier transition between the $5/195$
+    and $6/194$ splits.}
     \label{fig:training-stage}
 \end{figure*}
 
-\section{VGG/CIFAR-10 Validation}
+\section{Experiment V: VGG/CIFAR-10 Validation}
 \label{sec:vgg}
 
-Figure~\ref{fig:vgg} reports test-loss barriers for four VGG architectures.
+\paragraph{Setup.}
+We use fixed, independently trained seed-0/seed-1 pairs of VGG11, VGG13,
+VGG16, and VGG19.  Alignment uses a deterministic 1000-example calibration
+batch.  We compare raw interpolation, permutation-only Sinkhorn, joint
+permutation+scale, and hard permutation followed by scale refinement; test-set
+barriers are evaluated after hard projection.
+
+\paragraph{Result.}
+Figure~\ref{fig:vgg} reports test-loss barriers for the four architectures.
 Permutation-only Sinkhorn reduces the raw barriers from roughly $1.88$--$1.98$
 to $0.38$, $0.79$, $1.22$, and $1.21$ for VGG11/13/16/19.  Adding scales
 improves on permutation-only in every architecture.  The better of joint and
@@ -373,30 +482,27 @@ supports the practical relevance of scaling beyond the toy setting.
 
 \section{Discussion and Limitations}
 
-\paragraph{A refined one-basin picture.}
-Our experiments separate three claims that are easy to collapse into one.
-First, curved connectivity can exist without a good straight path.  Second,
-permutations can remove representational mismatch, but the exhaustive XOR
-result shows that this exact symmetry is not always sufficient.  Third,
-overparameterization can make both processes easier by supplying redundant
-features and routes through function space.  Positive scale adds another exact
-degree of freedom and systematically improves the oracle permutation, but does
-not eliminate every barrier.  The evidence therefore favors connectivity
-modulo a richer symmetry class over a literal permutation-only one-basin claim.
+\paragraph{Symmetry and redundancy play different roles.}
+The experiments support a two-part account of apparent basin separation.
+Permutation removes discrete coordinate mismatch, and positive scaling moves
+continuously along the same exact symmetry orbit.  Neither changes the endpoint
+function.  Width, by contrast, changes the architecture's representational
+freedom and can create low-loss routes unavailable to a narrower network.
+Curved paths further relax the requirement that this route be the straight
+segment.  These mechanisms interact, but they are not interchangeable: a
+better representative cannot manufacture absent capacity, and additional
+capacity does not identify the right representative by itself.
 
-Ainsworth et al.'s counterexample establishes that architecture alone does not
-guarantee permutation-based linear mode connectivity, but its endpoints are
-hand-constructed rather than obtained through standard optimization.  Our
-exhaustive XOR experiments complement and strengthen this result: at minimal
-width, both minibatch SGD and full-batch gradient descent from random
-initialization can converge to successful endpoints for which no hidden-unit
-permutation eliminates the interpolation barrier.  Thus, permutation-based LMC
-is not an automatic artifact of SGD, and the optimizer's implicit bias alone is
-insufficient to guarantee connectivity.  Instead, its emergence appears to
-depend jointly on optimization bias and architectural redundancy.  At the same
-time, the rapid decrease of the oracle barrier with width remains consistent
-with the sufficiently wide, high-probability form of the one-basin
-conjecture~\citep{entezari2021role,ainsworth2023git}.
+The minimal-width experiment also sharpens the interpretation of
+\citet{ainsworth2023git}.  Their hand-constructed counterexample shows that
+architecture alone does not guarantee permutation-based LMC, and they suggest
+that LMC may be an artifact of SGD.  Our result rules out a broad reading under
+which standard gradient-based training itself guarantees alignable endpoints:
+neither minibatch SGD nor full-batch GD prevents permutation-incompatible
+successful solutions.  It does not rule out an SGD bias toward compatibility
+in wider or typical modern networks.  Indeed, the rapid fall in the oracle
+barrier with width is consistent with the sufficiently-wide, high-probability
+form of the one-basin conjecture~\citep{entezari2021role,ainsworth2023git}.
 
 \paragraph{Optimization versus existence.}
 The exhaustive protocol is central to this interpretation.  Without it, a high
@@ -406,32 +512,21 @@ warns against treating a failed continuous relaxation as evidence that a good
 monomial representative does not exist.  Future work should distinguish the
 expressivity of a transformation class from the solver used to search it.
 
-\paragraph{A diagnostic hierarchy for alignment failures.}
-The experiments suggest a practical order for interpreting a residual barrier.
-First, establish whether search error can be removed.  Exhaustive enumeration
-is available only for small networks, but multiple restarts, exact matching in
-restricted layers, or controlled known-permutation benchmarks can still reveal
-optimizer limitations.  Second, if the best permutation remains inadequate,
-expand the exact symmetry class before concluding that modes occupy distinct
-basins.  Scale refinement is useful here because it is continuous, function
-preserving after the permutation is fixed, and can be attached to existing
-aligners.  Third, compare linear alignment with nonlinear paths and width
-changes.  A curved path that appears after adding a unit is evidence for
-representational slack, not evidence that a hidden permutation was recovered.
-This hierarchy separates what transformation exists, whether an algorithm finds
-it, and whether the architecture has enough redundancy for the desired path.
-
-For model merging, the results also favor a direct validation rule: endpoint
-equivalence should be checked after every transformation, and the full
-interpolation profile should be measured on held-out data.  Small Euclidean
-distance is not by itself a certificate of compatibility, as the training-stage
-experiment demonstrates.  Conversely, a scale-aware transformation can
-redistribute parameter differences while lowering the loss barrier.  Objectives
-designed for merging should therefore target functional behavior along the
-path, using weight distance only as a computational proxy.
+\paragraph{Implications for alignment studies.}
+A residual barrier should be interpreted in stages.  Search error must first
+be separated from limitations of the transformation class.  If permutation is
+insufficient, richer exact symmetries should be tested before inferring distinct
+basins.  Linear and nonlinear paths should then be distinguished, and width
+should be treated as a change in representational resources rather than merely
+a larger matching problem.  The training-history experiment adds a final
+caution: comparable Euclidean distances can conceal different barriers, so
+distance is not a certificate of functional compatibility.
 
 \paragraph{Limitations.}
-The exact conclusions come from small one-hidden-layer XOR networks.  The VGG
+The exact conclusions come from small one-hidden-layer XOR networks.  The
+minibatch and full-batch protocols are robustness replications, not a controlled
+estimate of stochasticity: with the same epoch count, batch size two performs
+more parameter updates than full-batch GD.  The VGG
 study is non-exhaustive, uses a single pair per architecture, and relies on
 method-specific hyperparameter selection.  Our nonlinear path searches can
 certify found paths but cannot certify nonexistence.  The scale-aware soft
@@ -444,15 +539,16 @@ are needed before drawing broad architectural conclusions.
 
 \section{Conclusion}
 
-Permutation symmetry is an important but incomplete explanation of linear mode
-connectivity.  Exhaustive XOR search exposes genuine permutation-only failures;
-increasing width rapidly suppresses them and changes nonlinear connectivity;
-and positive scaling improves even the best possible permutation.  The same
-directional gain appears in VGG/CIFAR-10, while a shared-training experiment
-shows how alignment difficulty grows as optimization trajectories diverge.
-Together, the results suggest that the useful object is not a basin modulo
-permutation alone, but a low-loss geometry shaped jointly by exact symmetries,
-width, and the history of optimization.
+Permutation symmetry is an important but incomplete explanation of neural-
+network connectivity.  Exhaustive XOR search shows that trained endpoints can
+remain incompatible under every permutation, for both minibatch SGD and
+full-batch GD.  Positive scaling improves even the exhaustive best permutation,
+while the width-dependent nonlinear experiment shows that exact symmetries do
+not subsume representational constraints.  The same scaling effect transfers
+to fixed VGG/CIFAR-10 pairs, and shared-training experiments show that
+compatibility also depends on optimization history.  The central distinction
+is therefore simple: symmetry determines which representatives we compare;
+redundancy determines which paths are available.
 
 \subsection*{AI Use Statement}
 Generative AI tools were used to brainstorm presentation choices, improve the
@@ -478,7 +574,8 @@ useful by a short justification.
   \item For all models and algorithms presented, check if you include:
   \begin{enumerate}
     \item A clear description of the mathematical setting, assumptions,
-    algorithm, and/or model. [Yes; Sections~\ref{sec:method}--\ref{sec:design}.]
+    algorithm, and/or model. [Yes; Sections~\ref{sec:problem}--\ref{sec:method}
+    and Appendix~\ref{app:details}.]
     \item An analysis of the properties and complexity (time, space, sample
     size) of any algorithm. [No; empirical behavior rather than asymptotic
     complexity is the focus.]
@@ -539,8 +636,8 @@ useful by a short justification.
 \clearpage
 \appendix
 \onecolumn
-\aistatstitle{Beyond Permutation Symmetry: Width and Scaling in Linear Mode
-Connectivity --- Supplementary Materials}
+\aistatstitle{Beyond Permutation Symmetry: Symmetry, Redundancy, and
+Neural-Network Connectivity --- Supplementary Materials}
 
 \section{Reproducibility Details}
 \label{app:details}
@@ -549,13 +646,24 @@ Connectivity --- Supplementary Materials}
 
 The XOR set is $\{(0,0),(0,1),(1,0),(1,1)\}$ with labels
 $\{0,1,1,0\}$.  Models have one ReLU hidden layer, biases, and one output logit.
-Full-batch SGD uses learning rate $0.05$ and at most $5000$ epochs.
+The primary endpoint protocol uses full-batch GD (implemented with the SGD
+optimizer) at learning rate $0.05$ for at most $5000$ epochs.
 \texttt{ReduceLROnPlateau} uses factor $0.5$, patience $200$, threshold
 $10^{-4}$, and minimum learning rate $5\times10^{-4}$.  Training stops when
 loss has not improved by $10^{-4}$ for $500$ epochs.  For each retained pair,
 all $h!$ permutations are evaluated.  Interpolation selection prioritizes
 classification error in the width-$2$ diagnostic and loss barrier in the
 scale-aware study.
+
+The width-$2$ robustness replication uses true minibatch SGD with batch size
+two and reshuffles the four XOR examples every epoch.  It otherwise uses the
+same initialization range, learning-rate schedule, stopping rule, maximum of
+$5000$ epochs, accepted seeds, and exhaustive identity/swap evaluation.  Eight
+successful endpoints produce $28$ pairs in each protocol.  Matching epoch
+counts does not match optimizer-update counts: the minibatch protocol makes two
+updates per epoch and is therefore a robustness comparison, not an isolated
+causal test of stochastic gradient noise.  The width-$3/5/7$ scale-aware study
+uses the primary full-batch-GD endpoints.
 
 For nonlinear paths, both quadratic B\'ezier curves and polygonal chains are
 optimized for $1500$ steps at learning rate $0.05$, with no weight decay and
@@ -564,8 +672,10 @@ pairs use up to ten.
 
 \subsection{XOR scale-aware optimization}
 
-Final interpolation curves use $61$ evaluation points; optimization uses $31$
-points.  The default permutation-only Sinkhorn run uses Adam for $500$ steps,
+Final interpolation curves use $61$ evaluation points.  XOR alignment directly
+optimizes the maximum sampled excess binary cross-entropy over $31$
+interpolation points, rather than midpoint loss alone.  The default
+permutation-only Sinkhorn run uses Adam for $500$ steps,
 learning rate $0.01$, temperature $1$, $20$ Sinkhorn iterations, and identity
 strength $1$.  Scale refinement uses Adam for $500$ steps, learning rate
 $0.01$, and log-scale regularization $10^{-3}$.  Joint optimization uses the
@@ -578,6 +688,10 @@ Sinkhorn targets that pair's exhaustive barrier.
 
 The shared-training benchmark follows a 200-epoch VGG16/CIFAR-10 schedule.
 Branches differ in minibatch order and stochastic augmentation after the split.
+The evaluated shared-training durations are
+$n\in\{0,1,2,3,4,5,6,8,30,80,100\}$ epochs; the figure displays a readable
+subset, while the dense early sweep is used to localize the transition reported
+in Section~\ref{sec:training-stage}.
 The artificial full-network permutation uses seed 42; weight matching uses at
 most 100 block-coordinate iterations and is repeated with three layer-update
 orders.
