@@ -27,26 +27,28 @@
 ]
 
 \begin{abstract}
-The one-basin modulo permutation hypothesis, introduced by Entezari et al. and
-later operationalized by Git Re-Basin, proposes that independently trained
-neural networks can often be made linearly mode connected by permuting hidden
-units.  We test the limits of this explanation.  Exhaustive enumeration on
-minimal-width XOR networks gives a counterexample among gradient-trained
-solutions: under both full-batch gradient descent and minibatch stochastic
-gradient descent, successful endpoints can remain linearly incompatible under
-every hidden-unit permutation.  Permutation is also not the complete exact
-symmetry relevant to interpolation.  Exploiting positive ReLU scaling lowers
-the barrier beyond permutation alignment throughout our controlled XOR study
-and across all evaluated VGG/CIFAR-10 architectures.  Nonlinear path
-experiments further reveal a sharp width-dependent change in connectivity,
-showing that architectural redundancy matters independently of symmetry.
-Finally, a controlled branching experiment identifies an early transition in
-training geometry: branches that share training through this transition remain
-linearly compatible after symmetry alignment, whereas branches allowed to
-diverge earlier develop persistent aligned barriers.  These findings separate
-two mechanisms: symmetry determines which equivalent representatives are
-compared, whereas redundancy and training history determine which low-loss
-paths remain available.
+The single-basin-modulo-permutation conjecture of
+\citet{entezari2021role} proposes that independently trained neural networks
+can often be connected by a low-loss linear path after permuting their hidden
+units.  We test the limits of this explanation.  Exhaustive enumeration of all
+hidden-unit permutations in minimal-width XOR networks yields a counterexample
+among gradient-trained solutions: pairs of successful endpoints can remain
+linearly incompatible under every permutation.  We then consider a larger
+exact symmetry class.  Building on the differentiable Sinkhorn re-basing method
+of \citet{guerrero2023rebasin}, we augment permutation alignment with positive
+ReLU scaling.  We also introduce a method-agnostic refinement that freezes the
+permutation returned by any alignment method and subsequently optimizes only
+the scales.  Scale-aware alignment lowers interpolation barriers beyond
+permutation-only alignment throughout our controlled XOR study and across all
+evaluated VGG/CIFAR-10 and MLP/Fashion-MNIST architectures.  Finally, we study
+training-stage connectivity by extending the same-stage analysis of
+\citet{ainsworth2023git} to checkpoints from two independent runs at unequal
+epochs, $n\neq N$.  The worse-endpoint barrier---the maximum interpolation loss
+in excess of the larger endpoint loss---is negligible early in training and
+becomes non-negligible only after a distinct training stage.  Together, these
+results show that permutation alone does not exhaust the function-preserving
+transformations relevant to interpolation and identify when excess
+interpolation barriers emerge during training.
 \end{abstract}
 
 \section{Introduction}
@@ -59,7 +61,7 @@ straight line between two parameter vectors is not conclusive: neural-network
 parameterizations are non-identifiable, and functionally equivalent
 representatives can have very different interpolation behavior.
 
-The one-basin modulo permutation hypothesis proposes that most stochastic
+The single-basin-modulo-permutation conjecture proposes that most stochastic
 gradient descent (SGD) solutions can be permuted into linear mode connectivity
 (LMC)~\citep{entezari2021role}.  Re-basing methods make this hypothesis
 operational and substantially reduce barriers in MLPs and convolutional
@@ -222,8 +224,9 @@ matching, Sinkhorn relaxation, or alignment initialization.
 
 The conclusion is deliberately scoped.  These trained endpoints refute a
 universal claim that permutation-based LMC follows automatically from SGD or
-GD.  They do not contradict the sufficiently-wide, high-probability one-basin
-conjecture.  They also complement the hand-constructed counterexample of
+GD.  They do not contradict the sufficiently-wide, high-probability form of
+the single-basin-modulo-permutation conjecture.  They also complement the
+hand-constructed counterexample of
 \citet{ainsworth2023git}: LMC failure is not confined to endpoints chosen
 algebraically outside a standard training procedure.
 
@@ -502,7 +505,8 @@ neither minibatch SGD nor full-batch GD prevents permutation-incompatible
 successful solutions.  It does not rule out an SGD bias toward compatibility
 in wider or typical modern networks.  Indeed, the rapid fall in the oracle
 barrier with width is consistent with the sufficiently-wide, high-probability
-form of the one-basin conjecture~\citep{entezari2021role,ainsworth2023git}.
+form of the single-basin-modulo-permutation
+conjecture~\citep{entezari2021role,ainsworth2023git}.
 
 \paragraph{Optimization versus existence.}
 The exhaustive protocol is central to this interpretation.  Without it, a high

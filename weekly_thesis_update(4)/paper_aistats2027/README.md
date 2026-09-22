@@ -1,8 +1,11 @@
 # AISTATS 2027 paper draft
 
 This is the AISTATS 2027 version of the paper distilled from
-`../evaluation/new_main.tex`. It uses the official submission style, remains
-anonymous, and packages its figures and bibliography locally.
+`../evaluation/new_main.tex`. It uses the official anonymous AISTATS submission
+style and packages its figures and bibliography locally.  Author names and
+affiliations must remain absent during double-blind review; add the `accepted`
+option and restore the author metadata only when preparing a camera-ready
+version.
 
 Build with:
 
