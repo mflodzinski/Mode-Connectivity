@@ -24,9 +24,9 @@ PARTITION="${MC_PARTITION:-general}"
 QOS="${MC_QOS:-short}"
 GRES="${MC_GRES:-gpu:a40:1}"
 CONCURRENCY="${MC_CONCURRENCY:-4}"
-ACCOUNT_ARGS=()
+SCHEDULER_ARGS=("--partition=${PARTITION}" "--qos=${QOS}")
 if [ -n "${MC_ACCOUNT:-}" ]; then
-  ACCOUNT_ARGS+=("--account=${MC_ACCOUNT}")
+  SCHEDULER_ARGS+=("--account=${MC_ACCOUNT}")
 fi
 
 mkdir -p "${SWEEP_ROOT}/logs"
@@ -53,7 +53,7 @@ echo "Base tasks:         ${BASE_COUNT} (${BASE_LRS}; tau=${TAUS}; l=${SINKHORN_
 echo "Scale tasks:        ${SCALE_COUNT} (${SCALE_LRS}; lambda=${LAMBDA_SCALES})"
 
 BASE_JOB="$(sbatch --parsable \
-  --partition="${PARTITION}" --qos="${QOS}" "${ACCOUNT_ARGS[@]}" \
+  "${SCHEDULER_ARGS[@]}" \
   --job-name=stage_sinkhorn_grid --ntasks=1 --cpus-per-task=2 --mem=4GB \
   --time=03:00:00 --signal=USR1@120 --gres="${GRES}" \
   --array="0-$((BASE_COUNT - 1))%${CONCURRENCY}" \
@@ -64,7 +64,7 @@ BASE_JOB="$(sbatch --parsable \
 BASE_JOB="${BASE_JOB%%;*}"
 
 SELECT_BASE_JOB="$(sbatch --parsable \
-  --partition="${PARTITION}" --qos="${QOS}" "${ACCOUNT_ARGS[@]}" \
+  "${SCHEDULER_ARGS[@]}" \
   --job-name=stage_select_sinkhorn --ntasks=1 --cpus-per-task=1 --mem=4GB \
   --time=00:20:00 --dependency="afterok:${BASE_JOB}" \
   --output="${SWEEP_ROOT}/logs/%x_%j.out" \
@@ -74,7 +74,7 @@ SELECT_BASE_JOB="$(sbatch --parsable \
 SELECT_BASE_JOB="${SELECT_BASE_JOB%%;*}"
 
 SCALE_JOB="$(sbatch --parsable \
-  --partition="${PARTITION}" --qos="${QOS}" "${ACCOUNT_ARGS[@]}" \
+  "${SCHEDULER_ARGS[@]}" \
   --job-name=stage_scale_grid --ntasks=1 --cpus-per-task=2 --mem=4GB \
   --time=01:00:00 --signal=USR1@120 --gres="${GRES}" \
   --dependency="afterok:${SELECT_BASE_JOB}" \
@@ -86,7 +86,7 @@ SCALE_JOB="$(sbatch --parsable \
 SCALE_JOB="${SCALE_JOB%%;*}"
 
 SELECT_SCALE_JOB="$(sbatch --parsable \
-  --partition="${PARTITION}" --qos="${QOS}" "${ACCOUNT_ARGS[@]}" \
+  "${SCHEDULER_ARGS[@]}" \
   --job-name=stage_select_scale --ntasks=1 --cpus-per-task=1 --mem=4GB \
   --time=00:20:00 --dependency="afterok:${SCALE_JOB}" \
   --output="${SWEEP_ROOT}/logs/%x_%j.out" \
