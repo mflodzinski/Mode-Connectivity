@@ -93,6 +93,20 @@ their validation-only evaluations, and the deterministic screening task. Wait
 for `status/screen.json` to become complete. Test data has not been opened at
 this point.
 
+If the VGG11 pilot decision explicitly rejected the VGG16-derived error cutoff,
+apply the same validation-only policy before confirmation:
+
+```bash
+bash ops/slurm/nonlinear_stage/accept_screen.sh \
+  results/nonlinear_stage_vgg11_fullfit
+```
+
+This preserves the original target file as
+`confirmation_targets.before_error_waiver.json`, records the reason and waived
+pairs, and retains confirmation targets whose validation loss chord barrier
+exceeds the configured loss threshold. It refuses to run after confirmation,
+selection, or test work has begun.
+
 ## 4. Confirmation and final evaluation
 
 ```bash
