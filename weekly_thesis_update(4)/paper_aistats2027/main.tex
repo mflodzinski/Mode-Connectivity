@@ -1,0 +1,616 @@
+\documentclass[twoside]{article}
+
+\usepackage{aistats2027}
+\usepackage[round]{natbib}
+\renewcommand{\bibname}{References}
+\renewcommand{\bibsection}{\subsubsection*{\bibname}}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{url}
+
+\graphicspath{{figures/}}
+
+\newcommand{\barrier}{\mathcal{B}}
+\newcommand{\loss}{\mathcal{L}}
+
+\begin{document}
+
+\twocolumn[
+\aistatstitle{Beyond Permutation Symmetry: Symmetry, Redundancy, and Neural-Network Connectivity}
+
+\aistatsauthor{Anonymous Authors}
+\aistatsaddress{Anonymous Institution}
+]
+
+\begin{abstract}
+Permutation symmetry is often invoked to explain why independently trained
+neural networks appear separated under linear interpolation.  We show that
+this explanation is incomplete in two distinct ways.  First, exhaustive
+enumeration on minimal-width XOR networks finds trained endpoint pairs for
+which no hidden-unit permutation prevents interpolation error.  This occurs
+under both full-batch gradient descent and minibatch stochastic gradient
+descent: only $6$ of $28$ successful endpoint pairs are classification-linearly
+connected after the best permutation in either protocol.  Second, the relevant
+exact symmetry class is larger than permutation.  Positive ReLU scaling,
+optimized after the exhaustive best permutation, reduces mean loss barriers
+from $0.357$ to $0.247$, $0.111$ to $0.025$, and $0.023$ to $0.005$ at hidden
+widths $3$, $5$, and $7$, and never worsens a tested pair.  Separate nonlinear
+path experiments exhibit a sharp empirical change between widths two and
+three, showing that architectural redundancy affects connectivity beyond the
+choice of symmetry representative.  Finally, a shared-training benchmark
+links alignment difficulty to training history, and fixed VGG/CIFAR-10 pairs
+show consistent gains from scaling beyond permutation.  The resulting picture
+separates two mechanisms: symmetry determines which equivalent representatives
+are compared, whereas redundancy determines which low-loss paths are
+available.
+\end{abstract}
+
+\section{Introduction}
+
+Are independently trained neural networks genuinely in different basins, or
+do they only appear separated because their hidden features use different
+coordinates?  The question matters both for the geometry of neural-network
+loss landscapes and for operations such as weight averaging.  A high-loss
+straight line between two parameter vectors is not conclusive: neural-network
+parameterizations are non-identifiable, and functionally equivalent
+representatives can have very different interpolation behavior.
+
+The one-basin modulo permutation hypothesis proposes that most stochastic
+gradient descent (SGD) solutions can be permuted into linear mode connectivity
+(LMC)~\citep{entezari2021role}.  Re-basing methods make this hypothesis
+operational and substantially reduce barriers in MLPs and convolutional
+networks~\citep{ainsworth2023git,guerrero2023rebasin}.  Yet a residual barrier
+after alignment is ambiguous.  An algorithm may have missed a suitable
+permutation, the permutation symmetry class may itself be too small, or the
+architecture may lack the representational freedom needed for a low-loss path.
+Large-network studies cannot cleanly distinguish these explanations because
+their permutation groups are combinatorial and alignment is approximate.
+
+We isolate these mechanisms using XOR networks small enough for exhaustive
+permutation search, then test the resulting account in VGG networks.  The
+minimal-width experiment first removes the search confound: some trained pairs
+remain classification-incompatible under every permutation.  We reproduce
+this behavior with full-batch gradient descent (GD) and minibatch SGD.  We then
+enlarge the exact symmetry class using positive ReLU scaling.  Starting from
+the exhaustive best permutation and optimizing scales alone identifies gains
+that cannot be attributed to better correspondence search.  Finally, nonlinear
+path and width experiments separate representative choice from architectural
+redundancy: symmetry moves within an equivalence class, whereas extra units
+create additional routes through parameter space.
+
+Our contributions are:
+\begin{itemize}
+    \item We give an exhaustive counterexample to universal permutation-based
+    LMC for trained networks.  At minimal XOR width, $22/28$ successful pairs
+    fail classification-LMC after the best permutation under both full-batch GD
+    and minibatch SGD.
+    \item We introduce scale-aware alignment and show, under an exhaustive
+    permutation oracle, that positive scaling improves or preserves the loss
+    barrier for all $67$ tested XOR pairs at widths $3$, $5$, and $7$.
+    \item We show an empirical transition in nonlinear connectivity between
+    widths two and three, distinguishing representational redundancy from
+    symmetry alignment.
+    \item We show that alignment difficulty depends on shared training history
+    and that scaling improves over permutation-only alignment on fixed
+    VGG11/13/16/19 pairs trained on CIFAR-10.
+\end{itemize}
+
+\section{Problem Formulation and Related Work}
+\label{sec:problem}
+
+\paragraph{Connectivity and interpolation barriers.}
+For endpoints $\theta_A$ and $\theta_B$, linear interpolation is
+$\theta(t)=(1-t)\theta_A+t\theta_B$.  Following prior work, for a scalar
+criterion $C$ (loss or classification error) we measure the excess above the
+linear interpolation of endpoint values:
+\begin{equation}
+\begin{aligned}
+\barrier(\theta_A,\theta_B;C)
+={}&\max_{t\in[0,1]}\big[C(\theta(t))\\
+&-(1-t)C(\theta_A)-tC(\theta_B)\big].
+\end{aligned}
+\label{eq:barrier}
+\end{equation}
+The maximum is evaluated on a finite grid in our experiments.  Nonlinear mode
+connectivity instead asks whether a general curve
+$\gamma:[0,1]\rightarrow\Theta$ joins the endpoints at low loss.  A curved
+path may avoid a region crossed by the straight segment, so nonlinear
+connectivity does not imply LMC~\citep{draxler2018essentially,garipov2018loss}.
+
+\paragraph{Permutation re-basing.}
+For a ReLU MLP block $f(x)=W_2\sigma(W_1x)$ and a permutation matrix $P$,
+\begin{equation}
+(W_2P^\top)\sigma(PW_1x)=W_2\sigma(W_1x).
+\label{eq:perm}
+\end{equation}
+The same action reorders channels in convolutional networks.  Weight matching
+finds layerwise permutations that reduce Euclidean distance, activation
+matching aligns representations on data, and differentiable methods optimize
+soft assignments~\citep{ainsworth2023git,guerrero2023rebasin}.  REPAIR shows
+that correcting activation statistics can further improve interpolation after
+permutation~\citep{jordan2023repair}.  These successes support a symmetry-aware
+view of loss landscapes, but a residual barrier obtained by a heuristic cannot
+establish that the symmetry class itself is insufficient.
+
+\paragraph{Why linear connectivity matters.}
+A curved connection establishes geometric connectedness, but a straight path
+is the relevant object for parameter averaging.  Checkpoint averaging can
+improve generalization within one trajectory~\citep{izmailov2018averaging}, and
+averaging related fine-tuned models can be effective without ensemble-time
+cost~\citep{wortsman2022model}.  Our focus is the geometric prerequisite---a
+low-barrier segment---rather than a claim that an aligned midpoint must
+outperform its endpoints.
+
+\section{Experiment I: Permutation Is Not Enough}
+\label{sec:xor}
+
+\subsection{An exhaustive counterexample}
+
+At the minimal width $h=2$, only the identity and swap are valid permutations.
+Several independently trained pairs retain a substantial barrier under both.
+Figure~\ref{fig:xor-counterexample} shows representative cases.  Alignment
+succeeds for seeds 2 and 4 because their parameters are nearly identical after
+a swap.  In contrast, seeds 9 and 12 implement the same XOR labels and have
+visually similar decision boundaries, yet their internal weights are not
+related by either permutation and the barrier remains.  A second failure mode
+occurs when perfect-accuracy solutions implement different boundaries away from
+the four training inputs.  Since the search enumerates the full group, these
+failures cannot be blamed on the permutation optimizer.  They form a concrete
+counterexample to a universal permutation-only LMC claim for trained networks;
+they do not contradict a claim restricted to sufficiently wide networks or to
+``most'' solutions.
+
+\begin{figure*}[t]
+    \centering
+    \begin{subfigure}[t]{0.49\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{success.png}
+        \caption{Successful pair: a swap makes the endpoints nearly identical.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.49\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{unsuccesfull_same_boundary.png}
+        \caption{Failed pair: similar boundary, but neither permutation removes the barrier.}
+    \end{subfigure}
+    \caption{Exhaustive permutation alignment for width-$2$ XOR networks.
+    Columns in each panel are interpolation points; top and bottom rows show raw
+    and best-permuted interpolation.  Both endpoints classify all four XOR
+    points correctly.}
+    \label{fig:xor-counterexample}
+\end{figure*}
+
+\subsection{Width lowers the oracle barrier}
+
+Increasing width changes the result.  In the initial exhaustive sweep over
+$h\in\{2,3,4,5\}$, the number of pairs maintaining $100\%$ accuracy along the
+best-permuted interpolation rises steadily; at $h=5$, every evaluated pair
+maintains perfect accuracy.  Perfect accuracy does not mean zero loss barrier:
+midpoint confidence can still fall relative to the endpoints.
+
+The larger scale-aware study quantifies this effect in loss.  Table
+\ref{tab:xor-scale} shows that the oracle permutation barrier falls from $0.357$
+at $h=3$ to $0.111$ at $h=5$ and $0.023$ at $h=7$.  Thus, even before scaling,
+width supplies matching flexibility.  Practical Sinkhorn permutation search is
+weaker than the oracle at all widths, illustrating why heuristic failure alone
+cannot diagnose the absence of an alignment.
+
+\begin{table*}[t]
+\caption{XOR loss barrier (mean $\pm$ standard deviation).  Oracle+scale first
+selects the exhaustive best permutation, then optimizes only positive scales.
+The final row counts pairs for which refinement is no worse than the oracle.}
+\label{tab:xor-scale}
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+Method & $h=3$ & $h=5$ & $h=7$ \\
+\midrule
+No alignment & $0.780\pm0.610$ & $0.608\pm0.465$ & $0.331\pm0.184$ \\
+Sinkhorn permutation & $0.444\pm0.325$ & $0.189\pm0.162$ & $0.063\pm0.044$ \\
+Oracle permutation & $0.357\pm0.309$ & $0.111\pm0.118$ & $0.023\pm0.015$ \\
+Joint permutation+scale & $0.428\pm0.380$ & $0.074\pm0.149$ & $0.009\pm0.009$ \\
+Oracle+scale & $\mathbf{0.247\pm0.283}$ & $\mathbf{0.025\pm0.044}$ & $\mathbf{0.005\pm0.003}$ \\
+\midrule
+Oracle+scale $\leq$ oracle & $21/21$ & $36/36$ & $10/10$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Nonlinear connectivity changes at width three}
+
+Permutation-based LMC and general mode connectivity need not change at the same
+width.  At $h=2$, extensive B\'ezier and polygonal searches find low-loss paths
+only for essentially identical endpoints; additional bends do not recover
+nontrivial connections.  At $h=3$, all studied endpoint pairs are connected by
+low-loss paths.  Most are found directly; for one difficult pair, low-loss
+paths through a third trained mode establish connectivity by concatenation.
+Figure~\ref{fig:nonlinear-width} contrasts a width-$2$ failure with a width-$3$
+success between models having different decision boundaries.
+
+This is evidence about the paths found by the tested parameterizations, not a
+topological impossibility theorem for width two.  Nevertheless, the sharp
+empirical transition is informative: adding a single hidden unit provides
+representational slack that permits a curved route even when the best straight
+symmetry-aligned route can retain loss.  Width therefore affects connectivity
+through more than an enlarged permutation group.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\linewidth]{unsuccesful_10-14_bezier_3bend.png}
+    \vspace{-1ex}
+    \includegraphics[width=\linewidth]{3hidden_xor_bezier.png}
+    \caption{Nonlinear XOR paths.  \emph{Top:} a representative width-$2$
+    pair for which optimizing a B\'ezier path does not remove the high-loss
+    region.  \emph{Bottom:} at width $3$, a low-loss path connects endpoints
+    with different decision boundaries.  The rows visualize predictions along
+    the learned path.}
+    \label{fig:nonlinear-width}
+\end{figure*}
+
+\section{Scale Improves on the Permutation Oracle}
+\label{sec:scale-results}
+
+The decisive comparison in Table~\ref{tab:xor-scale} is between oracle
+permutation and oracle+scale.  The hard assignment is identical in the two
+conditions, so the improvements can only come from selecting a different
+functionally equivalent scaling of the same endpoint.  Refinement reduces the
+mean barrier by $31\%$ at $h=3$, $77\%$ at $h=5$, and $78\%$ at $h=7$.  It is
+no worse on every one of the $67$ pairs.  This shows that positive scale is not
+merely helping a relaxed optimizer discover a better permutation; it enlarges
+the attainable set beyond the exhaustive permutation orbit.
+
+Joint optimization is more mixed at the narrowest width.  It improves over the
+permutation oracle on $9/21$, $29/36$, and $8/10$ pairs at widths $3$, $5$, and
+$7$, respectively.  At $h=3$, its mean barrier ($0.428$) remains above the
+oracle-permutation result ($0.357$), whereas at widths five and seven it beats
+the oracle mean.  The difference between joint and oracle-refinement results
+exposes an optimization gap: a richer symmetry class can contain better
+representatives without a from-scratch solver reliably finding them.
+
+Figure~\ref{fig:xor-profiles} shows the averaged interpolation profiles.  All
+curves improve with width, but oracle scale refinement (green) is consistently
+lowest.  At $h=7$, its mean maximum excess is only $0.005$, compared with
+$0.023$ for the best permutation.  Scaling matters most once width has already
+made useful correspondences available: it fine-tunes the balance of incoming
+and outgoing weights without changing endpoint predictions.
+
+\begin{figure*}[t]
+    \centering
+    \begin{subfigure}[t]{0.32\linewidth}
+        \includegraphics[width=\linewidth]{3h_xor.png}
+    \end{subfigure}
+    \begin{subfigure}[t]{0.32\linewidth}
+        \includegraphics[width=\linewidth]{h5_xor.png}
+    \end{subfigure}
+    \begin{subfigure}[t]{0.32\linewidth}
+        \includegraphics[width=\linewidth]{h7_xor.png}
+    \end{subfigure}
+    \caption{Mean XOR interpolation loss at widths $3$, $5$, and $7$: raw
+    interpolation (gray), Sinkhorn permutation (orange), exhaustive oracle
+    permutation (blue), joint permutation+scale (purple), and oracle
+    permutation followed by scale refinement (green).  Exact barriers are in
+    Table~\ref{tab:xor-scale}.}
+    \label{fig:xor-profiles}
+\end{figure*}
+
+\section{When Does Alignment Become Difficult?}
+\label{sec:training-stage}
+
+The shared-training construction provides a dynamic view.  Two VGG16 branches
+are identical until the split, after which SGD noise makes them diverge.  A
+random known permutation is then added to one endpoint.  Figure
+\ref{fig:training-stage} plots test-error barrier against endpoint distance
+before and after weight matching.  Late splits lie in the lower-left: their
+endpoints remain close, the reference path already has low barrier, and weight
+matching reliably removes the artificial mismatch.  Early splits lie farther
+away and retain much larger barriers.
+
+For every shared-split pair, the recovered alignment is at least as good as the
+known inverse permutation and often better.  Repeating weight matching with
+different layer-update orders produces small variability (the largest barrier
+standard deviation is about $0.68$ percentage points for the $0/200$ split and
+becomes negligible for late splits).  The trend is therefore not explained by
+one unlucky search order.
+
+Distance is informative but not sufficient.  The $4/196$ shared-split pair has
+a test-error barrier of approximately $21.7$ percentage points near distance
+$28$, whereas the independently initialized pair after matching has a barrier
+of $34.1$ points at a comparable distance.  The experiment suggests that
+weight similarity is a useful proxy when trajectories share substantial
+history, but ceases to characterize linear compatibility once their learned
+representations diverge.  This motivates optimizing interpolation loss within
+a broader symmetry orbit, as in Section~\ref{sec:method}.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.72\linewidth]{test_error_acc_nonrel.png}
+    \caption{VGG16/CIFAR-10 shared-training benchmark.  Labels $n/(200-n)$
+    denote shared/independent epochs.  Circles are original endpoints; squares
+    are endpoints after applying a random permutation and weight matching.
+    Red denotes independent initialization.  Later splits remain closer and
+    have lower barriers after alignment.}
+    \label{fig:training-stage}
+\end{figure*}
+
+\section{VGG/CIFAR-10 Validation}
+\label{sec:vgg}
+
+Figure~\ref{fig:vgg} reports test-loss barriers for four VGG architectures.
+Permutation-only Sinkhorn reduces the raw barriers from roughly $1.88$--$1.98$
+to $0.38$, $0.79$, $1.22$, and $1.21$ for VGG11/13/16/19.  Adding scales
+improves on permutation-only in every architecture.  The better of joint and
+sequential scaling attains $0.109$, $0.429$, $1.035$, and $1.105$,
+respectively.  Relative to permutation-only, these are reductions of about
+$71\%$, $45\%$, $15\%$, and $9\%$.
+
+Neither optimization order dominates.  Joint permutation+scale is better for
+VGG11 and VGG19; freezing the permutation and refining scales is better for
+VGG13 and VGG16.  This echoes XOR: the symmetry class contains better
+representatives, but joint nonconvex optimization does not always realize the
+full gain.  Substantial barriers also remain for deeper VGGs, so permutation
+and scale together are not a complete account of LMC.
+
+The VGG results should be read as a transfer check of the controlled XOR
+finding.  Exhaustive permutation search is impossible, only one endpoint pair
+is used per architecture, and hyperparameters are selected per method.
+Nevertheless, the consistent direction of change across four architectures
+supports the practical relevance of scaling beyond the toy setting.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.78\linewidth]{barplot_vggs.png}
+    \caption{Maximum test-loss barrier for independently trained VGG models on
+    CIFAR-10.  Both scale-aware variants improve on Sinkhorn permutation-only
+    for all four fixed endpoint pairs, although joint and sequential
+    optimization trade places across architectures.}
+    \label{fig:vgg}
+\end{figure*}
+
+\section{Discussion and Limitations}
+
+\paragraph{A refined one-basin picture.}
+Our experiments separate three claims that are easy to collapse into one.
+First, curved connectivity can exist without a good straight path.  Second,
+permutations can remove representational mismatch, but the exhaustive XOR
+result shows that this exact symmetry is not always sufficient.  Third,
+overparameterization can make both processes easier by supplying redundant
+features and routes through function space.  Positive scale adds another exact
+degree of freedom and systematically improves the oracle permutation, but does
+not eliminate every barrier.  The evidence therefore favors connectivity
+modulo a richer symmetry class over a literal permutation-only one-basin claim.
+
+Ainsworth et al.'s counterexample establishes that architecture alone does not
+guarantee permutation-based linear mode connectivity, but its endpoints are
+hand-constructed rather than obtained through standard optimization.  Our
+exhaustive XOR experiments complement and strengthen this result: at minimal
+width, both minibatch SGD and full-batch gradient descent from random
+initialization can converge to successful endpoints for which no hidden-unit
+permutation eliminates the interpolation barrier.  Thus, permutation-based LMC
+is not an automatic artifact of SGD, and the optimizer's implicit bias alone is
+insufficient to guarantee connectivity.  Instead, its emergence appears to
+depend jointly on optimization bias and architectural redundancy.  At the same
+time, the rapid decrease of the oracle barrier with width remains consistent
+with the sufficiently wide, high-probability form of the one-basin
+conjecture~\citep{entezari2021role,ainsworth2023git}.
+
+\paragraph{Optimization versus existence.}
+The exhaustive protocol is central to this interpretation.  Without it, a high
+barrier after Sinkhorn or weight matching could always be ascribed to search
+failure.  Conversely, the gap between joint Sinkhorn and oracle refinement
+warns against treating a failed continuous relaxation as evidence that a good
+monomial representative does not exist.  Future work should distinguish the
+expressivity of a transformation class from the solver used to search it.
+
+\paragraph{A diagnostic hierarchy for alignment failures.}
+The experiments suggest a practical order for interpreting a residual barrier.
+First, establish whether search error can be removed.  Exhaustive enumeration
+is available only for small networks, but multiple restarts, exact matching in
+restricted layers, or controlled known-permutation benchmarks can still reveal
+optimizer limitations.  Second, if the best permutation remains inadequate,
+expand the exact symmetry class before concluding that modes occupy distinct
+basins.  Scale refinement is useful here because it is continuous, function
+preserving after the permutation is fixed, and can be attached to existing
+aligners.  Third, compare linear alignment with nonlinear paths and width
+changes.  A curved path that appears after adding a unit is evidence for
+representational slack, not evidence that a hidden permutation was recovered.
+This hierarchy separates what transformation exists, whether an algorithm finds
+it, and whether the architecture has enough redundancy for the desired path.
+
+For model merging, the results also favor a direct validation rule: endpoint
+equivalence should be checked after every transformation, and the full
+interpolation profile should be measured on held-out data.  Small Euclidean
+distance is not by itself a certificate of compatibility, as the training-stage
+experiment demonstrates.  Conversely, a scale-aware transformation can
+redistribute parameter differences while lowering the loss barrier.  Objectives
+designed for merging should therefore target functional behavior along the
+path, using weight distance only as a computational proxy.
+
+\paragraph{Limitations.}
+The exact conclusions come from small one-hidden-layer XOR networks.  The VGG
+study is non-exhaustive, uses a single pair per architecture, and relies on
+method-specific hyperparameter selection.  Our nonlinear path searches can
+certify found paths but cannot certify nonexistence.  The scale-aware soft
+transformation is exactly function preserving only after projection; during
+Sinkhorn optimization it is a relaxation.  Finally, we consider ReLU networks,
+for which positive homogeneity holds, and do not address normalization layers,
+residual architectures, attention symmetries, or approximate functional
+equivalences.  Larger multi-seed studies and comparisons with activation repair
+are needed before drawing broad architectural conclusions.
+
+\section{Conclusion}
+
+Permutation symmetry is an important but incomplete explanation of linear mode
+connectivity.  Exhaustive XOR search exposes genuine permutation-only failures;
+increasing width rapidly suppresses them and changes nonlinear connectivity;
+and positive scaling improves even the best possible permutation.  The same
+directional gain appears in VGG/CIFAR-10, while a shared-training experiment
+shows how alignment difficulty grows as optimization trajectories diverge.
+Together, the results suggest that the useful object is not a basin modulo
+permutation alone, but a low-loss geometry shaped jointly by exact symmetries,
+width, and the history of optimization.
+
+\subsection*{AI Use Statement}
+Generative AI tools were used to brainstorm presentation choices, improve the
+organization and readability of draft text, and assist with programming tasks
+including debugging, refactoring, plotting, and \LaTeX{} editing.  They were
+not used to generate experimental data, select the reported results, or make
+the final scientific interpretations.  The research questions, experimental
+design, implementation decisions, analysis, and conclusions were determined by
+the authors.  All AI-assisted text and code were reviewed and checked before
+inclusion.  The authors take responsibility for the final content, claims,
+citations, and artifacts.  This statement must be reconciled with the complete
+author team's actual use before submission.
+
+\bibliographystyle{apalike}
+\bibliography{references}
+
+\section*{Checklist}
+
+For each question, the selected answer is shown in brackets, followed where
+useful by a short justification.
+
+\begin{enumerate}
+  \item For all models and algorithms presented, check if you include:
+  \begin{enumerate}
+    \item A clear description of the mathematical setting, assumptions,
+    algorithm, and/or model. [Yes; Sections~\ref{sec:method}--\ref{sec:design}.]
+    \item An analysis of the properties and complexity (time, space, sample
+    size) of any algorithm. [No; empirical behavior rather than asymptotic
+    complexity is the focus.]
+    \item (Optional) Anonymized source code, with specification of all
+    dependencies, including external libraries. [No.]
+  \end{enumerate}
+
+  \item For any theoretical claim, check if you include:
+  \begin{enumerate}
+    \item Statements of the full set of assumptions of all theoretical results.
+    [Not Applicable; no formal theorem is claimed.]
+    \item Complete proofs of all theoretical results. [Not Applicable.]
+    \item Clear explanations of any assumptions. [Yes; the positive-homogeneity
+    assumption is stated in Section~\ref{sec:method}.]
+  \end{enumerate}
+
+  \item For all figures and tables that present empirical results, check if you include:
+  \begin{enumerate}
+    \item The code, data, and instructions needed to reproduce the main
+    experimental results (either in the supplemental material or as a URL).
+    [No; experimental settings are included, but an anonymized code release is
+    not yet linked.]
+    \item All the training details (e.g., data splits, hyperparameters, how they
+    were chosen). [Yes; Appendix~\ref{app:details}.]
+    \item A clear definition of the specific measure or statistics and error
+    bars (e.g., with respect to the random seed after running experiments
+    multiple times). [Yes; Eq.~\ref{eq:barrier}, Table~\ref{tab:xor-scale}, and
+    the limitations in Section~\ref{sec:vgg}.]
+    \item A description of the computing infrastructure used. (e.g., type of
+    GPUs, internal cluster, or cloud provider). [No.]
+  \end{enumerate}
+
+  \item If you are using existing assets (e.g., code, data, models) or
+  curating/releasing new assets, check if you include:
+  \begin{enumerate}
+    \item Citations of the creator If your work uses existing assets. [Yes.]
+    \item The license information of the assets, if applicable. [No.]
+    \item New assets either in the supplemental material or as a URL, if
+    applicable. [Not Applicable.]
+    \item Information about consent from data providers/curators. [Not
+    Applicable; only synthetic XOR and the public CIFAR-10 benchmark are used.]
+    \item Discussion of sensible content if applicable, e.g., personally
+    identifiable information or offensive content. [Not Applicable.]
+  \end{enumerate}
+
+  \item If you used crowdsourcing or conducted research with human subjects,
+  check if you include:
+  \begin{enumerate}
+    \item The full text of instructions given to participants and screenshots.
+    [Not Applicable.]
+    \item Descriptions of potential participant risks, with links to
+    Institutional Review Board (IRB) approvals if applicable. [Not Applicable.]
+    \item The estimated hourly wage paid to participants and the total amount
+    spent on participant compensation. [Not Applicable.]
+  \end{enumerate}
+\end{enumerate}
+
+\clearpage
+\appendix
+\onecolumn
+\aistatstitle{Beyond Permutation Symmetry: Width and Scaling in Linear Mode
+Connectivity --- Supplementary Materials}
+
+\section{Reproducibility Details}
+\label{app:details}
+
+\subsection{XOR training and exhaustive alignment}
+
+The XOR set is $\{(0,0),(0,1),(1,0),(1,1)\}$ with labels
+$\{0,1,1,0\}$.  Models have one ReLU hidden layer, biases, and one output logit.
+Full-batch SGD uses learning rate $0.05$ and at most $5000$ epochs.
+\texttt{ReduceLROnPlateau} uses factor $0.5$, patience $200$, threshold
+$10^{-4}$, and minimum learning rate $5\times10^{-4}$.  Training stops when
+loss has not improved by $10^{-4}$ for $500$ epochs.  For each retained pair,
+all $h!$ permutations are evaluated.  Interpolation selection prioritizes
+classification error in the width-$2$ diagnostic and loss barrier in the
+scale-aware study.
+
+For nonlinear paths, both quadratic B\'ezier curves and polygonal chains are
+optimized for $1500$ steps at learning rate $0.05$, with no weight decay and
+$31$ path samples.  The default path has one trainable interior point; harder
+pairs use up to ten.
+
+\subsection{XOR scale-aware optimization}
+
+Final interpolation curves use $61$ evaluation points; optimization uses $31$
+points.  The default permutation-only Sinkhorn run uses Adam for $500$ steps,
+learning rate $0.01$, temperature $1$, $20$ Sinkhorn iterations, and identity
+strength $1$.  Scale refinement uses Adam for $500$ steps, learning rate
+$0.01$, and log-scale regularization $10^{-3}$.  Joint optimization uses the
+same default budget.  If a default run misses its target, a bounded search over
+learning rates, temperatures, and regularization is used; settings are selected
+per pair.  The scale target is barrier $\epsilon=0.01$, while permutation-only
+Sinkhorn targets that pair's exhaustive barrier.
+
+\subsection{VGG experiments}
+
+The shared-training benchmark follows a 200-epoch VGG16/CIFAR-10 schedule.
+Branches differ in minibatch order and stochastic augmentation after the split.
+The artificial full-network permutation uses seed 42; weight matching uses at
+most 100 block-coordinate iterations and is repeated with three layer-update
+orders.
+
+For the scale-aware comparison, fixed seed-0/seed-1 endpoint pairs are used for
+VGG11/13/16/19.  Alignment uses a deterministic batch of $1000$ images, 20
+Sinkhorn iterations, and midpoint loss.  Separate bounded sweeps select the
+number of optimization steps, learning rate, temperature, and scale
+regularization for each architecture and method.  The permutation-then-scale
+baseline freezes the projected hard permutation and optimizes only log-scales.
+
+\section{Additional Pairwise Results}
+
+Table~\ref{tab:pairwise} separates the practical optimization gap from the gain
+provided by the symmetry class.  Sinkhorn permutation-only exactly matches the
+exhaustive oracle on progressively fewer pairs as width grows.  Joint
+permutation+scale often beats the permutation oracle, but oracle scale
+refinement is the most reliable condition.
+
+\begin{center}
+\captionof{table}{Pairwise XOR comparisons.  Lower loss barrier is better.}
+\label{tab:pairwise}
+\small
+\begin{tabular}{lccc}
+\toprule
+Comparison & $h=3$ & $h=5$ & $h=7$ \\
+\midrule
+Oracle+scale $\leq$ oracle permutation & $21/21$ & $36/36$ & $10/10$ \\
+Joint permutation+scale $\leq$ oracle permutation & $9/21$ & $29/36$ & $8/10$ \\
+Sinkhorn permutation $=$ oracle permutation & $9/21$ & $7/36$ & $0/10$ \\
+Oracle+scale $\leq$ joint permutation+scale & $15/21$ & $25/36$ & $5/10$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}

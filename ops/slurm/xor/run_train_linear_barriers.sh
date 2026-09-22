@@ -31,6 +31,7 @@ if [ -n "${SEEDS:-}" ]; then args+=(--seeds "${SEEDS}"); fi
 if [ -n "${PAIRS:-}" ]; then args+=(--pairs "${PAIRS}"); fi
 if [ -n "${TRAIN_MAX_EPOCHS:-}" ]; then args+=(--train-max-epochs "${TRAIN_MAX_EPOCHS}"); fi
 if [ -n "${TRAIN_LR:-}" ]; then args+=(--train-lr "${TRAIN_LR}"); fi
+if [ -n "${TRAIN_BATCH_SIZE:-}" ]; then args+=(--train-batch-size "${TRAIN_BATCH_SIZE}"); fi
 if [ "${VERBOSE:-false}" = "true" ]; then args+=(--verbose); fi
 
 mc_run_module experiments.xor.train_linear_barriers "${args[@]}"

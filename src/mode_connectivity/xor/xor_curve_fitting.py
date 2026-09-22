@@ -15,7 +15,6 @@ Pipeline:
 import argparse
 import json
 import os
-import sys
 import shutil
 import math
 from collections import OrderedDict
@@ -101,13 +100,19 @@ def train_xor_network(
     hidden_size=3,
     max_epochs=None,
     lr=None,
+    batch_size=None,
     loss_threshold=1e-4,
     patience=500,
     lr_patience=200,
     lr_factor=0.5,
     verbose=False,
 ):
-    """Train a 2-H-1 XOR network from scratch."""
+    """Train a 2-H-1 XOR network from scratch.
+
+    ``batch_size=None`` preserves the historical full-batch training recipe.
+    A batch size smaller than the four-example XOR dataset performs genuine
+    minibatch SGD with a freshly shuffled example order each epoch.
+    """
     set_seed(seed)
     cfg = get_training_config(hidden_size)
     if max_epochs is None:
@@ -116,6 +121,13 @@ def train_xor_network(
         max_epochs = min(max_epochs, cfg['max_epochs'])
     if lr is None:
         lr = cfg['lr']
+
+    dataset_size = int(XOR_DATA.shape[0])
+    effective_batch_size = dataset_size if batch_size is None else int(batch_size)
+    if effective_batch_size < 1 or effective_batch_size > dataset_size:
+        raise ValueError(
+            f"batch_size must be between 1 and {dataset_size}, got {effective_batch_size}"
+        )
 
     model = SimpleMLP(hidden_size=hidden_size, output_size=1)
     with torch.no_grad():
@@ -138,13 +150,35 @@ def train_xor_network(
     current_loss = float('inf')
 
     for epoch in range(max_epochs):
-        optimizer.zero_grad()
-        logits = model(XOR_DATA)
-        loss = F.binary_cross_entropy_with_logits(logits, XOR_LABELS)
-        loss.backward()
-        optimizer.step()
+        model.train()
+        if effective_batch_size == dataset_size:
+            optimizer.zero_grad()
+            logits = model(XOR_DATA)
+            loss = F.binary_cross_entropy_with_logits(logits, XOR_LABELS)
+            loss.backward()
+            optimizer.step()
+            current_loss = float(loss.item())
+        else:
+            shuffled_indices = torch.randperm(dataset_size)
+            for start in range(0, dataset_size, effective_batch_size):
+                batch_indices = shuffled_indices[start:start + effective_batch_size]
+                optimizer.zero_grad()
+                logits = model(XOR_DATA[batch_indices])
+                loss = F.binary_cross_entropy_with_logits(
+                    logits,
+                    XOR_LABELS[batch_indices],
+                )
+                loss.backward()
+                optimizer.step()
 
-        current_loss = float(loss.item())
+            model.eval()
+            with torch.no_grad():
+                epoch_logits = model(XOR_DATA)
+                epoch_loss = F.binary_cross_entropy_with_logits(
+                    epoch_logits,
+                    XOR_LABELS,
+                )
+            current_loss = float(epoch_loss.item())
         scheduler.step(current_loss)
 
         if best_loss - current_loss > loss_threshold:
@@ -640,7 +674,16 @@ def save_checkpoint(path, seed, hidden_size, model, eval_res, source):
     }, path)
 
 
-def load_or_train_models(seeds, hidden_size, checkpoints_dir, output_dir, train_max_epochs, train_lr, verbose):
+def load_or_train_models(
+    seeds,
+    hidden_size,
+    checkpoints_dir,
+    output_dir,
+    train_max_epochs,
+    train_lr,
+    train_batch_size,
+    verbose,
+):
     """Load checkpoints when available; otherwise train from scratch."""
     run_ckpt_dir = os.path.join(output_dir, 'checkpoints')
     os.makedirs(run_ckpt_dir, exist_ok=True)
@@ -686,6 +729,7 @@ def load_or_train_models(seeds, hidden_size, checkpoints_dir, output_dir, train_
                 hidden_size=hidden_size,
                 max_epochs=train_max_epochs,
                 lr=train_lr,
+                batch_size=train_batch_size,
                 verbose=verbose,
             )
 
@@ -826,6 +870,8 @@ def main():
                         help='Optional max epochs for retraining')
     parser.add_argument('--train-lr', type=float, default=None,
                         help='Optional learning rate for retraining')
+    parser.add_argument('--train-batch-size', type=int, default=None,
+                        help='Training batch size; values 1-3 enable minibatch SGD (default: full batch)')
     parser.add_argument('--curve-steps', type=int, default=1500,
                         help='Optimization steps for each fitted curve (default: 1500)')
     parser.add_argument('--curve-lr', type=float, default=0.05,
@@ -859,6 +905,8 @@ def main():
         raise ValueError('--num-networks must be > 0')
     if args.max_endpoint_loss < 0:
         raise ValueError('--max-endpoint-loss must be >= 0')
+    if args.train_batch_size is not None and not 1 <= args.train_batch_size <= len(XOR_DATA):
+        raise ValueError(f'--train-batch-size must be between 1 and {len(XOR_DATA)}')
     if args.curve_steps <= 0:
         raise ValueError('--curve-steps must be > 0')
     if args.curve_t_samples < 2:
@@ -900,6 +948,7 @@ def main():
         output_dir=output_dir,
         train_max_epochs=args.train_max_epochs,
         train_lr=args.train_lr,
+        train_batch_size=args.train_batch_size,
         verbose=args.verbose,
     )
 
@@ -1145,6 +1194,7 @@ def main():
             'train': {
                 'max_epochs': args.train_max_epochs,
                 'lr': args.train_lr,
+                'batch_size': args.train_batch_size,
             },
             'curve_fit': {
                 'steps': int(args.curve_steps),

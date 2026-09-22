@@ -13,13 +13,18 @@ This directory contains the repo-facing runnable entrypoints for the active expe
 - `training_stage/`
   Independent configurable VGG training (VGG11 by default), checkpoint-pair alignment,
   evaluation, and Slurm submission.
+- `fashion_mnist/`
+  Shared endpoint training plus same-stage linear, symmetry-aligned, and nonlinear
+  connectivity evaluation for the 10-hidden-layer width-512 Fashion-MNIST MLP.
 - `xor/`
   Thin wrappers around retained argparse-heavy XOR experiments.
 
 ## How Runners Pair With Configs
 
 - Config-driven families:
-  `curves/`, `lmc/`, `sinkhorn/`, and `training_stage/` compose defaults from `configs/experiments/...` and then execute through reusable library helpers.
+  `curves/`, `lmc/`, `sinkhorn/`, `training_stage/`, and `fashion_mnist/`
+  compose defaults from `configs/experiments/...` and then execute through
+  reusable library helpers.
 - Thin CLI wrapper family:
   `xor/` loads preset argv-style settings from `configs/experiments/xor/runners/` and forwards them to the retained XOR implementations.
 

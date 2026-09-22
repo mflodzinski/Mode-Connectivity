@@ -211,6 +211,9 @@ results/
 data/
 plots/
 tests/
+!tests/
+tests/*
+!tests/test_fashion_mnist.py
 wandb/
 thesis/
 archive/

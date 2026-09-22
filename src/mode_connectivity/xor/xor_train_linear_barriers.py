@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from itertools import combinations
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +19,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from mode_connectivity.xor.xor_curve_fitting import (
+    XOR_DATA,
     compute_linear_path,
     compute_path_vectors_linear,
     save_curve_npz,
@@ -52,6 +52,12 @@ def main() -> None:
     parser.add_argument("--max-endpoint-loss", type=float, default=0.02)
     parser.add_argument("--train-max-epochs", type=int, default=None)
     parser.add_argument("--train-lr", type=float, default=None)
+    parser.add_argument(
+        "--train-batch-size",
+        type=int,
+        default=None,
+        help="Training batch size; values 1-3 enable minibatch SGD (default: full batch)",
+    )
     parser.add_argument("--curve-eval-points", type=int, default=61)
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
@@ -81,6 +87,7 @@ def main() -> None:
             hidden_size=args.hidden_size,
             max_epochs=args.train_max_epochs,
             lr=args.train_lr,
+            batch_size=args.train_batch_size,
             verbose=args.verbose,
         )
         if eval_res["accuracy"] < 100.0 or eval_res["loss"] > float(args.max_endpoint_loss):
@@ -97,6 +104,13 @@ def main() -> None:
                 "hidden_size": args.hidden_size,
                 "state_dict": clone_state_cpu(model.state_dict()),
                 "eval": eval_res,
+                "training": {
+                    "optimizer": "SGD",
+                    "batch_size": len(XOR_DATA) if args.train_batch_size is None else int(args.train_batch_size),
+                    "shuffle_each_epoch": args.train_batch_size is not None and args.train_batch_size < len(XOR_DATA),
+                    "learning_rate": args.train_lr,
+                    "max_epochs": args.train_max_epochs,
+                },
             },
             checkpoints_dir / f"seed_{seed}.pt",
         )
@@ -166,6 +180,8 @@ def main() -> None:
             "curve_eval_points": int(args.curve_eval_points),
             "train_max_epochs": args.train_max_epochs,
             "train_lr": args.train_lr,
+            "train_batch_size": len(XOR_DATA) if args.train_batch_size is None else int(args.train_batch_size),
+            "train_shuffle_each_epoch": args.train_batch_size is not None and args.train_batch_size < len(XOR_DATA),
         },
         "endpoint_results": endpoint_results,
         "rejected_results": rejected,

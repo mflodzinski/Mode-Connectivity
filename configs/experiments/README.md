@@ -32,6 +32,9 @@ This directory is the canonical configuration tree for active experiment runs. T
 - `training_stage/`
   Defines the frozen split, checkpoints, budgets, and evaluation protocol for
   the independent-training checkpoint matrix.
+- `fashion_mnist/`
+  Defines the reusable endpoint, alignment, nonlinear-path, and reporting
+  protocol for the deep Fashion-MNIST MLP validation.
 - `xor/`
   Stores preset files consumed directly by the thin XOR wrappers rather than full Hydra family composition.
 

@@ -21,6 +21,9 @@ This package is the active reusable library layer for the repository. It holds e
 - `training_stage/`
   Frozen experiment protocol, endpoint training, alignment, evaluation,
   recovery, reporting, and Slurm task orchestration.
+- `fashion_mnist/`
+  Symmetry-clean deep-MLP endpoint training, hard permutation and positive-scale
+  alignment, raw-endpoint nonlinear paths, and aggregate reporting.
 - `transform/`
   Function-preserving network transformations such as permutations and mirrors.
 - `xor/`
