@@ -68,6 +68,19 @@ does not submit training or inspect test data. Rankings are written to
 `selected_base.json` and `selected_scale.json`. The chosen artifacts are linked
 under `selected/pairs/`.
 
+After both grids and selections complete, evaluate only the globally selected
+artifacts on the frozen train/test evaluation subsets:
+
+```bash
+bash ops/slurm/training_stage/submit_alignment_grid_evaluation.sh \
+  results/training_stage_vgg11_pair01_atol2e5 \
+  results/training_stage_vgg11_alignment_grid
+```
+
+This submits 16 short GPU evaluations followed by a CPU report. It does not
+rerun alignment. Matrices, barrier tables, improvements, and absolute profiles
+are written under `selected/report/`.
+
 ## Git Re-Basin CIFAR-10 MLP reproduction and extension
 
 The MLP preset trains only seed pair `(0, 1)`. It reproduces the Figure 3
