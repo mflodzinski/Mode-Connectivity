@@ -214,6 +214,7 @@ tests/
 !tests/
 tests/*
 !tests/test_fashion_mnist.py
+!tests/test_dense_linear_stage.py
 wandb/
 thesis/
 archive/

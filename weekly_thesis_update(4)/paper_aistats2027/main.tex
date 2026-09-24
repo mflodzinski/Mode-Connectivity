@@ -35,20 +35,22 @@ hidden-unit permutations in minimal-width XOR networks yields a counterexample
 among gradient-trained solutions: pairs of successful endpoints can remain
 linearly incompatible under every permutation.  We then consider a larger
 exact symmetry class.  Building on the differentiable Sinkhorn re-basing method
-of \citet{guerrero2023rebasin}, we augment permutation alignment with positive
-ReLU scaling.  We also introduce a method-agnostic refinement that freezes the
-permutation returned by any alignment method and subsequently optimizes only
-the scales.  Scale-aware alignment lowers interpolation barriers beyond
-permutation-only alignment throughout our controlled XOR study and across all
-evaluated VGG/CIFAR-10 and MLP/Fashion-MNIST architectures.  Finally, we study
+of \citet{guerrero2023rebasin}, we augment permutation alignment with
+function-preserving positive ReLU scaling.  We also introduce a method-agnostic
+refinement that freezes the permutation returned by any alignment method and
+subsequently optimizes only the scales.  On XOR, scale-aware alignment achieves
+barriers below the exhaustive permutation-only optimum, showing that its gains
+cannot be explained by finding better permutations.  It also lowers barriers
+relative to permutation-only alignment across all evaluated VGG/CIFAR-10 and
+MLP/Fashion-MNIST architectures.  Finally, we study
 training-stage connectivity by extending the same-stage analysis of
 \citet{ainsworth2023git} to checkpoints from two independent runs at unequal
-epochs, $n\neq N$.  The worse-endpoint barrier---the maximum interpolation loss
-in excess of the larger endpoint loss---is negligible early in training and
-becomes non-negligible only after a distinct training stage.  Together, these
-results show that permutation alone does not exhaust the function-preserving
-transformations relevant to interpolation and identify when excess
-interpolation barriers emerge during training.
+epochs, $n\neq N$.  The worse-endpoint barrier, defined as the maximum
+interpolation loss in excess of the larger endpoint loss, is negligible early
+in training and becomes non-negligible only after a distinct training stage.
+Together, these results show that permutation alone does not exhaust the
+function-preserving transformations relevant to interpolation and identify
+when excess interpolation barriers emerge during training.
 \end{abstract}
 
 \section{Introduction}
@@ -96,9 +98,8 @@ Our contributions are:
     \item We show an empirical transition in nonlinear connectivity between
     widths two and three, distinguishing representational redundancy from
     symmetry alignment.
-    \item We show that alignment difficulty depends on shared training history
-    and that scaling improves over permutation-only alignment on fixed
-    VGG11/13/16/19 pairs trained on CIFAR-10.
+    \item We show that scaling improves over permutation-only alignment on
+    fixed VGG11/13/16/19 pairs trained on CIFAR-10.
 \end{itemize}
 
 \section{Problem Formulation and Related Work}
@@ -143,8 +144,8 @@ A curved connection establishes geometric connectedness, but a straight path
 is the relevant object for parameter averaging.  Checkpoint averaging can
 improve generalization within one trajectory~\citep{izmailov2018averaging}, and
 averaging related fine-tuned models can be effective without ensemble-time
-cost~\citep{wortsman2022model}.  Our focus is the geometric prerequisite---a
-low-barrier segment---rather than a claim that an aligned midpoint must
+cost~\citep{wortsman2022model}.  Our focus is the geometric prerequisite of a
+low-barrier segment, rather than a claim that an aligned midpoint must
 outperform its endpoints.
 
 \section{Scale-Aware Alignment}
@@ -164,7 +165,14 @@ created inside a linear parameter interpolation and can therefore change the
 barrier.  This motivates studying connectivity under a richer symmetry class
 before attributing a residual barrier to genuinely distinct basins.
 
-For scalable optimization, we relax each hard permutation to
+Sinkhorn re-basing replaces discrete permutation search with a differentiable
+relaxation~\citep{guerrero2023rebasin}.  For each hidden layer, it exponentiates
+an unconstrained score matrix and alternately normalizes its rows and columns,
+producing an approximately doubly stochastic soft assignment.  The temperature
+controls the sharpness of this assignment.  Differentiability allows the
+assignments at all layers to be optimized jointly for the chosen interpolation
+objective; the original method computes their gradients efficiently through
+implicit differentiation.  We augment this relaxation with positive scales:
 \begin{equation}
 S_\ell=\operatorname{Sinkhorn}(Z_\ell/\tau),\qquad
 D_\ell=\operatorname{diag}(e^{u_\ell}),
@@ -172,10 +180,10 @@ D_\ell=\operatorname{diag}(e^{u_\ell}),
 \end{equation}
 where $Z_\ell$ contains unconstrained assignment scores and $u_\ell$ contains
 log-scales.  On layer-$\ell$ outputs we apply $S_\ell D_\ell$ and on the next
-layer's inputs the compensating $D_\ell^{-1}S_\ell^\top$.  After projecting
-$S_\ell$ to a hard assignment, this is exactly function preserving.  During
-soft optimization, the transpose is the standard differentiable Sinkhorn
-approximation rather than an exact inverse.
+layer's inputs the compensating $D_\ell^{-1}S_\ell^\top$.  For evaluation, each
+$S_\ell$ is projected to a hard assignment.  The resulting transformation is
+exactly function preserving.  During soft optimization, the transpose is the
+standard differentiable Sinkhorn approximation rather than an exact inverse.
 
 We consider two variants.  \emph{Joint permutation+scale} optimizes $Z_\ell$
 and $u_\ell$ together.  \emph{Scale refinement} first obtains and freezes a
@@ -381,67 +389,7 @@ changes the representational resources available along a path.
     \label{fig:nonlinear-width}
 \end{figure*}
 
-\section{Experiment IV: An Early Transition in Training Connectivity}
-\label{sec:training-stage}
-
-\paragraph{Setup.}
-Two VGG16/CIFAR-10 branches share an initialization and the first $n$ of
-$N=200$ epochs, then train independently with different minibatch orders and
-augmentations.  A known random channel permutation is applied to one endpoint,
-and weight matching attempts to recover compatibility.  The inverse planted
-permutation supplies a reference, while repeated layer-update orders measure
-search variability.  This design varies shared training history; it is not a
-checkpoint-by-checkpoint decomposition of raw, scale, and nonlinear barriers.
-
-\paragraph{Result.}
-Figure~\ref{fig:training-stage} plots test-error barrier against endpoint
-distance.  Late splits lie in the lower-left: their endpoints remain close,
-the reference path has low barrier, and matching reliably removes the planted
-mismatch.  Early splits lie farther away and retain larger barriers.
-
-A denser sweep over the first training epochs localizes a sharp transition in
-this run.  After alignment, the test-loss barrier is $0.120$ when the branches
-share five epochs and train independently for $195$, but falls to $0.001$ for
-the $6/194$ split and remains near zero for all later splits.  Thus, sharing one
-additional early epoch qualitatively changes the linear geometry of the final
-solutions.  Branches separated after this transition remain in a common linear
-basin modulo symmetry despite different subsequent minibatches and
-augmentations; branches separated earlier develop residual barriers that
-permutation alignment does not remove.
-
-For every shared-split pair, the recovered alignment is at least as good as the
-known inverse permutation and often better.  Repeating weight matching with
-different layer-update orders produces small variability (the largest barrier
-standard deviation is about $0.68$ percentage points for the $0/200$ split and
-becomes negligible for late splits).  The trend is therefore not explained by
-one unlucky search order.
-
-Distance is informative but not sufficient.  The $4/196$ shared-split pair has
-a test-error barrier of approximately $21.7$ percentage points near distance
-$28$, whereas the independently initialized pair after matching has a barrier
-of $34.1$ points at a comparable distance.  The experiment suggests that
-weight similarity is a useful proxy when trajectories share substantial
-history, but ceases to characterize linear compatibility once their learned
-representations diverge.  This motivates optimizing interpolation loss within
-a broader symmetry orbit, as in Section~\ref{sec:method}.  The result identifies
-a transition in linear compatibility; because curved paths were not optimized
-for every shared-split pair, it does not by itself establish that the residual
-pairs are connected only nonlinearly.
-
-\begin{figure*}[t]
-    \centering
-    \includegraphics[width=0.72\linewidth]{test_error_acc_nonrel.png}
-    \caption{VGG16/CIFAR-10 shared-training benchmark.  Labels $n/(200-n)$
-    denote shared/independent epochs.  Circles are original endpoints; squares
-    are endpoints after applying a random permutation and weight matching.
-    Red denotes independent initialization.  Later splits remain closer and
-    have lower barriers after alignment; the dense early-epoch sweep discussed
-    in the text places the sharp loss-barrier transition between the $5/195$
-    and $6/194$ splits.}
-    \label{fig:training-stage}
-\end{figure*}
-
-\section{Experiment V: VGG/CIFAR-10 Validation}
+\section{Experiment IV: VGG/CIFAR-10 Validation}
 \label{sec:vgg}
 
 \paragraph{Setup.}
@@ -522,9 +470,7 @@ be separated from limitations of the transformation class.  If permutation is
 insufficient, richer exact symmetries should be tested before inferring distinct
 basins.  Linear and nonlinear paths should then be distinguished, and width
 should be treated as a change in representational resources rather than merely
-a larger matching problem.  The training-history experiment adds a final
-caution: comparable Euclidean distances can conceal different barriers, so
-distance is not a certificate of functional compatibility.
+a larger matching problem.
 
 \paragraph{Limitations.}
 The exact conclusions come from small one-hidden-layer XOR networks.  The
@@ -549,10 +495,9 @@ remain incompatible under every permutation, for both minibatch SGD and
 full-batch GD.  Positive scaling improves even the exhaustive best permutation,
 while the width-dependent nonlinear experiment shows that exact symmetries do
 not subsume representational constraints.  The same scaling effect transfers
-to fixed VGG/CIFAR-10 pairs, and shared-training experiments show that
-compatibility also depends on optimization history.  The central distinction
-is therefore simple: symmetry determines which representatives we compare;
-redundancy determines which paths are available.
+to fixed VGG/CIFAR-10 pairs.  The central distinction is therefore simple:
+symmetry determines which representatives we compare; redundancy determines
+which paths are available.
 
 \subsection*{AI Use Statement}
 Generative AI tools were used to brainstorm presentation choices, improve the
@@ -641,7 +586,7 @@ useful by a short justification.
 \appendix
 \onecolumn
 \aistatstitle{Beyond Permutation Symmetry: Symmetry, Redundancy, and
-Neural-Network Connectivity --- Supplementary Materials}
+Neural-Network Connectivity: Supplementary Materials}
 
 \section{Reproducibility Details}
 \label{app:details}
@@ -689,16 +634,6 @@ per pair.  The scale target is barrier $\epsilon=0.01$, while permutation-only
 Sinkhorn targets that pair's exhaustive barrier.
 
 \subsection{VGG experiments}
-
-The shared-training benchmark follows a 200-epoch VGG16/CIFAR-10 schedule.
-Branches differ in minibatch order and stochastic augmentation after the split.
-The evaluated shared-training durations are
-$n\in\{0,1,2,3,4,5,6,8,30,80,100\}$ epochs; the figure displays a readable
-subset, while the dense early sweep is used to localize the transition reported
-in Section~\ref{sec:training-stage}.
-The artificial full-network permutation uses seed 42; weight matching uses at
-most 100 block-coordinate iterations and is repeated with three layer-update
-orders.
 
 For the scale-aware comparison, fixed seed-0/seed-1 endpoint pairs are used for
 VGG11/13/16/19.  Alignment uses a deterministic batch of $1000$ images, 20

@@ -1,0 +1,127 @@
+# @package _global_
+output_root: results/dense_linear_stage_fashion_mnist
+data_root: data
+dataset: fashion_mnist
+model: FashionMLP10x512
+hidden_layers: 10
+hidden_width: 512
+data_mean: 0.2860407843137255
+data_std: 0.3530243137254902
+device: cuda
+workers: 0
+cpu_threads: 1
+
+seed_pairs: [[0, 1], [2, 3], [4, 5]]
+source_roots:
+  "0": results/fashion_mnist_mlp10x512
+  "1": results/fashion_mnist_mlp10x512
+  "2": results/fashion_mnist_mlp10x512
+  "3": results/fashion_mnist_mlp10x512
+  "4": results/fashion_mnist_mlp10x512
+  "5": results/fashion_mnist_mlp10x512
+
+stages: [0, 1, 2, 3, 4, 5, 10, 15, 30, 55, 70, 100]
+stage_progress: [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.10, 0.15, 0.30, 0.55, 0.70, 1.0]
+expected_train_examples: 55000
+train_report_size: 10000
+report_subset_seed: 92028
+validation_split_seed: 92027
+fit_augmentation: false
+
+alignment_seed: 1729
+alignment_batch_size: 1000
+eval_batch_size: 2000
+wm_sweeps: 100
+sinkhorn_l: 1.0
+sinkhorn_tau: 1.0
+sinkhorn_iters: 20
+lambda_scale: 0.001
+atol: 0.0001
+rtol: 0.0001
+validation_alphas: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+selection_alphas: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+profile_points_all: 21
+profile_points_selected: 61
+
+reuse:
+  wm_sources:
+    - {kind: fashion_stage, root: results/fashion_mnist_mlp10x512}
+  use_hyperparameter_priors: false
+
+# No historical Fashion-MNIST candidate grid exists. The earlier final
+# alignment used one fixed setting, so it cannot establish a dominant winner.
+fixed_hyperparameter_values: {}
+fixed_hyperparameter_evidence: {}
+
+method_hyperparameters:
+  wm: {}
+  wm_scale:
+    lr: 0.01
+    weight_decay: 0.0
+    scale_penalty: 0.001
+    log_clip: 5.0
+    max_examples: 250000
+    min_examples: 110000
+    patience: 4
+    min_delta: 0.0001
+  sinkhorn:
+    lr: 0.10
+    weight_decay: 0.01
+    tau: 1.0
+    sinkhorn_iters: 20
+    max_examples: 1000000
+    min_examples: 275000
+    patience: 4
+    min_delta: 0.0001
+  sinkhorn_scale_joint:
+    lr: 0.03
+    weight_decay: 0.01
+    tau: 1.0
+    sinkhorn_iters: 20
+    scale_penalty: 0.001
+    max_examples: 250000
+    min_examples: 110000
+    patience: 4
+    min_delta: 0.0001
+  sinkhorn_scale_finetune:
+    lr: 0.01
+    weight_decay: 0.0
+    scale_penalty: 0.001
+    log_clip: 5.0
+    max_examples: 250000
+    min_examples: 110000
+    patience: 4
+    min_delta: 0.0001
+
+calibration_candidates:
+  wm_scale:
+    - {lr: 0.01, scale_penalty: 0.001, calibration_max_examples: 110000}
+    - {lr: 0.03, scale_penalty: 0.001, calibration_max_examples: 110000}
+  sinkhorn:
+    - {lr: 0.05, tau: 1.0, calibration_max_examples: 275000}
+    - {lr: 0.10, tau: 1.0, calibration_max_examples: 275000}
+    - {lr: 0.10, tau: 3.0, calibration_max_examples: 275000}
+  sinkhorn_scale_joint:
+    - {lr: 0.01, tau: 1.0, scale_penalty: 0.001, calibration_max_examples: 110000}
+    - {lr: 0.03, tau: 1.0, scale_penalty: 0.001, calibration_max_examples: 110000}
+  sinkhorn_scale_finetune:
+    - {lr: 0.01, scale_penalty: 0.001, calibration_max_examples: 110000}
+    - {lr: 0.03, scale_penalty: 0.001, calibration_max_examples: 110000}
+
+calibration_pairs_per_task: 3
+replication_pairs_per_task: 6
+calibration_evaluation_pairs_per_task: 3
+endpoint_pairs_per_task: 12
+slurm_resources:
+  cpu: {cpus: 1, mem: 1GB, time: "00:10:00"}
+  prepare: {cpus: 1, mem: 1GB, time: "00:10:00"}
+  reuse: {cpus: 1, mem: 2GB, time: "00:20:00"}
+  calibrate_base: {cpus: 1, mem: 2GB, time: "01:00:00"}
+  calibrate_branch: {cpus: 1, mem: 2GB, time: "00:45:00"}
+  replicate_selected_evaluation: {cpus: 1, mem: 2GB, time: "00:45:00"}
+  endpoint_chunk: {cpus: 1, mem: 2GB, time: "00:15:00"}
+  calibration_evaluation: {cpus: 1, mem: 2GB, time: "00:20:00"}
+  report: {cpus: 1, mem: 2GB, time: "00:20:00"}
+  gpu: {cpus: 1, mem: 2GB, time: "00:45:00"}
+
+defaults: []
