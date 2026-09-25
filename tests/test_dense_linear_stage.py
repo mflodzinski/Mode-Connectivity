@@ -89,7 +89,7 @@ def test_training_report_subset_is_exact_balanced_and_deterministic():
 def test_resource_presets_follow_daic_feedback():
     vgg, fashion = config("vgg11"), config("fashion_mnist")
     assert vgg["slurm_resources"]["replicate_selected_evaluation"] == {
-        "cpus": 2, "mem": "2GB", "time": "01:00:00"
+        "cpus": 2, "mem": "4GB", "time": "01:00:00"
     }
     assert fashion["slurm_resources"]["replicate_selected_evaluation"] == {
         "cpus": 1, "mem": "2GB", "time": "00:45:00"

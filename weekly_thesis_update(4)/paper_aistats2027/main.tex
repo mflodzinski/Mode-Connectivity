@@ -14,9 +14,6 @@
 
 \graphicspath{{figures/}}
 
-\newcommand{\barrier}{\mathcal{B}}
-\newcommand{\loss}{\mathcal{L}}
-
 \begin{document}
 
 \twocolumn[
@@ -107,34 +104,36 @@ Our contributions are:
 
 \paragraph{Connectivity and interpolation barriers.}
 For endpoints $\theta_A$ and $\theta_B$, linear interpolation is
-$\theta(t)=(1-t)\theta_A+t\theta_B$.  Following prior work, for a scalar
-criterion $C$ (loss or classification error) we measure the excess above the
-linear interpolation of endpoint values:
+$\theta(\lambda)=(1-\lambda)\theta_A+\lambda\theta_B$, with
+$\lambda\in[0,1]$.  Following \citet{entezari2021role}, the barrier is
 \begin{equation}
 \begin{aligned}
-\barrier(\theta_A,\theta_B;C)
-={}&\max_{t\in[0,1]}\big[C(\theta(t))\\
-&-(1-t)C(\theta_A)-tC(\theta_B)\big].
+B(\theta_A,\theta_B)
+={}&\sup_{\lambda\in[0,1]}
+\Big[C\big((1-\lambda)\theta_A+\lambda\theta_B\big)\\
+&-\big[(1-\lambda)C(\theta_A)+\lambda C(\theta_B)\big]\Big].
 \end{aligned}
 \label{eq:barrier}
 \end{equation}
-The maximum is evaluated on a finite grid in our experiments.  Nonlinear mode
-connectivity instead asks whether a general curve
-$\gamma:[0,1]\rightarrow\Theta$ joins the endpoints at low loss.  A curved
-path may avoid a region crossed by the straight segment, so nonlinear
-connectivity does not imply LMC~\citep{draxler2018essentially,garipov2018loss}.
+Here $C:\Theta\rightarrow\mathbb{R}$ is a scalar cost assigned to a model.  For
+gradient-based alignment, $C$ must be differentiable and denotes binary or
+multiclass cross-entropy in our experiments.  We use $C$ to follow the
+re-basing literature and to distinguish the generic cost from a particular
+choice of loss.  Classification error is used only as a reporting cost and is
+never optimized.  The supremum is approximated on a finite grid.  Nonlinear
+mode connectivity instead asks whether a general curve
+$\gamma:[0,1]\rightarrow\Theta$ joins the endpoints at low loss.  A curved path
+may avoid a region crossed by the straight segment, so nonlinear connectivity
+does not imply LMC~\citep{draxler2018essentially,garipov2018loss}.
 
 \paragraph{Permutation re-basing.}
-For a ReLU MLP block $f(x)=W_2\sigma(W_1x)$ and a permutation matrix $P$,
-\begin{equation}
-(W_2P^\top)\sigma(PW_1x)=W_2\sigma(W_1x).
-\label{eq:perm}
-\end{equation}
-The same action reorders channels in convolutional networks.  Weight matching
-finds layerwise permutations that reduce Euclidean distance, activation
-matching aligns representations on data, and differentiable methods optimize
-soft assignments~\citep{ainsworth2023git,guerrero2023rebasin}.  REPAIR shows
-that correcting activation statistics can further improve interpolation after
+Relabeling a hidden layer and applying the inverse relabeling to the next
+layer preserves the network function; the same action reorders channels in
+convolutional networks.  Weight matching finds layerwise permutations that
+reduce Euclidean distance, activation matching aligns representations on data,
+and differentiable methods optimize soft assignments
+\citep{ainsworth2023git,guerrero2023rebasin}.  REPAIR shows that correcting
+activation statistics can further improve interpolation after
 permutation~\citep{jordan2023repair}.  These successes support a symmetry-aware
 view of loss landscapes, but a residual barrier obtained by a heuristic cannot
 establish that the symmetry class itself is insufficient.
@@ -151,55 +150,110 @@ outperform its endpoints.
 \section{Scale-Aware Alignment}
 \label{sec:method}
 
-Permutation is only one part of the exact symmetry group of a ReLU network.
-Positive homogeneity, $\sigma(cz)=c\sigma(z)$ for $c>0$, permits the incoming
-weights and bias of a unit to be multiplied by $c$ when its outgoing weight is
-divided by $c$.  In matrix form, for positive diagonal $D$,
-\begin{equation}
-(W_2D^{-1})\sigma(DW_1x)=W_2\sigma(W_1x).
-\label{eq:scale}
-\end{equation}
+Permutation is only one class of exact symmetry in neural networks.  Another
+is the scaling symmetry induced by positive homogeneity: for ReLU,
+$\sigma(cz)=c\sigma(z)$ for $c>0$, so the incoming weights and bias of a unit
+can be multiplied by $c$ when its outgoing weight is divided by $c$.
 Permutation and scaling therefore form an exact monomial action.  Scaling does
-not change either endpoint function, but it changes the cross-model terms
-created inside a linear parameter interpolation and can therefore change the
-barrier.  This motivates studying connectivity under a richer symmetry class
-before attributing a residual barrier to genuinely distinct basins.
+not change the endpoint function, but it changes its parameter representation.
+Consequently, the intermediate networks obtained by linearly interpolating to
+that endpoint can have different losses, and hence a different barrier.  This
+motivates studying connectivity under a richer symmetry class before
+attributing a residual barrier to genuinely distinct basins.
 
-Sinkhorn re-basing replaces discrete permutation search with a differentiable
-relaxation~\citep{guerrero2023rebasin}.  For each hidden layer, it exponentiates
-an unconstrained score matrix and alternately normalizes its rows and columns,
-producing an approximately doubly stochastic soft assignment.  The temperature
-controls the sharpness of this assignment.  Differentiability allows the
-assignments at all layers to be optimized jointly for the chosen interpolation
-objective; the original method computes their gradients efficiently through
-implicit differentiation.  We augment this relaxation with positive scales:
+\paragraph{Original Sinkhorn re-basing.}
+For a network with $L$ affine layers, let
+$h_\ell=\sigma(W_\ell h_{\ell-1}+b_\ell)$ for hidden layers and let $P_\ell$
+relabel hidden layer $\ell$.  The induced action on adjacent weights and
+biases is
 \begin{equation}
-S_\ell=\operatorname{Sinkhorn}(Z_\ell/\tau),\qquad
-D_\ell=\operatorname{diag}(e^{u_\ell}),
-\label{eq:monomial}
+\widetilde W_\ell=P_\ell W_\ell P_{\ell-1}^{\top},\qquad
+\widetilde b_\ell=P_\ell b_\ell.
+\label{eq:hard-permutation-action}
 \end{equation}
-where $Z_\ell$ contains unconstrained assignment scores and $u_\ell$ contains
-log-scales.  On layer-$\ell$ outputs we apply $S_\ell D_\ell$ and on the next
-layer's inputs the compensating $D_\ell^{-1}S_\ell^\top$.  For evaluation, each
-$S_\ell$ is projected to a hard assignment.  The resulting transformation is
-exactly function preserving.  During soft optimization, the transpose is the
-standard differentiable Sinkhorn approximation rather than an exact inverse.
+Because $P_\ell^{-1}=P_\ell^\top$ and ReLU commutes with permutation,
+Eq.~\ref{eq:hard-permutation-action} preserves the network function.
+
+Sinkhorn re-basing replaces each discrete $P_\ell$ with a differentiable soft
+assignment~\citep{guerrero2023rebasin}.  An unconstrained score matrix $Z_\ell$
+is mapped to an approximately doubly stochastic matrix
+$S_\ell=\operatorname{Sinkhorn}(Z_\ell/\tau)$, where the temperature $\tau$
+controls its sharpness.  It optimizes the layerwise scores using the relaxed
+action
+\begin{equation}
+\widetilde W_\ell^{\mathrm{soft}}
+=S_\ell W_\ell S_{\ell-1}^{\top},\qquad
+\widetilde b_\ell^{\mathrm{soft}}=S_\ell b_\ell.
+\label{eq:soft-permutation-action}
+\end{equation}
+Gradients through the Sinkhorn map are obtained by implicit
+differentiation.  Since $S_\ell^\top$ is generally not $S_\ell^{-1}$, the soft
+action need not preserve the endpoint function.  Linear assignment projects
+each $S_\ell$ to a hard, function-preserving permutation for evaluation.
+
+We extend Sinkhorn because it already expresses permutation search as a
+continuous, differentiable optimization, so continuous scale variables can be
+added and trained jointly under the same interpolation objective.  This choice
+does not imply that other re-basing methods cannot incorporate scaling.
+Doing so in layerwise matching or straight-through methods would instead
+require modifying their matching objectives or coupling discrete permutation
+updates with continuous scale optimization, making the extension less direct.
+
+\paragraph{Scale-aware extension.}
+For each hidden layer, we introduce log-scales $u_\ell$ and set
+$D_\ell=\operatorname{diag}(e^{u_\ell})$.  The exponential
+enforces the positivity required by ReLU homogeneity.  Combining $D_\ell$ with
+a hard permutation gives the exact monomial action
+\begin{equation}
+\widetilde W_\ell
+=P_\ell D_\ell W_\ell D_{\ell-1}^{-1}P_{\ell-1}^{\top},
+\qquad
+\widetilde b_\ell=P_\ell D_\ell b_\ell.
+\label{eq:hard-monomial-action}
+\end{equation}
+Positive homogeneity propagates the scaled, permuted activation to the next
+layer, where the inverse factor cancels it; hence the transformed endpoint
+computes the same function.
+
+During joint soft optimization, our implementation uses the corresponding
+relaxation
+\begin{equation}
+\widehat W_\ell
+=S_\ell D_\ell W_\ell D_{\ell-1}^{-1}S_{\ell-1}^{\top},
+\qquad
+\widehat b_\ell=S_\ell D_\ell b_\ell.
+\label{eq:soft-monomial-action}
+\end{equation}
+Only the diagonal scaling is inverted exactly; $S_{\ell-1}^{\top}$ remains the
+soft surrogate used by the original method.  Projecting $S_\ell$ to $P_\ell$
+recovers the exact action in Eq.~\ref{eq:hard-monomial-action}.
 
 We consider two variants.  \emph{Joint permutation+scale} optimizes $Z_\ell$
 and $u_\ell$ together.  \emph{Scale refinement} first obtains and freezes a
 hard permutation, then optimizes $u_\ell$ alone.  On XOR, the frozen
 permutation can be the exhaustive optimum, making the incremental contribution
 of scale identifiable.  A quadratic penalty on $u_\ell$ controls the unbounded
-scale gauge.
-
-The optimization objective is experiment-specific.  For XOR we directly
-minimize a differentiable estimate of Eq.~\ref{eq:barrier}: the maximum excess
-binary cross-entropy over $31$ interpolation points, plus log-scale
-regularization.  For VGG, evaluating the full path at every update is costly,
-so alignment minimizes calibration loss at the midpoint; reported barriers
-are then computed from the test-set interpolation after hard projection.  This
-distinction avoids conflating the scalable proxy used on VGG with the barrier
-objective used in the controlled experiment.
+scaling symmetry and discourages numerically ill-conditioned representatives.
+Extending the standard re-basin notation $\pi_P(\theta_B)$, let
+$\pi_{Z,u}(\theta_B)$ denote the endpoint transformed by the current soft
+assignments and scales.  Following the original Sinkhorn
+method~\citep{guerrero2023rebasin}, we use the interpolation cost
+\begin{equation}
+ C_\lambda(Z,u;\theta_A,\theta_B)
+ =C\!\left((1-\lambda)\theta_A
+ +\lambda\pi_{Z,u}(\theta_B)\right).
+\label{eq:interpolation-cost}
+\end{equation}
+Fixing $\lambda=0.5$ gives the midpoint objective; drawing
+$\lambda\sim\mathcal{U}(0,1)$ independently at each update gives the random-point
+objective.  The midpoint is inexpensive and often the most vulnerable
+location, whereas random sampling covers the path across updates.  We minimize
+Eq.~\ref{eq:interpolation-cost} plus
+$\lambda_s\sum_\ell\lVert u_\ell\rVert_2^2$, where the sum is over hidden
+layers.  Freezing a hard permutation removes $Z$ from the optimization.  We
+report barriers only after projecting the soft assignments to hard
+permutations.  Experiment-specific objectives and grids are given in
+Appendix~\ref{app:details}.
 
 \section{Experiment I: Permutation Is Not Enough}
 \label{sec:xor}
@@ -621,9 +675,12 @@ pairs use up to ten.
 
 \subsection{XOR scale-aware optimization}
 
-Final interpolation curves use $61$ evaluation points.  XOR alignment directly
-optimizes the maximum sampled excess binary cross-entropy over $31$
-interpolation points, rather than midpoint loss alone.  The default
+At each optimization step, XOR alignment evaluates binary cross-entropy at
+$31$ evenly spaced interpolation points.  The implementation subtracts the
+mean endpoint loss from each value and backpropagates the largest resulting
+excess; thus, the path-sample contribution to the gradient comes from the
+currently worst grid point rather than an average over all $31$ locations.
+Final reported curves are evaluated on a separate $61$-point grid.  The default
 permutation-only Sinkhorn run uses Adam for $500$ steps,
 learning rate $0.01$, temperature $1$, $20$ Sinkhorn iterations, and identity
 strength $1$.  Scale refinement uses Adam for $500$ steps, learning rate

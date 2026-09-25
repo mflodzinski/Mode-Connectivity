@@ -36,7 +36,7 @@ sinkhorn_l: 1.0
 sinkhorn_tau: 1.0
 sinkhorn_iters: 20
 lambda_scale: 0.001
-atol: 0.0001
+atol: 0.0002
 rtol: 0.0001
 validation_alphas: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 selection_alphas: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
@@ -116,8 +116,8 @@ slurm_resources:
   cpu: {cpus: 1, mem: 1GB, time: "00:10:00"}
   prepare: {cpus: 1, mem: 1GB, time: "00:10:00"}
   reuse: {cpus: 1, mem: 2GB, time: "00:20:00"}
-  calibrate_base: {cpus: 1, mem: 2GB, time: "01:00:00"}
-  calibrate_branch: {cpus: 1, mem: 2GB, time: "00:45:00"}
+  calibrate_base: {cpus: 1, mem: 2GB, time: "00:45:00"}
+  calibrate_branch: {cpus: 1, mem: 2GB, time: "00:30:00"}
   replicate_selected_evaluation: {cpus: 1, mem: 2GB, time: "00:45:00"}
   endpoint_chunk: {cpus: 1, mem: 2GB, time: "00:15:00"}
   calibration_evaluation: {cpus: 1, mem: 2GB, time: "00:20:00"}

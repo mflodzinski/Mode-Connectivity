@@ -4,7 +4,7 @@ data_root: data
 dataset: cifar10
 model: VGG11
 device: cuda
-workers: 1
+workers: 0
 cpu_threads: 1
 
 seed_pairs: [[0, 1], [2, 3], [4, 5]]
@@ -120,12 +120,12 @@ slurm_resources:
   cpu: {cpus: 1, mem: 1GB, time: "00:10:00"}
   prepare: {cpus: 1, mem: 1GB, time: "00:10:00"}
   reuse: {cpus: 1, mem: 2GB, time: "00:20:00"}
-  calibrate_base: {cpus: 2, mem: 2GB, time: "01:00:00"}
-  calibrate_branch: {cpus: 2, mem: 2GB, time: "00:45:00"}
-  replicate_selected_evaluation: {cpus: 2, mem: 2GB, time: "01:00:00"}
+  calibrate_base: {cpus: 2, mem: 4GB, time: "00:20:00"}
+  calibrate_branch: {cpus: 2, mem: 4GB, time: "00:15:00"}
+  replicate_selected_evaluation: {cpus: 2, mem: 4GB, time: "01:00:00"}
   endpoint_chunk: {cpus: 2, mem: 2GB, time: "00:10:00"}
   calibration_evaluation: {cpus: 2, mem: 2GB, time: "00:30:00"}
   report: {cpus: 1, mem: 2GB, time: "00:20:00"}
-  gpu: {cpus: 2, mem: 2GB, time: "01:00:00"}
+  gpu: {cpus: 2, mem: 4GB, time: "01:00:00"}
 
 defaults: []

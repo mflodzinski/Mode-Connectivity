@@ -62,10 +62,11 @@ bash ops/slurm/dense_linear_stage/submit_main.sh \
 
 Use `--dry-run` to inspect every `sbatch` command. The default array
 concurrency is three because the requested DAIC resource is an A40.
-The VGG11 presets request 60 minutes for base calibration, 45 minutes for
-scale-branch calibration, 30 minutes for calibration-pair evaluation, and one
-hour for a bundled two-cell held-out fit/evaluation. Fashion-MNIST bundles
-more cells per job and uses 20–45 minute evaluation requests. These are
+The measured VGG11 pilot led to 20-minute base and 15-minute branch requests,
+with 4 GB host memory and no DataLoader subprocess for fitting. Calibration
+evaluation receives 30 minutes, and a bundled two-cell held-out fit/evaluation
+receives one hour. Fashion-MNIST bundles more cells per job and uses 20–45
+minute requests. These are
 initial estimates; run the resource recommender after the pilot and before the
 full submission.
 
