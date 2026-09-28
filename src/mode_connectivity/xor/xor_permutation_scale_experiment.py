@@ -20,6 +20,7 @@ import torch.nn.functional as F
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from omegaconf import OmegaConf
 
 from mode_connectivity.alignment.sinkhorn_utils import stable_sinkhorn
@@ -1003,23 +1004,35 @@ def save_pair_curve(pair_dir: Path, name: str, model_a: SimpleMLP, model_b: Simp
 
 
 def get_plot_style() -> tuple[dict[str, str], dict[str, str]]:
+    # Okabe--Ito-derived palette: colorblind-safe and legible in print.
     colors = {
-        "no_alignment": "tab:gray",
-        "best_permutation": "tab:blue",
-        "sinkhorn_permutation": "tab:orange",
-        "perm_plus_scale": "tab:green",
-        "sinkhorn_perm_plus_scale": "tab:purple",
-        "joint_perm_scale_exact": "tab:red",
+        "no_alignment": "#7A7A7A",
+        "best_permutation": "#0072B2",
+        "sinkhorn_permutation": "#E69F00",
+        "perm_plus_scale": "#009E73",
+        "sinkhorn_perm_plus_scale": "#CC79A7",
+        "joint_perm_scale_exact": "#D55E00",
     }
     labels = {
-        "no_alignment": "No Alignment",
-        "best_permutation": "Best Exhaustive Permutation",
-        "sinkhorn_permutation": "Sinkhorn Permutation Only (From Scratch)",
-        "sinkhorn_perm_plus_scale": "Sinkhorn Permutation + Scale (From Scratch)",
-        "perm_plus_scale": "Best Exhaustive Permutation + Scale Refinement",
-        "joint_perm_scale_exact": "Joint permutation + scale (exact)",
+        "no_alignment": "No alignment",
+        "best_permutation": "Permutation only (exhaustive)",
+        "sinkhorn_permutation": "Permutation only (Sinkhorn)",
+        "sinkhorn_perm_plus_scale": "Permutation + scale (joint Sinkhorn)",
+        "perm_plus_scale": "Exhaustive permutation + scale refinement",
+        "joint_perm_scale_exact": "Permutation + scale (exact)",
     }
     return colors, labels
+
+
+def get_curve_linestyles() -> dict[str, str | tuple[int, tuple[int, ...]]]:
+    return {
+        "no_alignment": (0, (1, 1)),
+        "best_permutation": "-",
+        "sinkhorn_permutation": "--",
+        "perm_plus_scale": "-",
+        "sinkhorn_perm_plus_scale": "-.",
+        "joint_perm_scale_exact": (0, (3, 1, 1, 1)),
+    }
 
 
 def get_core_plot_methods() -> list[str]:
@@ -1034,18 +1047,28 @@ def get_core_plot_methods() -> list[str]:
 
 def plot_pair_curves(pair_payload: dict[str, Any], output_path: Path, metric_key: str, ylabel: str, title: str) -> None:
     colors, labels = get_plot_style()
+    linestyles = get_curve_linestyles()
     ordered_methods = get_core_plot_methods()
-    plt.figure()
+    _, axis = plt.subplots()
     for method_key in ordered_methods:
         metrics = pair_payload[method_key]["metrics"]
         t = np.asarray(metrics["t"], dtype=np.float64)
         values = np.asarray(metrics["accuracy" if metric_key == "acc" else "loss"], dtype=np.float64)
-        plt.plot(t, values, label=labels[method_key], color=colors[method_key])
-    plt.xlabel("t (interpolation parameter)")
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.legend()
-    plt.savefig(output_path, dpi=220, bbox_inches="tight")
+        axis.plot(
+            t,
+            values,
+            label=labels[method_key],
+            color=colors[method_key],
+            linestyle=linestyles[method_key],
+            linewidth=2.2,
+        )
+    axis.set_xlabel(r"$\lambda$")
+    axis.set_ylabel(ylabel)
+    axis.set_title(title, fontweight="bold")
+    axis.set_xticks(np.linspace(0.0, 1.0, 5))
+    axis.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    axis.legend()
+    axis.figure.savefig(output_path, dpi=220, bbox_inches="tight")
     plt.close()
 
 
@@ -1124,8 +1147,9 @@ def plot_aggregate_curves(
     ylabel_fontweight: str = "bold",
     legend_fontsize: int = 14,
 ) -> None:
-    plt.figure()
+    _, axis = plt.subplots()
     colors, labels = get_plot_style()
+    linestyles = get_curve_linestyles()
     ordered_methods = get_core_plot_methods() + ["joint_perm_scale_exact"]
     for method_key in ordered_methods:
         if method_key not in aggregates:
@@ -1135,16 +1159,26 @@ def plot_aggregate_curves(
         mean = np.asarray(aggregate[f"{metric_key}_mean"], dtype=np.float64)
         std = np.asarray(aggregate[f"{metric_key}_std"], dtype=np.float64)
         color = colors[method_key]
-        plt.plot(t, mean, label=labels[method_key], color=color)
+        axis.plot(
+            t,
+            mean,
+            label=labels[method_key],
+            color=color,
+            linestyle=linestyles[method_key],
+            linewidth=2.4,
+        )
         if include_std:
-            plt.fill_between(t, mean - std, mean + std, color=color, alpha=0.15)
-    plt.xlabel("t(interpolation parameter)")
-    plt.ylabel(ylabel, fontsize=ylabel_fontsize, fontweight=ylabel_fontweight)
+            axis.fill_between(t, mean - std, mean + std, color=color, alpha=0.15)
+    axis.set_xlabel(r"$\lambda$", fontsize=16)
+    axis.set_ylabel(ylabel, fontsize=ylabel_fontsize, fontweight=ylabel_fontweight)
+    axis.set_xticks(np.linspace(0.0, 1.0, 5))
+    axis.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    axis.tick_params(axis="both", labelsize=14)
     if title:
-        plt.title(title, fontsize=title_fontsize)
+        axis.set_title(title, fontsize=title_fontsize, fontweight="bold")
     if show_legend:
-        plt.legend(fontsize=legend_fontsize)
-    plt.savefig(output_path, dpi=220, bbox_inches="tight")
+        axis.legend(fontsize=legend_fontsize)
+    axis.figure.savefig(output_path, dpi=220, bbox_inches="tight")
     plt.close()
 
 
@@ -1218,7 +1252,7 @@ def write_aggregate_stats_txt(
             mean = np.asarray(aggregate[f"{metric_key}_mean"], dtype=np.float64)
             std = np.asarray(aggregate[f"{metric_key}_std"], dtype=np.float64)
             handle.write(f"[{method_key}] {labels[method_key]}\n")
-            handle.write("t mean std\n")
+            handle.write("lambda mean std\n")
             for t_value, mean_value, std_value in zip(t, mean, std):
                 handle.write(f"{t_value:.8f} {mean_value:.8f} {std_value:.8f}\n")
             handle.write("\n")

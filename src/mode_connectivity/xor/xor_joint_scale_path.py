@@ -333,13 +333,26 @@ def run_trial(
 def plot_trial(trial, title, output):
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
     colors = {"path_only": "tab:blue", "joint": "tab:purple", "alternating": "tab:green"}
-    labels = {"path_only": "path only", "joint": "joint path + scale", "alternating": "alternating"}
+    labels = {
+        "path_only": "Nonlinear path",
+        "joint": "Nonlinear path + scale",
+        "alternating": "Alternating path + scale",
+    }
     for method, result in trial["methods"].items():
         best = result["best"]
         axes[0].plot(best["t"], best["loss"], label=labels[method], color=colors[method])
         axes[1].plot(best["t"], best["accuracy"], label=labels[method], color=colors[method])
-    axes[0].set(xlabel="t", ylabel="Binary cross-entropy", title="Best-restart loss")
-    axes[1].set(xlabel="t", ylabel="Accuracy (%)", title="Best-restart accuracy", ylim=(0, 102))
+    axes[0].set(
+        xlabel=r"$\lambda$",
+        ylabel="Binary cross-entropy",
+        title="Best-restart loss",
+    )
+    axes[1].set(
+        xlabel=r"$\lambda$",
+        ylabel="Accuracy (%)",
+        title="Best-restart accuracy",
+        ylim=(0, 102),
+    )
     for axis in axes:
         axis.grid(alpha=0.25)
     axes[0].legend()
@@ -484,7 +497,11 @@ def assess_positive_control(positive_control, success_loss_barrier):
 
 def plot_summary(pair_results, methods, output):
     trials = [trial for pair in pair_results for trial in pair["permutations"]]
-    labels = {"path_only": "path only", "joint": "joint path + scale", "alternating": "alternating"}
+    labels = {
+        "path_only": "Nonlinear path",
+        "joint": "Nonlinear path + scale",
+        "alternating": "Alternating path + scale",
+    }
     values = [
         [trial["methods"][method]["best"]["loss_barrier"] for trial in trials]
         for method in methods

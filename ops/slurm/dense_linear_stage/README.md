@@ -66,7 +66,8 @@ The measured VGG11 pilot led to 20-minute base and 15-minute branch requests,
 with 4 GB host memory and no DataLoader subprocess for fitting. Calibration
 evaluation receives 30 minutes, and a bundled two-cell held-out fit/evaluation
 receives one hour. Fashion-MNIST bundles more cells per job and uses 20–45
-minute requests. These are
+minute fitting requests; measured full-profile evaluation requires one hour
+for three calibration cells and two hours for six held-out cells. These are
 initial estimates; run the resource recommender after the pilot and before the
 full submission.
 

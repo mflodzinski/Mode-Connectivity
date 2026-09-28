@@ -23,43 +23,33 @@ from mode_connectivity.alignment.permutation_pipeline import compute_paper_loss_
 
 
 METHOD_SPECS = [
-    ("test_naive", "No Alignment"),
-    ("test_perm", "Permutation Only"),
-    ("test_scale", "Permutation + Scale"),
-    ("perm_then_scale_only", "Permutation then Scale"),
+    ("test_naive", "No alignment"),
+    ("test_perm", "Permutation only (Sinkhorn)"),
+    ("test_scale", "Permutation + scale (joint Sinkhorn)"),
+    (
+        "perm_then_scale_only",
+        "Sinkhorn + scale refinement",
+    ),
 ]
 
 ARCHITECTURES = ["vgg11", "vgg13", "vgg16", "vgg19"]
 
-COLOR_CONFIGS = [
-    (
-        "color_config_1",
-        {
-            "No Alignment": "#BDBDBD",
-            "Permutation Only": "#4C78A8",
-            "Permutation + Scale": "#8E63CE",
-            "Permutation then Scale": "#59A14F",
-        },
-    ),
-    (
-        "color_config_2",
-        {
-            "No Alignment": "#999999",
-            "Permutation Only": "#377EB8",
-            "Permutation + Scale": "#984EA3",
-            "Permutation then Scale": "#4DAF4A",
-        },
-    ),
-    (
-        "color_config_3",
-        {
-            "No Alignment": "#CFCFCF",
-            "Permutation Only": "#7AA6DC",
-            "Permutation + Scale": "#B39DDB",
-            "Permutation then Scale": "#81C784",
-        },
-    ),
-]
+# Match the Okabe--Ito-derived method colors used by the XOR profiles in
+# Figure 2.  Hatching supplies a second, grayscale-safe encoding: both
+# scale-aware variants are hatched, while raw and permutation-only bars are
+# solid.
+METHOD_STYLES = {
+    "No alignment": {"color": "#7A7A7A", "hatch": ""},
+    "Permutation only (Sinkhorn)": {"color": "#E69F00", "hatch": ""},
+    "Permutation + scale (joint Sinkhorn)": {
+        "color": "#CC79A7",
+        "hatch": "///",
+    },
+    "Sinkhorn + scale refinement": {
+        "color": "#009E73",
+        "hatch": "///",
+    },
+}
 
 PERM_THEN_SCALE_COMPARISON_PATHS = {
     "vgg11": PROJECT_ROOT
@@ -108,7 +98,9 @@ def main() -> None:
         for curve_key, label in METHOD_SPECS[:3]:
             curve = curves[curve_key]
             plot_data[label].append(compute_barrier(curve["losses"], curve["lambdas"]))
-        plot_data["Permutation then Scale"].append(load_perm_then_scale_barrier(architecture))
+        plot_data["Sinkhorn + scale refinement"].append(
+            load_perm_then_scale_barrier(architecture)
+        )
 
     output_root = PROJECT_ROOT / "results" / "vgg_cifar10_three_way_barriers"
     output_root.mkdir(parents=True, exist_ok=True)
@@ -118,61 +110,76 @@ def main() -> None:
     x = np.arange(len(architecture_labels))
     width = 0.14
 
-    def save_barplot(output_path: Path, show_legend: bool, colors: dict[str, str]) -> None:
-        fig, ax = plt.subplots(figsize=(10, 6))
+    def save_barplot(output_path: Path, show_legend: bool) -> None:
+        matplotlib.rcParams["hatch.linewidth"] = 1.5
+        fig, ax = plt.subplots(figsize=(11.5, 7.0))
         for index, (_, label) in enumerate(METHOD_SPECS):
             offset = (index - (len(METHOD_SPECS) - 1) / 2.0) * width
-            ax.bar(x + offset, plot_data[label], width=width, label=label, color=colors[label])
+            style = METHOD_STYLES[label]
+            ax.bar(
+                x + offset,
+                plot_data[label],
+                width=width,
+                label=label,
+                color=style["color"],
+                hatch=style["hatch"],
+                edgecolor="#333333",
+                linewidth=0.9,
+            )
 
         ax.set_xticks(x)
-        ax.set_xticklabels(architecture_labels, fontsize=16)
-        ax.set_xlabel("Architecture", fontsize=18, fontweight="bold")
-        ax.set_ylabel("Test Loss Barrier", fontsize=18, fontweight="bold")
-        ax.tick_params(axis="y", labelsize=14)
+        ax.set_xticklabels(architecture_labels, fontsize=20)
+        ax.set_xlabel("Architecture", fontsize=22)
+        ax.set_ylabel("Test loss barrier", fontsize=22)
+        ax.tick_params(axis="both", labelsize=18, width=1.2, length=5)
         ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
-        ax.grid(True, which="major", axis="both", linestyle="--", linewidth=0.7, alpha=0.5)
+        ax.grid(True, which="major", axis="y", linestyle="--", linewidth=0.8, alpha=0.45)
         ax.set_axisbelow(True)
+        for spine in ax.spines.values():
+            spine.set_linewidth(1.2)
         if show_legend:
-            ax.legend(fontsize=13)
+            ax.legend(
+                loc="lower center",
+                bbox_to_anchor=(0.5, 1.01),
+                ncol=2,
+                fontsize=16,
+                frameon=True,
+                framealpha=0.95,
+                edgecolor="0.75",
+                columnspacing=1.5,
+                handlelength=2.4,
+            )
 
         fig.tight_layout()
-        fig.savefig(output_path, dpi=200, bbox_inches="tight")
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
         plt.close(fig)
 
-    for index, (config_name, colors) in enumerate(COLOR_CONFIGS, start=1):
-        result_stem = f"vgg_cifar10_three_way_test_loss_barriers_{config_name}"
-        thesis_stem = f"barplot_vggs_{config_name}"
+    result_with_legend = output_root / "vgg_cifar10_three_way_test_loss_barriers.png"
+    result_no_legend = output_root / "vgg_cifar10_three_way_test_loss_barriers_no_legend.png"
+    save_barplot(result_with_legend, show_legend=True)
+    save_barplot(result_no_legend, show_legend=False)
 
-        result_with_legend = output_root / f"{result_stem}.png"
-        result_no_legend = output_root / f"{result_stem}_no_legend.png"
-        save_barplot(result_with_legend, show_legend=True, colors=colors)
-        save_barplot(result_no_legend, show_legend=False, colors=colors)
-
-        thesis_with_legend = thesis_output_root / f"{thesis_stem}.png"
-        thesis_no_legend = thesis_output_root / f"{thesis_stem}_no_legend.png"
-        thesis_with_legend.write_bytes(result_with_legend.read_bytes())
-        thesis_no_legend.write_bytes(result_no_legend.read_bytes())
-
-        if index == 1:
-            canonical_with_legend = output_root / "vgg_cifar10_three_way_test_loss_barriers.png"
-            canonical_no_legend = output_root / "vgg_cifar10_three_way_test_loss_barriers_no_legend.png"
-            canonical_with_legend.write_bytes(result_with_legend.read_bytes())
-            canonical_no_legend.write_bytes(result_no_legend.read_bytes())
-            (thesis_output_root / "barplot_vggs.png").write_bytes(result_with_legend.read_bytes())
-            (thesis_output_root / "barplot_vggs_no_legend.png").write_bytes(result_no_legend.read_bytes())
+    (thesis_output_root / "barplot_vggs.png").write_bytes(
+        result_with_legend.read_bytes()
+    )
+    (thesis_output_root / "barplot_vggs_no_legend.png").write_bytes(
+        result_no_legend.read_bytes()
+    )
+    paper_output = (
+        PROJECT_ROOT
+        / "weekly_thesis_update(4)"
+        / "paper_aistats2027"
+        / "figures"
+        / "barplot_vggs.png"
+    )
+    paper_output.write_bytes(result_with_legend.read_bytes())
 
     with open(output_root / "vgg_cifar10_three_way_test_loss_barriers.json", "w") as handle:
         json.dump(
             {
                 "architectures": architecture_labels,
                 "barriers": plot_data,
-                "color_configs": [
-                    {
-                        "name": config_name,
-                        "colors": colors,
-                    }
-                    for config_name, colors in COLOR_CONFIGS
-                ],
+                "styles": METHOD_STYLES,
             },
             handle,
             indent=2,
