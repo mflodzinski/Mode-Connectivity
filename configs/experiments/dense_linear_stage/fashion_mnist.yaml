@@ -118,9 +118,9 @@ slurm_resources:
   reuse: {cpus: 1, mem: 2GB, time: "00:20:00"}
   calibrate_base: {cpus: 1, mem: 2GB, time: "00:45:00"}
   calibrate_branch: {cpus: 1, mem: 2GB, time: "00:30:00"}
-  replicate_selected_evaluation: {cpus: 1, mem: 2GB, time: "02:00:00"}
+  replicate_selected_evaluation: {cpus: 1, mem: 2GB, time: "03:00:00"}
   endpoint_chunk: {cpus: 1, mem: 2GB, time: "00:15:00"}
-  calibration_evaluation: {cpus: 1, mem: 2GB, time: "01:00:00"}
+  calibration_evaluation: {cpus: 1, mem: 2GB, time: "02:00:00"}
   report: {cpus: 1, mem: 2GB, time: "00:20:00"}
   gpu: {cpus: 1, mem: 2GB, time: "00:45:00"}
 

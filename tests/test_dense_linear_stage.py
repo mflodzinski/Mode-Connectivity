@@ -92,6 +92,9 @@ def test_resource_presets_follow_daic_feedback():
         "cpus": 2, "mem": "4GB", "time": "01:00:00"
     }
     assert fashion["slurm_resources"]["replicate_selected_evaluation"] == {
+        "cpus": 1, "mem": "2GB", "time": "03:00:00"
+    }
+    assert fashion["slurm_resources"]["calibration_evaluation"] == {
         "cpus": 1, "mem": "2GB", "time": "02:00:00"
     }
     assert vgg["replication_pairs_per_task"] == 2

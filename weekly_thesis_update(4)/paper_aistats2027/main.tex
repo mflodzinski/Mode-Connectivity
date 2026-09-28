@@ -545,6 +545,55 @@ supports the practical relevance of scaling beyond the toy setting.
     \label{fig:vgg}
 \end{figure*}
 
+\section{Linear Training-Stage Connectivity}
+\label{sec:stage-connectivity}
+
+Standard mode-connectivity experiments compare converged solutions, but this
+does not reveal when incompatibility between independent training runs first
+appears.  Moreover, an intermediate checkpoint need not be a local minimum, so
+we refer to this question as \emph{training-stage connectivity} rather than mode
+connectivity.  Let $\theta_A^{(n)}$ and $\theta_B^{(m)}$ denote checkpoints from
+two independently initialized VGG11 models after $n$ and $m$ completed epochs.
+We ask how their interpolation geometry changes as either endpoint advances
+through training, and whether any emerging barrier is explained by exact
+parameter symmetries.
+
+We train six no-batch-normalization VGG11 models on CIFAR-10 and group them into
+three independent pairs.  For each run we retain checkpoints at epochs
+$\{0,1,2,3,5,10,20,30,60,100,150,200\}$, where epoch zero is the untrained
+initialization and is analyzed separately from trained checkpoints.  The
+complete design evaluates the ordered $12\times12$ matrix
+$\theta_A^{(n)}\leftrightarrow\theta_B^{(m)}$.  Its diagonal measures same-stage
+compatibility, while the final row and column compare an intermediate model to
+a converged model in both independent-run directions.
+
+For every checkpoint pair, we compare raw interpolation, weight matching,
+Sinkhorn permutation alignment, and variants that augment either alignment
+with function-preserving positive ReLU scaling.  The first seed pair is used to
+select, separately for each matrix cell, the best permutation-only method and
+the best method overall using validation loss.  These choices and their
+hyperparameters are then frozen and evaluated on two held-out seed pairs.
+Alignment optimization uses the same $45{,}000$ training examples as endpoint
+training; final profiles use a fixed stratified $10{,}000$-example training
+subset and the full CIFAR-10 test set.  Test data are not accessed during
+alignment or method selection.
+
+We report the chord barrier from Eq.~\ref{eq:barrier}, denoted
+$B_{\mathrm{chord}}$, together with
+\begin{equation}
+B_{\mathrm{worse}}
+=\sup_{\lambda\in[0,1]} C(\theta(\lambda))
+-\max\{C(\theta_A),C(\theta_B)\}.
+\label{eq:worse-barrier}
+\end{equation}
+The former measures deviation from the line joining the two endpoint costs and
+maintains comparability with re-basing work.  The latter asks whether the path
+ever performs worse than its worse endpoint, which is especially useful when
+$n\neq m$ and endpoint losses differ substantially.  Both quantities are
+computed for cross-entropy and classification error.  This design separates
+three questions: when linear incompatibility emerges, how much permutation
+removes, and how much additional mismatch is explained by positive scaling.
+
 \section{Discussion and Limitations}
 
 \paragraph{Symmetry and redundancy play different roles.}
