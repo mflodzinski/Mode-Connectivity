@@ -1,0 +1,95 @@
+# @package _global_
+defaults:
+  - fashion_mnist
+  - _self_
+
+output_root: results/final_alignment_fashion_mnist
+benchmark_mode: final_alignment
+calibrate_all_replicates: true
+evaluate_all_methods: true
+stages: [100]
+stage_progress: [1.0]
+profile_points_all: 61
+profile_points_selected: 61
+reuse:
+  wm_sources:
+    - {kind: fashion_stage, root: results/fashion_mnist_mlp10x512}
+  use_hyperparameter_priors: false
+fixed_hyperparameter_values: {}
+fixed_hyperparameter_evidence: {}
+
+# Use the same broad validation-only search as the VGG benchmark. Candidate
+# budgets are scaled to the 55,000-example Fashion-MNIST training split.
+calibration_candidates:
+  wm_scale:
+    - {lr: 0.005, scale_penalty: 0.0001, calibration_max_examples: 165000}
+    - {lr: 0.005, scale_penalty: 0.001, calibration_max_examples: 165000}
+    - {lr: 0.005, scale_penalty: 0.003, calibration_max_examples: 165000}
+    - {lr: 0.005, scale_penalty: 0.01, calibration_max_examples: 165000}
+    - {lr: 0.02, scale_penalty: 0.0001, calibration_max_examples: 165000}
+    - {lr: 0.02, scale_penalty: 0.001, calibration_max_examples: 165000}
+    - {lr: 0.02, scale_penalty: 0.003, calibration_max_examples: 165000}
+    - {lr: 0.02, scale_penalty: 0.01, calibration_max_examples: 165000}
+    - {lr: 0.08, scale_penalty: 0.0001, calibration_max_examples: 165000}
+    - {lr: 0.08, scale_penalty: 0.001, calibration_max_examples: 165000}
+    - {lr: 0.08, scale_penalty: 0.003, calibration_max_examples: 165000}
+    - {lr: 0.08, scale_penalty: 0.01, calibration_max_examples: 165000}
+  sinkhorn:
+    - {lr: 0.03, tau: 1.0, calibration_max_examples: 550000}
+    - {lr: 0.03, tau: 2.5, calibration_max_examples: 550000}
+    - {lr: 0.03, tau: 5.0, calibration_max_examples: 550000}
+    - {lr: 0.10, tau: 1.0, calibration_max_examples: 550000}
+    - {lr: 0.10, tau: 2.5, calibration_max_examples: 550000}
+    - {lr: 0.10, tau: 5.0, calibration_max_examples: 550000}
+    - {lr: 0.30, tau: 1.0, calibration_max_examples: 550000}
+    - {lr: 0.30, tau: 2.5, calibration_max_examples: 550000}
+    - {lr: 0.30, tau: 5.0, calibration_max_examples: 550000}
+    - {lr: 0.75, tau: 1.0, calibration_max_examples: 550000}
+    - {lr: 0.75, tau: 2.5, calibration_max_examples: 550000}
+    - {lr: 0.75, tau: 5.0, calibration_max_examples: 550000}
+  sinkhorn_scale_joint:
+    - {lr: 0.01, tau: 1.0, scale_penalty: 0.0003, calibration_max_examples: 165000}
+    - {lr: 0.01, tau: 1.0, scale_penalty: 0.003, calibration_max_examples: 165000}
+    - {lr: 0.01, tau: 2.5, scale_penalty: 0.0003, calibration_max_examples: 165000}
+    - {lr: 0.01, tau: 2.5, scale_penalty: 0.003, calibration_max_examples: 165000}
+    - {lr: 0.05, tau: 1.0, scale_penalty: 0.0003, calibration_max_examples: 165000}
+    - {lr: 0.05, tau: 1.0, scale_penalty: 0.003, calibration_max_examples: 165000}
+    - {lr: 0.05, tau: 2.5, scale_penalty: 0.0003, calibration_max_examples: 165000}
+    - {lr: 0.05, tau: 2.5, scale_penalty: 0.003, calibration_max_examples: 165000}
+    - {lr: 0.20, tau: 1.0, scale_penalty: 0.0003, calibration_max_examples: 165000}
+    - {lr: 0.20, tau: 1.0, scale_penalty: 0.003, calibration_max_examples: 165000}
+    - {lr: 0.20, tau: 2.5, scale_penalty: 0.0003, calibration_max_examples: 165000}
+    - {lr: 0.20, tau: 2.5, scale_penalty: 0.003, calibration_max_examples: 165000}
+  sinkhorn_scale_finetune:
+    - {lr: 0.005, scale_penalty: 0.0001, calibration_max_examples: 165000}
+    - {lr: 0.005, scale_penalty: 0.001, calibration_max_examples: 165000}
+    - {lr: 0.005, scale_penalty: 0.003, calibration_max_examples: 165000}
+    - {lr: 0.005, scale_penalty: 0.01, calibration_max_examples: 165000}
+    - {lr: 0.02, scale_penalty: 0.0001, calibration_max_examples: 165000}
+    - {lr: 0.02, scale_penalty: 0.001, calibration_max_examples: 165000}
+    - {lr: 0.02, scale_penalty: 0.003, calibration_max_examples: 165000}
+    - {lr: 0.02, scale_penalty: 0.01, calibration_max_examples: 165000}
+    - {lr: 0.08, scale_penalty: 0.0001, calibration_max_examples: 165000}
+    - {lr: 0.08, scale_penalty: 0.001, calibration_max_examples: 165000}
+    - {lr: 0.08, scale_penalty: 0.003, calibration_max_examples: 165000}
+    - {lr: 0.08, scale_penalty: 0.01, calibration_max_examples: 165000}
+
+calibration_candidate_shards:
+  wm_scale: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
+  sinkhorn: [[0, 3, 6, 9], [1, 4, 7, 10], [2, 5, 8, 11]]
+  sinkhorn_scale_joint: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
+  sinkhorn_scale_finetune: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
+
+calibration_pairs_per_task: 1
+calibration_evaluation_pairs_per_task: 1
+endpoint_pairs_per_task: 6
+slurm_resources:
+  cpu: {cpus: 1, mem: 1GB, time: "00:10:00"}
+  prepare: {cpus: 1, mem: 1GB, time: "00:10:00"}
+  reuse: {cpus: 1, mem: 2GB, time: "00:20:00"}
+  calibrate_base: {cpus: 1, mem: 3GB, time: "03:50:00"}
+  calibrate_branch: {cpus: 1, mem: 3GB, time: "03:50:00"}
+  endpoint_chunk: {cpus: 1, mem: 2GB, time: "00:10:00"}
+  calibration_evaluation: {cpus: 1, mem: 3GB, time: "03:50:00"}
+  report: {cpus: 1, mem: 2GB, time: "00:20:00"}
+  gpu: {cpus: 1, mem: 3GB, time: "03:50:00"}

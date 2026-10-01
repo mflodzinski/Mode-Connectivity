@@ -100,12 +100,18 @@ def artifact_aligned_state(cfg, replicate, left_epoch, right_epoch, artifact):
     raise ValueError("Alignment artifact does not contain a materializable state.")
 
 
-def hyperparameters(cfg, method: str, left_epoch: int, right_epoch: int) -> dict:
+def hyperparameters(
+    cfg, method: str, left_epoch: int, right_epoch: int, replicate: int = 0
+) -> dict:
     result = dict(cfg["method_hyperparameters"][method])
     path = Path(cfg["output_root"]) / "hyperparameters.json"
     if path.exists() and not cfg.get("_ignore_frozen_hyperparameters", False):
         frozen = json.loads(path.read_text())
-        value = frozen.get("cells", {}).get(f"{left_epoch:03d}_{right_epoch:03d}", {}).get(method)
+        replicate_cells = frozen.get("replicates", {}).get(str(replicate), {}).get("cells", {})
+        value = replicate_cells.get(f"{left_epoch:03d}_{right_epoch:03d}", {}).get(method)
+        value = value or frozen.get("cells", {}).get(
+            f"{left_epoch:03d}_{right_epoch:03d}", {}
+        ).get(method)
         value = value or frozen.get("global", {}).get(method)
         if value:
             result.update(value)
@@ -225,7 +231,7 @@ def _fit_fixed_scales(
         ),
         permutation_spec(cfg), cfg["device"]
     )
-    hp = hyperparameters(cfg, method, left_epoch, right_epoch)
+    hp = hyperparameters(cfg, method, left_epoch, right_epoch, replicate)
     optimizer = torch.optim.AdamW(
         transform.parameters(),
         lr=float(hp["lr"]),
@@ -377,7 +383,7 @@ def _fit_sinkhorn(cfg, replicate, left_epoch, right_epoch, method, stop):
         return load(output)
     left, right, paths = pair_models(cfg, replicate, left_epoch, right_epoch)
     scale = method == "sinkhorn_scale_joint"
-    hp = hyperparameters(cfg, method, left_epoch, right_epoch)
+    hp = hyperparameters(cfg, method, left_epoch, right_epoch, replicate)
     module = _make_sinkhorn(cfg, paths[1], scale=scale, hp=hp)
     if scale:
         base = load(artifact_path(cfg, replicate, left_epoch, right_epoch, "sinkhorn"))
@@ -534,7 +540,7 @@ def fit_selected_methods(cfg, replicate, left_epoch, right_epoch, stop):
     """Fit the union of permutation-only and overall winners."""
     from .evaluation import selected_methods
 
-    choices = selected_methods(cfg, left_epoch, right_epoch)
+    choices = selected_methods(cfg, left_epoch, right_epoch, replicate)
     methods = tuple(dict.fromkeys(choices.values()))
     outputs = set()
 

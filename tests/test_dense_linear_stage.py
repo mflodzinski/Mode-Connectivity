@@ -58,6 +58,38 @@ def test_complete_ordered_pair_matrix_and_bundling():
         assert counts["calibration_evaluation"] == (len(calibration) + evaluation_bundle - 1) // evaluation_bundle
 
 
+def test_final_alignment_calibrates_and_evaluates_every_seed_pair():
+    for name in (
+        "final_vgg11", "final_vgg13", "final_vgg16", "final_vgg19",
+        "final_fashion_mnist",
+    ):
+        cfg = config(name)
+        validate_config(cfg)
+        assert cfg["benchmark_mode"] == "final_alignment"
+        assert cfg["calibrate_all_replicates"] is True
+        assert cfg["evaluate_all_methods"] is True
+        assert len(cfg["stages"]) == 1
+        assert len(calibration_rows(cfg)) == 3
+        assert replication_rows(cfg) == []
+        counts = Counter(task["operation"] for task in build_dag(cfg))
+        assert counts["calibrate_wm"] == 3
+        assert counts["calibrate_base_grid"] == 18
+        assert counts["calibrate_base_select"] == 3
+        assert counts["calibrate_branch_grid"] == 18
+        assert counts["calibrate_branch_select"] == 3
+        assert counts["calibrate_base"] == 0
+        assert counts["calibrate_branch"] == 0
+        assert counts["calibration_evaluation"] == 3
+        assert counts["replicate_selected_evaluation"] == 0
+        assert all(
+            len(cfg["calibration_candidates"][method]) >= 12
+            for method in (
+                "wm_scale", "sinkhorn", "sinkhorn_scale_joint",
+                "sinkhorn_scale_finetune",
+            )
+        )
+
+
 def test_positive_scaling_preserves_deep_mlp_function():
     torch.manual_seed(4)
     model = FashionMLP(width=7, hidden_layers=3).eval()

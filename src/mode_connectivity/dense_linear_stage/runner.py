@@ -35,8 +35,9 @@ CPU_OPERATIONS = {
 def validate_config(cfg):
     if cfg["dataset"] not in ("cifar10", "fashion_mnist"):
         raise ValueError("dataset must be cifar10 or fashion_mnist")
-    if len(cfg["stages"]) != 12 or cfg["stages"] != sorted(set(cfg["stages"])):
-        raise ValueError("Exactly twelve distinct ordered stages are required.")
+    expected_stages = 1 if cfg.get("benchmark_mode") == "final_alignment" else 12
+    if len(cfg["stages"]) != expected_stages or cfg["stages"] != sorted(set(cfg["stages"])):
+        raise ValueError(f"Exactly {expected_stages} distinct ordered stages are required.")
     if len(cfg["seed_pairs"]) != 3 or any(len(pair) != 2 for pair in cfg["seed_pairs"]):
         raise ValueError("Exactly three independent seed pairs are required.")
     seeds = sum(cfg["seed_pairs"], [])
@@ -59,6 +60,17 @@ def validate_config(cfg):
     for method in ("wm_scale", "sinkhorn", "sinkhorn_scale_joint", "sinkhorn_scale_finetune"):
         if method not in cfg["method_hyperparameters"] or not cfg["calibration_candidates"].get(method):
             raise ValueError(f"Missing hyperparameters or calibration candidates for {method}.")
+    for method, shards in cfg.get("calibration_candidate_shards", {}).items():
+        if method not in cfg["calibration_candidates"]:
+            raise ValueError(f"Candidate shards reference unknown method {method}.")
+        flattened = [int(index) for shard in shards for index in shard]
+        expected = list(range(len(cfg["calibration_candidates"][method])))
+        if sorted(flattened) != expected or len(flattened) != len(set(flattened)):
+            raise ValueError(
+                f"Candidate shards for {method} must cover every candidate exactly once."
+            )
+        if not 2 <= len(shards) <= 3 or any(not shard for shard in shards):
+            raise ValueError(f"{method} must use two or three nonempty grid shards.")
     for method, values in cfg.get("fixed_hyperparameter_values", {}).items():
         if method not in cfg["method_hyperparameters"] or not isinstance(values, dict):
             raise ValueError(f"Invalid fixed hyperparameters for {method}.")
@@ -86,21 +98,69 @@ def dispatch(cfg, task, stop):
         from .reuse import reuse_existing
         result = reuse_existing(cfg)
         return result, [root(cfg) / "reuse_inventory.json", root(cfg) / "hyperparameter_priors.json"]
+    if operation == "calibrate_wm":
+        from .alignment import artifact_path
+        from .calibration import fit_wm_cell
+        item = task["item"]
+        rep, left, right = (
+            int(item["replicate"]), int(item["left_epoch"]),
+            int(item["right_epoch"]),
+        )
+        result = fit_wm_cell(cfg, rep, left, right, stop)
+        return result, [artifact_path(cfg, rep, left, right, "wm")]
+    if operation in ("calibrate_base_grid", "calibrate_branch_grid"):
+        from .calibration import candidate_record_path, fit_candidate_shard
+        item, method = task["item"], task["method"]
+        rep, left, right = (
+            int(item["replicate"]), int(item["left_epoch"]),
+            int(item["right_epoch"]),
+        )
+        indices = [int(index) for index in task["candidate_indices"]]
+        result = fit_candidate_shard(
+            cfg, rep, left, right, method, indices, stop
+        )
+        outputs = [
+            candidate_record_path(cfg, rep, left, right, method, index)
+            for index in indices
+        ]
+        return result, outputs
+    if operation in ("calibrate_base_select", "calibrate_branch_select"):
+        from .calibration import select_base_cell, select_branch_cell
+        item = task["item"]
+        rep, left, right = (
+            int(item["replicate"]), int(item["left_epoch"]),
+            int(item["right_epoch"]),
+        )
+        if operation == "calibrate_base_select":
+            result = select_base_cell(cfg, rep, left, right, stop)
+            output = root(cfg) / "calibration" / f"r{rep}" / f"{left:03d}_{right:03d}" / "base_choice.json"
+        else:
+            result = select_branch_cell(cfg, rep, left, right, stop)
+            output = root(cfg) / "calibration" / f"r{rep}" / f"{left:03d}_{right:03d}" / "choice.json"
+        return result, [output]
     if operation == "calibrate_base":
         from .calibration import calibrate_base_cell
         outputs, results = [], []
         for item in task["chunk"]["items"]:
             left, right = int(item["left_epoch"]), int(item["right_epoch"])
-            results.append(calibrate_base_cell(cfg, left, right, stop))
-            outputs.append(root(cfg) / "calibration" / f"{left:03d}_{right:03d}" / "base_choice.json")
+            replicate = int(item.get("replicate", 0))
+            results.append(calibrate_base_cell(cfg, left, right, stop, replicate))
+            cell = root(cfg) / "calibration"
+            if cfg.get("calibrate_all_replicates", False):
+                cell = cell / f"r{replicate}"
+            outputs.append(cell / f"{left:03d}_{right:03d}" / "base_choice.json")
         return dict(pairs=len(results), results=results), outputs
     if operation == "calibrate_branch":
         from .calibration import calibrate_branch_cell
         outputs, results = [], []
         for item in task["chunk"]["items"]:
             left, right = int(item["left_epoch"]), int(item["right_epoch"])
-            results.append(calibrate_branch_cell(cfg, left, right, stop))
-            outputs.append(root(cfg) / "calibration" / f"{left:03d}_{right:03d}" / "choice.json")
+            replicate = int(item.get("replicate", 0))
+            results.append(calibrate_branch_cell(cfg, left, right, stop, replicate))
+            cell = root(cfg) / "calibration"
+            if cfg.get("calibrate_all_replicates", False):
+                cell = cell / f"r{replicate}"
+            outputs.append(cell / f"{left:03d}_{right:03d}" / "choice.json")
         return dict(pairs=len(results), results=results), outputs
     if operation == "freeze_choices":
         from .calibration import freeze_cell_choices
@@ -114,7 +174,7 @@ def dispatch(cfg, task, stop):
     if operation == "endpoints_complete":
         marker = root(cfg) / "endpoint_metrics" / "complete.json"
         write_json(marker, {"status": "complete", "test_access": "after frozen selections"})
-        return {"endpoints": 12 * 6}, [marker]
+        return {"endpoints": len(cfg["stages"]) * len(sum(cfg["seed_pairs"], []))}, [marker]
     if operation == "calibration_evaluation":
         from .evaluation import evaluate_full_chunk
         from .protocol import pair_dir
@@ -140,7 +200,10 @@ def dispatch(cfg, task, stop):
             outputs.append(pair_dir(cfg, rep, left, right) / "full_profiles.json")
         return dict(pairs=len(results), results=results), outputs
     if operation == "report":
-        from .reporting import report
+        if cfg.get("benchmark_mode") == "final_alignment":
+            from .final_reporting import report
+        else:
+            from .reporting import report
         result = report(cfg)
         return result, [root(cfg) / "report" / "summary.json", root(cfg) / "report" / "barriers.csv"]
     raise ValueError(operation)

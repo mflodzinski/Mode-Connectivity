@@ -84,9 +84,12 @@ def validation_profiles(cfg, replicate, left_epoch, right_epoch, stop):
     return result
 
 
-def selected_methods(cfg, left_epoch, right_epoch):
+def selected_methods(cfg, left_epoch, right_epoch, replicate=0):
     record = json.loads((root(cfg) / "selections.json").read_text())
-    cell = record["selections"][f"{left_epoch:03d}_{right_epoch:03d}"]
+    if "replicates" in record:
+        cell = record["replicates"][str(replicate)][f"{left_epoch:03d}_{right_epoch:03d}"]
+    else:
+        cell = record["selections"][f"{left_epoch:03d}_{right_epoch:03d}"]
     if "choices" in cell:
         return {
             kind: choice["method"] for kind, choice in cell["choices"].items()
@@ -96,8 +99,8 @@ def selected_methods(cfg, left_epoch, right_epoch):
     return {"permutation_only": permutation_only, "overall": overall}
 
 
-def selected_method(cfg, left_epoch, right_epoch, kind="overall"):
-    choices = selected_methods(cfg, left_epoch, right_epoch)
+def selected_method(cfg, left_epoch, right_epoch, kind="overall", replicate=0):
+    choices = selected_methods(cfg, left_epoch, right_epoch, replicate)
     return choices.get(kind, choices["overall"])
 
 
@@ -113,12 +116,12 @@ def full_profiles(cfg, replicate, left_epoch, right_epoch, stop):
     existing = json.loads(destination.read_text()) if destination.exists() else {}
     left, _, paths = pair_models(cfg, replicate, left_epoch, right_epoch)
     left_state = dict(left.named_parameters())
-    choices = selected_methods(cfg, left_epoch, right_epoch)
-    chosen = set(choices.values())
+    choices = selected_methods(cfg, left_epoch, right_epoch, replicate)
+    chosen = set(METHODS) if cfg.get("evaluate_all_methods", False) else set(choices.values())
     data = Data(cfg, allow_test=True)
     coarse_alphas = np.linspace(0.0, 1.0, int(cfg["profile_points_all"])).tolist()
     dense_alphas = np.linspace(0.0, 1.0, int(cfg["profile_points_selected"])).tolist()
-    methods = METHODS if int(replicate) == 0 else tuple(
+    methods = METHODS if int(replicate) == 0 or cfg.get("evaluate_all_methods", False) else tuple(
         method for method in METHODS if method in chosen
     )
     for method in methods:
