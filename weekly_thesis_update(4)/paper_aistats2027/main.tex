@@ -401,9 +401,8 @@ ranking summarized more completely by Table~\ref{tab:xor-scale}.
 \subsection{Width Enables Nonlinear Connectivity}
 \label{sec:nonlinear}
 
-Residual linear barriers need not indicate disconnected low-loss sets.  To
-check that our conclusions do not depend on a single path parameterization, we
-optimize both the polygonal and quadratic B\'ezier paths used by
+Residual linear barriers need not imply disconnected low-loss sets, so we test
+both the polygonal and quadratic B\'ezier paths used by
 \citet{garipov2018loss}.  For endpoints $\theta_A,\theta_B$ and one trainable
 interior control point $v$, their one-control-point parameterizations are
 \begin{equation}
@@ -416,7 +415,6 @@ interior control point $v$, their one-control-point parameterizations are
 \end{cases}
 \label{eq:polygonal-path}
 \end{equation}
-and
 \begin{equation}
 \phi^{\mathrm{B\acute ezier}}_{v}(\lambda)
 =(1-\lambda)^2\theta_A+2\lambda(1-\lambda)v+\lambda^2\theta_B.
