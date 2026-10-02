@@ -12,6 +12,10 @@ from mode_connectivity.dense_linear_stage.calibration import (
     _fixed_choice,
     select_method_choices,
 )
+from mode_connectivity.dense_linear_stage.full_train import (
+    METHOD_SHARDS,
+    evaluation_tasks,
+)
 from mode_connectivity.dense_linear_stage.protocol import _stratified_subset
 from mode_connectivity.dense_linear_stage.runner import validate_config
 from mode_connectivity.dense_linear_stage.reuse import _best_grid_rows
@@ -88,6 +92,20 @@ def test_final_alignment_calibrates_and_evaluates_every_seed_pair():
                 "sinkhorn_scale_finetune",
             )
         )
+
+
+def test_full_train_evaluation_shards_every_pair_and_method_once():
+    tasks = evaluation_tasks()
+    assert [task["index"] for task in tasks] == list(range(9))
+    assert all(len(task["methods"]) == 2 for task in tasks)
+    for replicate in range(3):
+        methods = [
+            method
+            for task in tasks
+            if task["replicate"] == replicate
+            for method in task["methods"]
+        ]
+        assert methods == [method for shard in METHOD_SHARDS for method in shard]
 
 
 def test_positive_scaling_preserves_deep_mlp_function():

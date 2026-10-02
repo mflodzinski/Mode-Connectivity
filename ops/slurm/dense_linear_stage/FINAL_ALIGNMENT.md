@@ -112,3 +112,43 @@ rsync -av --include='*/' --include='report/***' --exclude='*' \
   mlodzinski@login.daic.tudelft.nl:/tudelft.net/staff-bulk/ewi/insy/PRLab/Students/mlodzinski/Mode-Connectivity/results/final_alignment_*/ \
   results/
 ```
+
+## 6. Evaluate the complete endpoint-training split
+
+The standard final report uses a frozen class-balanced 10,000-example training
+subset.  For the paper's primary training-loss result, reuse the already-frozen
+alignment artifacts and evaluate all 61 interpolation points on every example
+that trained the endpoints: 45,000 examples for CIFAR-10 and 55,000 for
+Fashion-MNIST.  This post-hoc step neither refits alignments nor accesses test
+data.
+
+Pull the evaluation code, then submit all five roots in one command:
+
+```bash
+git pull --ff-only
+
+bash ops/slurm/dense_linear_stage/submit_full_train.sh \
+  results/final_alignment_vgg11_cifar10 \
+  results/final_alignment_vgg13_cifar10 \
+  results/final_alignment_vgg16_cifar10 \
+  results/final_alignment_vgg19_cifar10_atol5e5 \
+  results/final_alignment_fashion_mnist
+```
+
+Each architecture has nine resumable array tasks: three independent endpoint
+pairs crossed with three two-method shards.  At most three GPU tasks run in
+parallel, and architecture roots are chained serially so the command never
+launches more than three evaluation jobs at once.  Each method writes an
+independent artifact, so a timeout or retry does not overwrite completed work.
+
+Monitor any root with:
+
+```bash
+python -m experiments.dense_linear_stage.full_train status \
+  results/final_alignment_vgg11_cifar10
+```
+
+Successful completion reports `profiles_complete: 18`, `missing_tasks: []`,
+and `report_complete: true`.  Results are written under
+`ROOT/report_full_train/`; `aggregates.json` contains the three chord-barrier
+values, their mean, and sample standard deviation for every method.

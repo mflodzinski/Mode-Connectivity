@@ -277,12 +277,12 @@ def prepare(cfg) -> None:
     )
 
 
-def verify_protocol(cfg) -> dict:
+def verify_protocol(cfg, *, require_current_code: bool = True) -> dict:
     directory = root(cfg)
     protocol = json.loads((directory / "protocol.json").read_text())
     if protocol["hash"] != protocol_hash(cfg):
         raise ValueError("Dense-stage protocol changed; use a new output_root.")
-    if protocol["code_hash"] != code_hash():
+    if require_current_code and protocol["code_hash"] != code_hash():
         raise ValueError("Dense-stage code changed after preparation; use a new output_root.")
     subsets = json.loads((directory / "subsets.json").read_text())
     if subsets["hashes"] != protocol["subset_hashes"]:
@@ -319,9 +319,17 @@ class IndexedDataset(Dataset):
 
 
 class Data:
-    def __init__(self, cfg, allow_test: bool = False):
+    def __init__(
+        self,
+        cfg,
+        allow_test: bool = False,
+        *,
+        require_current_code: bool = True,
+    ):
         self.cfg, self.allow_test = cfg, allow_test
-        self.subsets = verify_protocol(cfg)
+        self.subsets = verify_protocol(
+            cfg, require_current_code=require_current_code
+        )
         self.bases = {}
 
     def loader(self, name: str, *, fit=False, order_seed=None, batch_size=None):
