@@ -128,6 +128,31 @@ def load_final_barriers(
     return result
 
 
+def load_full_train_barriers(experiment_root: Path) -> dict[str, dict]:
+    """Load loss barriers evaluated on the complete endpoint-training split."""
+
+    path = experiment_root / "report_full_train" / "aggregates.json"
+    if not path.exists():
+        raise FileNotFoundError(f"Missing full-train aggregate report: {path}")
+    rows = json.loads(path.read_text())
+    by_method = {
+        row["method"]: row
+        for row in rows
+        if row["metric"] == "loss" and row["subset"] == "train_fit"
+    }
+    result = {}
+    for label, method in DENSE_METHODS.items():
+        if method not in by_method:
+            raise ValueError(f"Missing full-train loss aggregate for {method} in {path}")
+        row = by_method[method]
+        values = [float(value) for value in row["values"]]
+        mean, std = float(row["mean"]), float(row["std"])
+        if len(values) != 3 or not np.isfinite([mean, std, *values]).all():
+            raise ValueError(f"Invalid full-train aggregate for {method} in {path}")
+        result[label] = dict(mean=mean, std=std, values=values, count=3)
+    return result
+
+
 def main() -> None:
     architecture_labels = [label for label, _, _ in EXPERIMENTS]
     output_root = PROJECT_ROOT / "results" / "vgg_cifar10_three_way_barriers"
@@ -144,6 +169,18 @@ def main() -> None:
         replicate_values = {label: [] for label in METHOD_LABELS}
         for _, experiment_root, epoch in EXPERIMENTS:
             aggregates = load_final_barriers(experiment_root, epoch, subset)
+            for label in METHOD_LABELS:
+                plot_means[label].append(aggregates[label]["mean"])
+                plot_stds[label].append(aggregates[label]["std"])
+                replicate_values[label].append(aggregates[label]["values"])
+        return plot_means, plot_stds, replicate_values
+
+    def aggregate_full_train() -> tuple[dict, dict, dict]:
+        plot_means = {label: [] for label in METHOD_LABELS}
+        plot_stds = {label: [] for label in METHOD_LABELS}
+        replicate_values = {label: [] for label in METHOD_LABELS}
+        for _, experiment_root, _ in EXPERIMENTS:
+            aggregates = load_full_train_barriers(experiment_root)
             for label in METHOD_LABELS:
                 plot_means[label].append(aggregates[label]["mean"])
                 plot_stds[label].append(aggregates[label]["std"])
@@ -233,7 +270,7 @@ def main() -> None:
             "train_report",
             "train",
             "Training-subset loss barrier",
-            "barplot_vggs_train",
+            "barplot_vggs_train_subset",
         ),
     )
     for subset, file_label, ylabel, paper_stem in figure_specs:
@@ -289,6 +326,57 @@ def main() -> None:
         paper_output.with_name(f"{paper_stem}_data.json").write_text(
             json.dumps(payload, indent=2) + "\n"
         )
+
+    plot_means, plot_stds, replicate_values = aggregate_full_train()
+    result_with_legend = (
+        output_root / "vgg_cifar10_three_way_full_train_loss_barriers.png"
+    )
+    result_no_legend = (
+        output_root / "vgg_cifar10_three_way_full_train_loss_barriers_no_legend.png"
+    )
+    save_barplot(
+        result_with_legend,
+        show_legend=True,
+        ylabel="Training loss barrier",
+        plot_means=plot_means,
+        plot_stds=plot_stds,
+    )
+    save_barplot(
+        result_no_legend,
+        show_legend=False,
+        ylabel="Training loss barrier",
+        plot_means=plot_means,
+        plot_stds=plot_stds,
+    )
+    paper_stem = "barplot_vggs_train"
+    (thesis_output_root / f"{paper_stem}.png").write_bytes(
+        result_with_legend.read_bytes()
+    )
+    (thesis_output_root / f"{paper_stem}_no_legend.png").write_bytes(
+        result_no_legend.read_bytes()
+    )
+    paper_output = paper_figure_root / f"{paper_stem}.png"
+    paper_output.write_bytes(result_with_legend.read_bytes())
+    payload = {
+        "architectures": architecture_labels,
+        "metric": "training loss barrier above the endpoint chord",
+        "subset": "train_fit",
+        "subset_description": "complete endpoint-training split",
+        "examples": [45000, 45000, 45000, 45000, 55000],
+        "replicates": 3,
+        "statistic": "mean and sample standard deviation across disjoint endpoint pairs",
+        "barriers": plot_means,
+        "standard_deviations": plot_stds,
+        "pair_values": replicate_values,
+        "styles": METHOD_STYLES,
+    }
+    data_output = (
+        output_root / "vgg_cifar10_three_way_full_train_loss_barriers.json"
+    )
+    data_output.write_text(json.dumps(payload, indent=2) + "\n")
+    paper_output.with_name(f"{paper_stem}_data.json").write_text(
+        json.dumps(payload, indent=2) + "\n"
+    )
 
 
 if __name__ == "__main__":
