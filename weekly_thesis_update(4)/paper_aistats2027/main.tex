@@ -462,6 +462,8 @@ boundary geometries, each constructed from only two ReLU boundary pieces.
 Within the tested path families, continuously transforming one geometry into
 the other with no spare hidden unit requires an
 
+\begingroup
+\setlength{\intextsep}{3pt}
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{nonlinear_scale_by_width_polygonal.png}
@@ -472,7 +474,8 @@ the other with no spare hidden unit requires an
     aggregate the same endpoint pairs at each width.}
     \label{fig:nonlinear-scale-width}
 \end{figure}
-\vspace{-2ex}
+\endgroup
+\vspace{-1.25ex}
 
 \noindent intermediate arrangement that misclassifies at least one XOR point.
 After adding a third unit, all studied pairs admit low-loss paths, consistent
@@ -501,7 +504,7 @@ additional low-loss connections.  Figure~\ref{fig:nonlinear-scale-width}
 shows the polygonal comparison; the visually near-identical B\'ezier profile,
 which supports the same conclusions, is omitted.
 
-\vspace*{3ex}
+\vspace*{6ex plus 1fill}
 \section{Larger-Network Validation}
 \label{sec:vgg}
 
