@@ -27,8 +27,8 @@ def _rows(cfg):
                 profile = payload[key]
                 profiles[(replicate, method, subset)] = profile
                 for metric in METRICS:
-                    # The paper reports a single loss/error barrier: excess over
-                    # the worse endpoint, stored as ``worse`` in the artifacts.
+                    # Match the paper's displayed definition: maximum excess
+                    # over the linear chord joining the endpoint costs.
                     rows.append(dict(
                         replicate=replicate,
                         left_seed=int(seeds[0]),
@@ -37,8 +37,8 @@ def _rows(cfg):
                         method=method,
                         subset=subset,
                         metric=metric,
-                        barrier="worse",
-                        value=float(profile[metric]["worse"]),
+                        barrier="chord",
+                        value=float(profile[metric]["chord"]),
                         points=len(profile["alphas"]),
                     ))
     return rows, profiles
@@ -137,7 +137,7 @@ def report(cfg):
             method=method,
             subset=subset,
             metric=metric,
-            barrier="worse",
+            barrier="chord",
             count=len(values),
             mean=float(np.mean(values)),
             std=float(np.std(values, ddof=1)),

@@ -1,13 +1,12 @@
-"""Aggregate three-way interpolation barriers across retained VGG architectures.
+"""Plot final-alignment barriers across architectures with replicate SDs.
 
-The script reads per-architecture comparison artifacts and reduces them into
-the barrier plots used to summarize no-alignment, permutation-only, and
-scale-aware alignment performance.
+Every value comes from the common final-alignment benchmark: three disjoint
+endpoint pairs, pair-specific validation-only hyperparameter selection, and
+evaluation on the complete official test set after selections are frozen.
 """
 
 from __future__ import annotations
 
-import csv
 import json
 from pathlib import Path
 
@@ -20,8 +19,6 @@ from matplotlib.ticker import MaxNLocator
 
 from mode_connectivity.common.paths import PROJECT_ROOT
 
-from mode_connectivity.alignment.permutation_pipeline import compute_paper_loss_barrier
-
 
 METHOD_LABELS = [
     "No alignment",
@@ -32,18 +29,6 @@ METHOD_LABELS = [
     "Sinkhorn + scale refinement",
 ]
 
-VGG_CURVE_METHODS = {
-    "No alignment": "test_naive",
-    "Permutation only (Sinkhorn)": "test_perm",
-    "Permutation + scale (joint Sinkhorn)": "test_scale",
-}
-
-ARCHITECTURES = ["vgg11", "vgg13", "vgg16", "vgg19"]
-
-VGG11_REPORT_ROOT = PROJECT_ROOT / "results/dense_linear_stage_vgg11_10k/report"
-FASHION_REPORT_ROOT = (
-    PROJECT_ROOT / "results/dense_linear_stage_fashion_mnist_10k_atol2e4/report"
-)
 DENSE_METHODS = {
     "No alignment": "raw",
     "Permutation only (weight matching)": "wm",
@@ -53,9 +38,37 @@ DENSE_METHODS = {
     "Sinkhorn + scale refinement": "sinkhorn_scale_finetune",
 }
 
-# Match the Okabe--Ito-derived method colors used by the XOR profiles in
-# Figure 2.  Hatching supplies a second, grayscale-safe encoding for
-# scale-aware variants, while raw and permutation-only bars are solid.
+EXPERIMENTS = [
+    (
+        "VGG11\nCIFAR-10",
+        PROJECT_ROOT / "results/final_alignment_vgg11_cifar10",
+        200,
+    ),
+    (
+        "VGG13\nCIFAR-10",
+        PROJECT_ROOT / "results/final_alignment_vgg13_cifar10",
+        200,
+    ),
+    (
+        "VGG16\nCIFAR-10",
+        PROJECT_ROOT / "results/final_alignment_vgg16_cifar10",
+        200,
+    ),
+    (
+        "VGG19\nCIFAR-10",
+        PROJECT_ROOT
+        / "results/final_alignment_vgg19_cifar10_atol5e5",
+        200,
+    ),
+    (
+        "MLP-10×512\nFashion-MNIST",
+        PROJECT_ROOT / "results/final_alignment_fashion_mnist",
+        100,
+    ),
+]
+
+# Match the Okabe--Ito-derived method colors used by the XOR profiles.
+# Hatching provides a second, grayscale-safe encoding for scale-aware methods.
 METHOD_STYLES = {
     "No alignment": {"color": "#7A7A7A", "hatch": ""},
     "Permutation only (weight matching)": {"color": "#0072B2", "hatch": ""},
@@ -74,108 +87,55 @@ METHOD_STYLES = {
     },
 }
 
-PERM_THEN_SCALE_COMPARISON_PATHS = {
-    "vgg11": PROJECT_ROOT
-    / "results/vgg11/cifar10/raw_pth_align_sweep_perm_then_scale_only/steps50_tau1p0_lr0p05_l1p0_lossmidpoint_lam0p001_ftscale_only_fixed_hard/comparison.json",
-    "vgg13": PROJECT_ROOT
-    / "results/vgg13/cifar10/raw_pth_align_sweep_perm_then_scale_only_cor_def/steps50_tau1p0_lr0p02_l1p0_lossmidpoint_lam0p001_ftscale_only_fixed_hard/comparison.json",
-    "vgg16": PROJECT_ROOT
-    / "results/vgg16/cifar10/raw_pth_align_sweep_perm_then_scale_only/steps50_tau1p0_lr0p1_l1p0_lossmidpoint_lam0p001_ftscale_only_fixed_hard/comparison.json",
-    "vgg19": PROJECT_ROOT
-    / "results/vgg19/cifar10/raw_pth_align_sweep_perm_then_scale_only/steps50_tau1p0_lr0p1_l1p0_lossmidpoint_lam0p001_ftscale_only_fixed_hard/comparison.json",
-}
 
+def load_final_barriers(experiment_root: Path, epoch: int) -> dict[str, dict]:
+    """Load chord barriers from three pairs' full-test interpolation profiles."""
 
-def load_curves(architecture: str) -> dict:
-    path = PROJECT_ROOT / "results" / architecture / "cifar10" / "interpolation_comparison_three_way" / "curves.json"
-    with open(path, "r") as handle:
-        return json.load(handle)
-
-
-def compute_barrier(losses: list[float], ts: list[float]) -> float:
-    return float(compute_paper_loss_barrier(np.asarray(losses, dtype=np.float64), np.asarray(ts, dtype=np.float64)))
-
-
-def load_perm_then_scale_barrier(architecture: str) -> float:
-    path = PERM_THEN_SCALE_COMPARISON_PATHS[architecture]
-    if not path.exists():
-        raise FileNotFoundError(f"Missing comparison.json for {architecture}: {path}")
-    with open(path, "r") as handle:
-        payload = json.load(handle)
-    if not isinstance(payload, list):
-        raise ValueError(f"Expected comparison.json to contain a list at {path}")
-    for row in payload:
-        if row.get("variant_key") == "original_sinkhorn_lmc":
-            return float(row["test_loss_barrier_max_endpoint"])
-    raise ValueError(f"comparison.json at {path} does not contain 'original_sinkhorn_lmc'")
-
-
-def load_dense_final_barriers(report_root: Path) -> dict[str, float]:
-    """Load seed-pair-0 final--final test-loss barriers.
-
-    The dense experiment evaluates all six methods only for its calibration
-    pair.  The coarse profiles are used for every method so all six values share the
-    same 21-point interpolation grid.
-    """
-
-    summary_path = report_root / "summary.json"
-    barriers_path = report_root / "barriers.csv"
-    if not summary_path.exists() or not barriers_path.exists():
-        raise FileNotFoundError(
-            f"Missing completed dense-stage report under {report_root}"
+    values_by_method = {method: [] for method in DENSE_METHODS.values()}
+    for replicate in range(3):
+        path = (
+            experiment_root
+            / "pairs"
+            / f"r{replicate}"
+            / f"{epoch:03d}_{epoch:03d}"
+            / "full_profiles.json"
         )
-    summary = json.loads(summary_path.read_text())
-    final_epoch = int(summary["stages"][-1])
-    wanted = set(DENSE_METHODS.values())
-    values: dict[str, float] = {}
-    with barriers_path.open(newline="") as stream:
-        for row in csv.DictReader(stream):
-            if (
-                int(row["replicate"]) == 0
-                and int(row["left_epoch"]) == final_epoch
-                and int(row["right_epoch"]) == final_epoch
-                and row["method"] in wanted
-                and row["resolution"] == "coarse"
-                and row["subset"] == "test_full"
-                and row["metric"] == "loss"
-                and row["barrier"] == "chord"
-            ):
-                values[row["method"]] = float(row["value"])
-    missing = wanted - set(values)
-    if missing:
-        raise ValueError(f"Missing dense-stage final barriers for {sorted(missing)}")
-    return {label: values[method] for label, method in DENSE_METHODS.items()}
+        if not path.exists():
+            raise FileNotFoundError(f"Missing final-alignment profile: {path}")
+        profiles = json.loads(path.read_text())
+        for method in values_by_method:
+            key = f"{method}/test_full/selected_dense"
+            if key not in profiles:
+                raise ValueError(f"Missing {key} in {path}")
+            values_by_method[method].append(
+                float(profiles[key]["loss"]["chord"])
+            )
+
+    result = {}
+    for label, method in DENSE_METHODS.items():
+        values = values_by_method[method]
+        mean = float(np.mean(values))
+        std = float(np.std(values, ddof=1))
+        if not np.isfinite([mean, std, *values]).all():
+            raise FloatingPointError(
+                f"Nonfinite aggregate for {method} in {experiment_root}"
+            )
+        result[label] = dict(mean=mean, std=std, values=values, count=3)
+    return result
 
 
 def main() -> None:
-    plot_data: dict[str, list[float]] = {label: [] for label in METHOD_LABELS}
-    architecture_labels: list[str] = []
+    architecture_labels = [label for label, _, _ in EXPERIMENTS]
+    plot_means = {label: [] for label in METHOD_LABELS}
+    plot_stds = {label: [] for label in METHOD_LABELS}
+    replicate_values = {label: [] for label in METHOD_LABELS}
 
-    for architecture in ARCHITECTURES:
-        payload = load_curves(architecture)
-        architecture_labels.append(str(payload["vgg_name"]))
-        if architecture == "vgg11":
-            vgg11 = load_dense_final_barriers(VGG11_REPORT_ROOT)
-            for label in METHOD_LABELS:
-                plot_data[label].append(vgg11[label])
-            continue
-
-        curves = payload["curves"]
+    for _, experiment_root, epoch in EXPERIMENTS:
+        aggregates = load_final_barriers(experiment_root, epoch)
         for label in METHOD_LABELS:
-            if label in VGG_CURVE_METHODS:
-                curve = curves[VGG_CURVE_METHODS[label]]
-                plot_data[label].append(
-                    compute_barrier(curve["losses"], curve["lambdas"])
-                )
-            elif label == "Sinkhorn + scale refinement":
-                plot_data[label].append(load_perm_then_scale_barrier(architecture))
-            else:
-                plot_data[label].append(float("nan"))
-
-    fashion = load_dense_final_barriers(FASHION_REPORT_ROOT)
-    architecture_labels.append("MLP-10×512\nFashion-MNIST")
-    for label in METHOD_LABELS:
-        plot_data[label].append(fashion[label])
+            plot_means[label].append(aggregates[label]["mean"])
+            plot_stds[label].append(aggregates[label]["std"])
+            replicate_values[label].append(aggregates[label]["values"])
 
     output_root = PROJECT_ROOT / "results" / "vgg_cifar10_three_way_barriers"
     output_root.mkdir(parents=True, exist_ok=True)
@@ -188,33 +148,25 @@ def main() -> None:
     def save_barplot(output_path: Path, show_legend: bool) -> None:
         matplotlib.rcParams["hatch.linewidth"] = 1.5
         fig, ax = plt.subplots(figsize=(12.5, 7.0))
-        for label in METHOD_LABELS:
+        for method_index, label in enumerate(METHOD_LABELS):
             style = METHOD_STYLES[label]
-            positions = []
-            values = []
-            for architecture_index in range(len(architecture_labels)):
-                available = [
-                    candidate
-                    for candidate in METHOD_LABELS
-                    if np.isfinite(plot_data[candidate][architecture_index])
-                ]
-                if label not in available:
-                    continue
-                method_index = available.index(label)
-                offset = (method_index - (len(available) - 1) / 2.0) * width
-                positions.append(x[architecture_index] + offset)
-                values.append(plot_data[label][architecture_index])
+            positions = x + (method_index - (len(METHOD_LABELS) - 1) / 2.0) * width
+            means = np.asarray(plot_means[label], dtype=float)
+            stds = np.asarray(plot_stds[label], dtype=float)
             ax.bar(
                 positions,
-                values,
+                means,
+                yerr=stds,
                 width=width,
+                capsize=3,
+                error_kw={"elinewidth": 1.0, "capthick": 1.0},
                 label=label,
                 color=style["color"],
                 hatch=style["hatch"],
                 edgecolor="#333333",
                 linewidth=0.9,
             )
-            for position, value in zip(positions, values):
+            for position, value in zip(positions, means):
                 if np.isclose(value, 0.0, atol=5e-5):
                     ax.annotate(
                         "0.000",
@@ -223,12 +175,12 @@ def main() -> None:
                         textcoords="offset points",
                         ha="center",
                         va="bottom",
-                        fontsize=11,
+                        fontsize=10,
                         rotation=90,
                     )
 
         ax.set_xticks(x)
-        ax.set_xticklabels(architecture_labels, fontsize=17)
+        ax.set_xticklabels(architecture_labels, fontsize=16)
         ax.set_xlabel("Model and dataset", fontsize=22)
         ax.set_ylabel("Test loss barrier", fontsize=22)
         ax.tick_params(axis="both", labelsize=18, width=1.2, length=5)
@@ -278,21 +230,21 @@ def main() -> None:
     )
     paper_output.write_bytes(result_with_legend.read_bytes())
 
-    with open(output_root / "vgg_cifar10_three_way_test_loss_barriers.json", "w") as handle:
-        json.dump(
-            {
-                "architectures": architecture_labels,
-                "barriers": {
-                    label: [
-                        value if np.isfinite(value) else None for value in values
-                    ]
-                    for label, values in plot_data.items()
-                },
-                "styles": METHOD_STYLES,
-            },
-            handle,
-            indent=2,
-        )
+    payload = {
+        "architectures": architecture_labels,
+        "metric": "test loss barrier above the endpoint chord",
+        "replicates": 3,
+        "statistic": "mean and sample standard deviation across disjoint endpoint pairs",
+        "barriers": plot_means,
+        "standard_deviations": plot_stds,
+        "pair_values": replicate_values,
+        "styles": METHOD_STYLES,
+    }
+    data_output = output_root / "vgg_cifar10_three_way_test_loss_barriers.json"
+    data_output.write_text(json.dumps(payload, indent=2) + "\n")
+    paper_output.with_name("barplot_vggs_data.json").write_text(
+        json.dumps(payload, indent=2) + "\n"
+    )
 
 
 if __name__ == "__main__":
