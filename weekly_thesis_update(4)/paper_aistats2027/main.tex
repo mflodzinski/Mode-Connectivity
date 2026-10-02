@@ -73,9 +73,10 @@ create additional routes through parameter space.
 Our contributions are:
 \begin{itemize}
     \item We give an exhaustive counterexample to universal permutation-based
-    LMC for trained networks.  At minimal XOR width, $22/28$ successful pairs
-    fail classification-LMC after the best permutation under both full-batch GD
-    and minibatch SGD.
+    LMC for trained networks.  At minimal XOR width, every pair of trained
+    solutions not already nearly identical up to a hidden-unit permutation
+    fails classification-LMC under exhaustive alignment; this holds for both
+    full-batch GD and minibatch SGD.
     \item We introduce scale-aware alignment and show, after exhaustive
     permutation search, that positive scaling lowers the loss barrier for all
     $67$ tested XOR pairs at widths $3$, $5$, and $7$.
