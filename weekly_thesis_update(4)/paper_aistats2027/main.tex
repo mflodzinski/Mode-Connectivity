@@ -32,7 +32,7 @@
 \thispagestyle{fancy}
 
 \begin{abstract}
-To analyze the loss landscape of neural networks, one has to take the weight symmetries into account. Neurons can be permuted without changing the function represented by the network. Therefore, when assessing whether two networks are similar, one must account for these symmetries. If, even after reparametrization or re-basing, interpolated networks show high loss (i.e. a high barrier), this may indicate that they lie in separate basins of the loss landscape and represent fundamentally different solutions. However, it has been conjectured that, for independently trained neural networks, some permutation re-basing removes such barriers entirely. We test this claim in ReLU networks using exhaustive experiments where permutation-search error can be ruled out. We find in small networks trained on the XOR problem perfectly accurate solutions that are fundamentally in different basins, providing a concrete counterexample to a universal permutation-based account of linear mode connectivity. We then enlarge the symmetry class with function-preserving positive scaling. We introduce both a joint Sinkhorn permutation-and-scaling method and a method-agnostic refinement that holds a chosen permutation fixed and optimizes only its weight scales. In these small networks, for which all permutations can be enumerated, scaling improves even the best permutation; on VGG/CIFAR-10 it consistently reduces both weight-matching and Sinkhorn barriers, while on MLP/Fashion-MNIST it removes variable weight-matching barriers and Sinkhorn is already test-barrier-free. Nonlinear path experiments further separate weight symmetry from architectural redundancy: the same small XOR networks stay separated even when nonlinear Bézier and polygonal loss paths are used, whereas adding hidden units creates low-loss paths and makes weight scaling useful for path optimization. These results show that permutation symmetry is an incomplete explanation of the connectivity of neural-network loss basins and that both the optimization of functionally equivalent model representatives and the available model capacity determine whether low-loss paths are found.
+To analyze the loss landscape of neural networks, one has to take the weight symmetries into account. Neurons can be permuted without changing the function represented by the network. Therefore, when assessing whether two networks are similar, one must account for these symmetries. If, even after reparametrization or re-basing, interpolated networks show high loss (i.e. a high barrier), this may indicate that they lie in separate basins of the loss landscape and represent fundamentally different solutions. However, it has been conjectured that, for independently trained neural networks, some permutation re-basing removes such barriers entirely. We test this claim in ReLU networks using exhaustive experiments where permutation-search error can be ruled out. We find in small networks trained on the XOR problem perfectly accurate solutions that are fundamentally in different basins, providing a concrete counterexample to a universal permutation-based account of linear mode connectivity. We then enlarge the symmetry class with function-preserving positive scaling. We introduce both a joint Sinkhorn permutation-and-scaling method and a method-agnostic refinement that holds a chosen permutation fixed and optimizes only its weight scales. In these small networks, for which all permutations can be enumerated, scaling improves even the best permutation; across VGG/CIFAR-10 and MLP/Fashion-MNIST, it consistently reduces both weight-matching and Sinkhorn training-loss barriers. Nonlinear path experiments further separate weight symmetry from architectural redundancy: the same small XOR networks stay separated even when nonlinear Bézier and polygonal loss paths are used, whereas adding hidden units creates low-loss paths and makes weight scaling useful for path optimization. These results show that permutation symmetry is an incomplete explanation of the connectivity of neural-network loss basins and that both the optimization of functionally equivalent model representatives and the available model capacity determine whether low-loss paths are found.
 \end{abstract}
 
 \section{Introduction}
@@ -138,7 +138,7 @@ outperform its endpoints.
 \section{Scale-Aware Alignment}
 \label{sec:method}
 
-\paragraph{Original Sinkhorn re-basing.}
+\paragraph{Permutation action and weight matching.}
 For a network with $L$ affine layers, let
 $h_\ell=\sigma(W_\ell h_{\ell-1}+b_\ell)$ for hidden layers and let $P_\ell$
 relabel hidden layer $\ell$.  The induced action on adjacent weights and
@@ -150,6 +150,22 @@ biases is
 \end{equation}
 Because $P_\ell^{-1}=P_\ell^\top$ and ReLU commutes with permutation,
 Eq.~\ref{eq:hard-permutation-action} preserves the network function.
+
+Weight matching (WM) chooses hidden-layer permutations that bring the two
+parameter vectors close in Euclidean distance:
+\begin{equation}
+P^\star\in\arg\min_{P_1,\ldots,P_{L-1}}
+\left\lVert\theta_A-\pi_P(\theta_B)\right\rVert_2^2,
+\label{eq:weight-matching}
+\end{equation}
+where $P_0=P_L=I$ and $\pi_P$ applies
+Eq.~\ref{eq:hard-permutation-action} at every layer.  The standard solver
+cycles through layers, solving one linear assignment problem while holding the
+other permutations fixed~\citep{ainsworth2023git}.  WM is data-independent
+and approximately solves this coupled discrete objective; its transformed
+endpoint represents exactly the same function.
+
+\paragraph{Original Sinkhorn re-basing.}
 
 Sinkhorn re-basing replaces each discrete $P_\ell$ with a differentiable soft
 assignment~\citep{guerrero2023rebasin}.  An unconstrained score matrix $Z_\ell$
@@ -511,39 +527,45 @@ refinement, Sinkhorn alignment, joint Sinkhorn--scale optimization, and
 positive-scale refinement of the projected Sinkhorn permutation.  Each
 optimized method receives a pair-specific 12-candidate search: fitting and
 early stopping use one validation half, selection uses the other, and the
-selected configuration is refit at full budget before test evaluation.  The
-test set is first accessed after all choices are frozen.  Because the datasets
-and architectures differ, comparisons are made between methods within each
-model rather than between absolute barrier magnitudes across groups.
+selected configuration is refit at full budget.  Alignment fitting uses the
+complete endpoint-training split (45,000 examples for CIFAR-10 and 55,000 for
+Fashion-MNIST).  Figure~\ref{fig:vgg} evaluates the resulting paths on a fixed,
+class-balanced 10,000-example subset of that split.  The test set is first
+accessed after all choices are frozen and is reported separately in
+Appendix~\ref{app:larger-network}.
+Because the datasets and architectures differ, comparisons are made between
+methods within each model rather than between absolute barrier magnitudes
+across groups.
 
 \begin{figure*}[t]
     \centering
-    \includegraphics[width=0.92\linewidth]{barplot_vggs.png}
-    \caption{Test-loss barrier for independently trained VGG models on
+    \includegraphics[width=0.92\linewidth]{barplot_vggs_train.png}
+    \caption{Training-loss barrier for independently trained VGG models on
     CIFAR-10 and a ten-layer width-512 MLP on Fashion-MNIST.  Bars show the
     mean over three disjoint independently trained endpoint pairs, and error
     bars show the sample standard deviation.  All six methods are evaluated
     for every architecture.  Hyperparameters are selected separately for each
-    pair using validation data only; barriers use the complete official test
-    set after selections are frozen.}
+    pair using validation data only; barriers are evaluated on a fixed,
+    class-balanced 10,000-example subset of the endpoint-training split.}
     \label{fig:vgg}
 \end{figure*}
 
 \paragraph{Result.}
-Figure~\ref{fig:vgg} reports the mean test-loss barrier across the three pairs.
-For VGG11/13/16, scale refinement after weight matching gives zero sampled
-barrier for every pair.  On VGG19, it reduces the weight-matching result from
-$1.252\mathbin{\pm}0.178$ to $0.019\mathbin{\pm}0.034$, with two pairs at or
-below $5\times10^{-5}$ and one at $0.058$.  Refining a fixed Sinkhorn
-permutation also consistently outperforms joint optimization: its VGG11/13/16/19
-means are $0.292$, $0.475$, $0.570$, and $0.542$, compared with $0.412$,
-$0.588$, $0.736$, and $0.655$ for the joint variant.  On Fashion-MNIST,
-Sinkhorn alone and both scale-aware Sinkhorn variants have zero sampled test
-barrier for every pair, whereas weight matching is variable
-($1.291\mathbin{\pm}0.806$) and scale refinement again reduces all three pairs
-to zero.  Thus the symmetry class contains substantially better
-representatives, but joint nonconvex optimization does not reliably realize
-the full gain.
+Figure~\ref{fig:vgg} reports the mean training-loss barrier across the three
+pairs.  Positive-scale refinement reduces the WM barrier from
+$0.531\mathbin{\pm}0.057$, $0.975\mathbin{\pm}0.045$,
+$1.157\mathbin{\pm}0.138$, and $1.677\mathbin{\pm}0.184$ to
+$0.187\mathbin{\pm}0.006$, $0.156\mathbin{\pm}0.012$,
+$0.206\mathbin{\pm}0.018$, and $0.277\mathbin{\pm}0.030$ on
+VGG11/13/16/19, respectively.  Refining a fixed Sinkhorn permutation also
+consistently outperforms joint optimization: its VGG11/13/16/19 means are
+$0.625$, $0.787$, $0.912$, and $0.957$, compared with $0.760$, $0.911$,
+$1.089$, and $1.089$ for the joint variant.  On Fashion-MNIST, scale refinement
+reduces WM from $1.971\mathbin{\pm}0.810$ to
+$0.259\mathbin{\pm}0.052$ and Sinkhorn from
+$0.584\mathbin{\pm}0.068$ to $0.382\mathbin{\pm}0.188$.  Thus scaling selects
+substantially better representatives, but none of the tested methods eliminates
+the sampled training-loss barrier.
 
 These results transfer the controlled XOR finding, although permutation search
 is non-exhaustive, three pairs only coarsely estimate variability, and
@@ -624,7 +646,7 @@ and it also lowers optimized nonlinear-path barriers at larger widths.
 However, scaling does not recover low-loss polygonal or B\'ezier connections
 for the difficult width-$2$ pairs.  The width-dependent nonlinear experiment
 therefore shows that exact symmetries do not subsume representational
-constraints.  The same linear-alignment benefit of scaling transfers to fixed
+constraints.  The same training-loss benefit of scale-aware linear alignment transfers to fixed
 VGG/CIFAR-10 and MLP/Fashion-MNIST pairs.  The central distinction is therefore
 simple: symmetry determines which representatives we compare; redundancy
 determines which paths are available.
@@ -791,11 +813,13 @@ Sinkhorn targets that pair's exhaustive barrier.
 \end{figure}
 
 \subsection{Larger-network experiments}
+\label{app:larger-network}
 
 For every architecture, Figure~\ref{fig:vgg} uses the final--final cell for
 three disjoint run pairs, $(0,1)$, $(2,3)$, and $(4,5)$, where each integer is
-the random seed of a complete independent training run.  Weight matching and
-all three Sinkhorn variants are fitted separately for each pair.  Every
+the random seed of a complete independent training run.  Weight matching is
+computed for each pair, and every data-dependent alignment or scale-refinement
+method is fitted separately.  Every
 optimized method uses a 12-candidate grid over its relevant learning rate,
 temperature, and scale-regularization parameters.  A frozen validation split
 is divided into disjoint tuning and selection halves; the official test set is
@@ -803,6 +827,28 @@ not loaded until the winning configuration for every pair has been frozen.
 The permutation-then-scale methods optimize only log-scales after fixing the
 corresponding hard permutation.  All six methods are evaluated on the same
 $61$-point interpolation grid.  Figure~\ref{fig:vgg} reports the mean and
-sample standard deviation across the three independent pairs.
+sample standard deviation across the three independent pairs on the fixed
+training-report subset; Figure~\ref{fig:vgg-test} reports the corresponding
+official-test-set result.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.80\linewidth]{barplot_vggs.png}
+    \caption{Test-loss chord barrier for the same frozen alignments and three
+    endpoint pairs as Figure~\ref{fig:vgg}.  Bars show the mean and error bars
+    show the sample standard deviation.  The complete official test set is
+    accessed only after hyperparameters and alignment artifacts are frozen.}
+    \label{fig:vgg-test}
+\end{figure}
+
+Test-loss barriers are generally smaller than their training-loss counterparts.
+This comparison is relative to the endpoint chord, not to zero loss.  In the
+Fashion-MNIST pairs, for example, endpoint training losses are
+$0.020$--$0.041$, whereas endpoint test losses are $0.681$--$0.809$; an
+interior test-loss curve can therefore remain below its much higher endpoint
+chord even while the same path rises far above the near-zero training chord.
+Consequently, the zero sampled Fashion-MNIST test-loss barriers in
+Figure~\ref{fig:vgg-test} do not imply zero training-loss barrier or constant
+classification error along the path.
 
 \end{document}
