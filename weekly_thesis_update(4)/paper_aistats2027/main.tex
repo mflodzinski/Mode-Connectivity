@@ -460,14 +460,29 @@ explanation for the remaining failures is that width $2$ is
 capacity-tight for XOR.  The nontrivial endpoint pairs have different decision-
 boundary geometries, each constructed from only two ReLU boundary pieces.
 Within the tested path families, continuously transforming one geometry into
-the other with no spare hidden unit requires an intermediate arrangement that
-misclassifies at least one XOR point.  After adding a third unit, all studied
-pairs admit low-loss paths, consistent with the extra unit providing the
+the other with no spare hidden unit requires an
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{nonlinear_scale_by_width_polygonal.png}
+    \caption{Mean nonlinear-path loss barrier by hidden width for polygonal
+    paths with one interior control point, optimized from raw endpoints with
+    or without independent positive scaling of both endpoints. Percentage
+    annotations report the relative change under endpoint scaling; both curves
+    aggregate the same endpoint pairs at each width.}
+    \label{fig:nonlinear-scale-width}
+\end{figure}
+\vspace{-2ex}
+
+\noindent intermediate arrangement that misclassifies at least one XOR point.
+After adding a third unit, all studied pairs admit low-loss paths, consistent
+with the extra unit providing the
 temporary representational freedom needed during this transformation.  This
 supports a distinction that endpoint alignment alone cannot make: symmetry
 selects among equivalent representatives at fixed capacity, whereas width
 changes the representational resources available along a path.
 
+\vspace{-2ex}
 \paragraph{Endpoint-scaling result.}
 Endpoint scaling does not remove the minimal-width obstruction.  With one
 interior control point, both polygonal and B\'ezier searches find low-loss
@@ -485,17 +500,6 @@ improves the polygonal mean but worsens the B\'ezier mean---yet neither finds
 additional low-loss connections.  Figure~\ref{fig:nonlinear-scale-width}
 shows the polygonal comparison; the visually near-identical B\'ezier profile,
 which supports the same conclusions, is omitted.
-
-\begin{figure}[t]
-    \centering
-    \includegraphics[width=\columnwidth]{nonlinear_scale_by_width_polygonal.png}
-    \caption{Mean nonlinear-path loss barrier by hidden width for polygonal
-    paths with one interior control point, optimized from raw endpoints with
-    or without independent positive scaling of both endpoints. Percentage
-    annotations report the relative change under endpoint scaling; both curves
-    aggregate the same endpoint pairs at each width.}
-    \label{fig:nonlinear-scale-width}
-\end{figure}
 
 \section{Larger-Network Validation}
 \label{sec:vgg}
