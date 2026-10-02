@@ -458,6 +458,8 @@ a nontrivial connection between distinct width-$2$ solutions.  A plausible
 explanation for the remaining failures is that width $2$ is
 capacity-tight for XOR.  The nontrivial endpoint pairs have different decision-
 boundary geometries, each constructed from only two ReLU boundary pieces.
+Within the tested path families, continuously transforming one geometry into
+the other with no spare hidden unit requires an
 
 \begin{figure}[H]
     \centering
@@ -471,9 +473,7 @@ boundary geometries, each constructed from only two ReLU boundary pieces.
 \end{figure}
 \vspace{-3.5ex}
 
-\noindent Within the tested path families, continuously transforming one
-geometry into the other with no spare hidden unit requires an intermediate
-arrangement that misclassifies at least one XOR point.
+\noindent intermediate arrangement that misclassifies at least one XOR point.
 After adding a third unit, all studied pairs admit low-loss paths, consistent
 with the extra unit providing the
 temporary representational freedom needed during this transformation.  This
@@ -500,7 +500,7 @@ additional low-loss connections.  Figure~\ref{fig:nonlinear-scale-width}
 shows the polygonal comparison; the visually near-identical B\'ezier profile,
 which supports the same conclusions, is omitted.
 
-\vspace*{3ex}
+\vspace*{9ex}
 \section{Larger-Network Validation}
 \label{sec:vgg}
 
