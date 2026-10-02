@@ -1,8 +1,8 @@
 """Plot final-alignment barriers across architectures with replicate SDs.
 
 Every value comes from the common final-alignment benchmark: three disjoint
-endpoint pairs, pair-specific validation-only hyperparameter selection, and
-evaluation on the complete official test set after selections are frozen.
+endpoint pairs and pair-specific validation-only hyperparameter selection.
+The script produces matching training-subset and official-test figures.
 """
 
 from __future__ import annotations
@@ -88,8 +88,12 @@ METHOD_STYLES = {
 }
 
 
-def load_final_barriers(experiment_root: Path, epoch: int) -> dict[str, dict]:
-    """Load chord barriers from three pairs' full-test interpolation profiles."""
+def load_final_barriers(
+    experiment_root: Path,
+    epoch: int,
+    subset: str,
+) -> dict[str, dict]:
+    """Load chord barriers from three pairs' interpolation profiles."""
 
     values_by_method = {method: [] for method in DENSE_METHODS.values()}
     for replicate in range(3):
@@ -104,7 +108,7 @@ def load_final_barriers(experiment_root: Path, epoch: int) -> dict[str, dict]:
             raise FileNotFoundError(f"Missing final-alignment profile: {path}")
         profiles = json.loads(path.read_text())
         for method in values_by_method:
-            key = f"{method}/test_full/selected_dense"
+            key = f"{method}/{subset}/selected_dense"
             if key not in profiles:
                 raise ValueError(f"Missing {key} in {path}")
             values_by_method[method].append(
@@ -126,17 +130,6 @@ def load_final_barriers(experiment_root: Path, epoch: int) -> dict[str, dict]:
 
 def main() -> None:
     architecture_labels = [label for label, _, _ in EXPERIMENTS]
-    plot_means = {label: [] for label in METHOD_LABELS}
-    plot_stds = {label: [] for label in METHOD_LABELS}
-    replicate_values = {label: [] for label in METHOD_LABELS}
-
-    for _, experiment_root, epoch in EXPERIMENTS:
-        aggregates = load_final_barriers(experiment_root, epoch)
-        for label in METHOD_LABELS:
-            plot_means[label].append(aggregates[label]["mean"])
-            plot_stds[label].append(aggregates[label]["std"])
-            replicate_values[label].append(aggregates[label]["values"])
-
     output_root = PROJECT_ROOT / "results" / "vgg_cifar10_three_way_barriers"
     output_root.mkdir(parents=True, exist_ok=True)
     thesis_output_root = PROJECT_ROOT / "thesis" / "figures" / "new"
@@ -145,7 +138,25 @@ def main() -> None:
     x = np.arange(len(architecture_labels))
     width = 0.115
 
-    def save_barplot(output_path: Path, show_legend: bool) -> None:
+    def aggregate(subset: str) -> tuple[dict, dict, dict]:
+        plot_means = {label: [] for label in METHOD_LABELS}
+        plot_stds = {label: [] for label in METHOD_LABELS}
+        replicate_values = {label: [] for label in METHOD_LABELS}
+        for _, experiment_root, epoch in EXPERIMENTS:
+            aggregates = load_final_barriers(experiment_root, epoch, subset)
+            for label in METHOD_LABELS:
+                plot_means[label].append(aggregates[label]["mean"])
+                plot_stds[label].append(aggregates[label]["std"])
+                replicate_values[label].append(aggregates[label]["values"])
+        return plot_means, plot_stds, replicate_values
+
+    def save_barplot(
+        output_path: Path,
+        show_legend: bool,
+        ylabel: str,
+        plot_means: dict,
+        plot_stds: dict,
+    ) -> None:
         matplotlib.rcParams["hatch.linewidth"] = 1.5
         fig, ax = plt.subplots(figsize=(12.5, 7.0))
         for method_index, label in enumerate(METHOD_LABELS):
@@ -182,7 +193,7 @@ def main() -> None:
         ax.set_xticks(x)
         ax.set_xticklabels(architecture_labels, fontsize=16)
         ax.set_xlabel("Model and dataset", fontsize=22)
-        ax.set_ylabel("Test loss barrier", fontsize=22)
+        ax.set_ylabel(ylabel, fontsize=22)
         ax.tick_params(axis="both", labelsize=18, width=1.2, length=5)
         ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
         ax.grid(True, which="major", axis="y", linestyle="--", linewidth=0.8, alpha=0.45)
@@ -210,41 +221,74 @@ def main() -> None:
         fig.savefig(output_path, dpi=300, bbox_inches="tight")
         plt.close(fig)
 
-    result_with_legend = output_root / "vgg_cifar10_three_way_test_loss_barriers.png"
-    result_no_legend = output_root / "vgg_cifar10_three_way_test_loss_barriers_no_legend.png"
-    save_barplot(result_with_legend, show_legend=True)
-    save_barplot(result_no_legend, show_legend=False)
-
-    (thesis_output_root / "barplot_vggs.png").write_bytes(
-        result_with_legend.read_bytes()
-    )
-    (thesis_output_root / "barplot_vggs_no_legend.png").write_bytes(
-        result_no_legend.read_bytes()
-    )
-    paper_output = (
+    paper_figure_root = (
         PROJECT_ROOT
         / "weekly_thesis_update(4)"
         / "paper_aistats2027"
         / "figures"
-        / "barplot_vggs.png"
     )
-    paper_output.write_bytes(result_with_legend.read_bytes())
+    figure_specs = (
+        ("test_full", "test", "Test loss barrier", "barplot_vggs"),
+        (
+            "train_report",
+            "train",
+            "Training-subset loss barrier",
+            "barplot_vggs_train",
+        ),
+    )
+    for subset, file_label, ylabel, paper_stem in figure_specs:
+        plot_means, plot_stds, replicate_values = aggregate(subset)
+        result_with_legend = (
+            output_root / f"vgg_cifar10_three_way_{file_label}_loss_barriers.png"
+        )
+        result_no_legend = (
+            output_root
+            / f"vgg_cifar10_three_way_{file_label}_loss_barriers_no_legend.png"
+        )
+        save_barplot(
+            result_with_legend,
+            show_legend=True,
+            ylabel=ylabel,
+            plot_means=plot_means,
+            plot_stds=plot_stds,
+        )
+        save_barplot(
+            result_no_legend,
+            show_legend=False,
+            ylabel=ylabel,
+            plot_means=plot_means,
+            plot_stds=plot_stds,
+        )
 
-    payload = {
-        "architectures": architecture_labels,
-        "metric": "test loss barrier above the endpoint chord",
-        "replicates": 3,
-        "statistic": "mean and sample standard deviation across disjoint endpoint pairs",
-        "barriers": plot_means,
-        "standard_deviations": plot_stds,
-        "pair_values": replicate_values,
-        "styles": METHOD_STYLES,
-    }
-    data_output = output_root / "vgg_cifar10_three_way_test_loss_barriers.json"
-    data_output.write_text(json.dumps(payload, indent=2) + "\n")
-    paper_output.with_name("barplot_vggs_data.json").write_text(
-        json.dumps(payload, indent=2) + "\n"
-    )
+        (thesis_output_root / f"{paper_stem}.png").write_bytes(
+            result_with_legend.read_bytes()
+        )
+        (thesis_output_root / f"{paper_stem}_no_legend.png").write_bytes(
+            result_no_legend.read_bytes()
+        )
+        paper_output = paper_figure_root / f"{paper_stem}.png"
+        paper_output.write_bytes(result_with_legend.read_bytes())
+
+        payload = {
+            "architectures": architecture_labels,
+            "metric": f"{ylabel.lower()} above the endpoint chord",
+            "subset": subset,
+            "replicates": 3,
+            "statistic": (
+                "mean and sample standard deviation across disjoint endpoint pairs"
+            ),
+            "barriers": plot_means,
+            "standard_deviations": plot_stds,
+            "pair_values": replicate_values,
+            "styles": METHOD_STYLES,
+        }
+        data_output = (
+            output_root / f"vgg_cifar10_three_way_{file_label}_loss_barriers.json"
+        )
+        data_output.write_text(json.dumps(payload, indent=2) + "\n")
+        paper_output.with_name(f"{paper_stem}_data.json").write_text(
+            json.dumps(payload, indent=2) + "\n"
+        )
 
 
 if __name__ == "__main__":

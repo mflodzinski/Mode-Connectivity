@@ -7,6 +7,7 @@
     "MLP-10\u00d7512\nFashion-MNIST"
   ],
   "metric": "test loss barrier above the endpoint chord",
+  "subset": "test_full",
   "replicates": 3,
   "statistic": "mean and sample standard deviation across disjoint endpoint pairs",
   "barriers": {
