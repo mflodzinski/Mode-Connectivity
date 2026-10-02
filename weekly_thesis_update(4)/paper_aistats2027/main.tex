@@ -138,7 +138,7 @@ outperform its endpoints.
 \section{Scale-Aware Alignment}
 \label{sec:method}
 
-\paragraph{Permutation action and weight matching.}
+\paragraph{Permutation action.}
 For a network with $L$ affine layers, let
 $h_\ell=\sigma(W_\ell h_{\ell-1}+b_\ell)$ for hidden layers and let $P_\ell$
 relabel hidden layer $\ell$.  The induced action on adjacent weights and
@@ -150,20 +150,6 @@ biases is
 \end{equation}
 Because $P_\ell^{-1}=P_\ell^\top$ and ReLU commutes with permutation,
 Eq.~\ref{eq:hard-permutation-action} preserves the network function.
-
-Weight matching (WM) chooses hidden-layer permutations that bring the two
-parameter vectors close in Euclidean distance:
-\begin{equation}
-P^\star\in\arg\min_{P_1,\ldots,P_{L-1}}
-\left\lVert\theta_A-\pi_P(\theta_B)\right\rVert_2^2,
-\label{eq:weight-matching}
-\end{equation}
-where $P_0=P_L=I$ and $\pi_P$ applies
-Eq.~\ref{eq:hard-permutation-action} at every layer.  The standard solver
-cycles through layers, solving one linear assignment problem while holding the
-other permutations fixed~\citep{ainsworth2023git}.  WM is data-independent
-and approximately solves this coupled discrete objective; its transformed
-endpoint represents exactly the same function.
 
 \paragraph{Original Sinkhorn re-basing.}
 
@@ -521,7 +507,22 @@ summarizes the polygonal-path comparison.
 We evaluate VGG11, VGG13, VGG16, and VGG19 on CIFAR-10, and a ten-layer
 width-512 MLP on Fashion-MNIST.  For every architecture--dataset combination,
 six independently trained models form three disjoint endpoint pairs: runs
-initialized with seeds $(0,1)$, $(2,3)$, and $(4,5)$.  We compare raw
+initialized with seeds $(0,1)$, $(2,3)$, and $(4,5)$.
+As a data-independent permutation baseline, weight matching (WM) approximately
+solves
+\begin{equation}
+P^\star\in\arg\min_{P_1,\ldots,P_{L-1}}
+\left\lVert\theta_A-\pi_P(\theta_B)\right\rVert_2^2,
+\label{eq:weight-matching}
+\end{equation}
+where $P_0=P_L=I$ and $\pi_P$ applies
+Eq.~\ref{eq:hard-permutation-action} at every layer.  The standard solver
+cycles through layers, solving one linear assignment problem while holding the
+remaining permutations fixed~\citep{ainsworth2023git}.  For WM with scale
+refinement, we fix the resulting permutation and optimize only the
+function-preserving positive scales.
+
+We compare raw
 interpolation, weight matching, weight matching followed by positive-scale
 refinement, Sinkhorn alignment, joint Sinkhorn--scale optimization, and
 positive-scale refinement of the projected Sinkhorn permutation.  Each
