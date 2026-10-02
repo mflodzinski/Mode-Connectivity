@@ -337,14 +337,14 @@ def main() -> None:
     save_barplot(
         result_with_legend,
         show_legend=True,
-        ylabel="Training loss barrier",
+        ylabel="Train loss barrier",
         plot_means=plot_means,
         plot_stds=plot_stds,
     )
     save_barplot(
         result_no_legend,
         show_legend=False,
-        ylabel="Training loss barrier",
+        ylabel="Train loss barrier",
         plot_means=plot_means,
         plot_stds=plot_stds,
     )
