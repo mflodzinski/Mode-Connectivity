@@ -435,10 +435,11 @@ functions; no permutation alignment is applied in this comparison.
     \caption{Representative quadratic B\'ezier paths for XOR.  At width $2$,
     optimizing the path does not remove the high-loss region; at width $3$, a
     low-loss path connects endpoints with different decision boundaries.
-    Columns show locations along the learned path; colors denote predicted
-    classes and markers show the four fixed XOR inputs.  Only the network
-    parameters vary across columns, and every displayed width-$3$ network
-    classifies all four inputs correctly.}
+    Columns correspond to different interpolation coefficients $\lambda$, and
+    hence to different locations along the learned nonlinear interpolation
+    path; colors denote predicted classes and markers show the four fixed XOR
+    inputs.  Only the network parameters vary across columns, and every
+    displayed width-$3$ network classifies all four inputs correctly.}
     \label{fig:nonlinear-width}
 \end{figure}
 
