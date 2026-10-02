@@ -430,6 +430,17 @@ compare a one-control-point path with joint optimization of that path and
 independent positive scales at both endpoints.  Scaling preserves the endpoint
 functions; no permutation alignment is applied in this comparison.
 
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{nonlinear_xor_paths_hidden_sizes.png}
+    \caption{Representative quadratic B\'ezier paths for XOR.  At width $2$,
+    optimizing the path does not remove the high-loss region; at width $3$, a
+    low-loss path connects endpoints with different decision boundaries.
+    Columns show locations along the learned path; colors denote predicted
+    classes and markers show the four XOR inputs.}
+    \label{fig:nonlinear-width}
+\end{figure}
+
 \paragraph{Result.}
 At $h=2$, extensive searches find low-loss nonlinear paths only between
 essentially identical endpoints; additional interior points do not recover
@@ -442,19 +453,8 @@ correspond to seed pairs $(2,9)$ and $(5,12)$.  These pairs are nearly duplicate
 parameter solutions: their Euclidean endpoint
 separations are only about $0.6\%$ of the corresponding parameter norms, and
 both path families attain barriers at numerical zero, providing no evidence of
-a nontrivial connection between distinct width-$2$ solutions.
-
-\begin{figure}[t]
-    \centering
-    \includegraphics[width=\columnwidth]{nonlinear_xor_paths_hidden_sizes.png}
-    \caption{Representative quadratic B\'ezier paths for XOR.  At width $2$,
-    optimizing the path does not remove the high-loss region; at width $3$, a
-    low-loss path connects endpoints with different decision boundaries.
-    Columns show locations along the learned path.}
-    \label{fig:nonlinear-width}
-\end{figure}
-
-A plausible explanation for the remaining failures is that width $2$ is
+a nontrivial connection between distinct width-$2$ solutions.  A plausible
+explanation for the remaining failures is that width $2$ is
 capacity-tight for XOR.  The nontrivial endpoint pairs have different decision-
 boundary geometries, each constructed from only two ReLU boundary pieces.
 Within the tested path families, continuously transforming one geometry into
