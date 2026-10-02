@@ -233,7 +233,7 @@ def plot_mean_barriers(results: dict[tuple[int, str], dict], output: Path) -> No
 
     output.parent.mkdir(parents=True, exist_ok=True)
     for family in FAMILIES:
-        fig, axis = plt.subplots(figsize=(6.0, 5.6))
+        fig, axis = plt.subplots(figsize=(6.4, 4.6))
         means = family_means[family]
         for method in METHODS:
             axis.plot(
