@@ -60,8 +60,9 @@ We isolate these mechanisms using small networks trained on the XOR problem,
 whose size permits exhaustive permutation search, then test the resulting
 account in VGG networks.  The
 minimal-width experiment first removes the search confound: some trained pairs
-remain classification-incompatible under every permutation.  We reproduce
-this behavior with full-batch gradient descent (GD) and minibatch SGD.  We then
+remain classification-incompatible under every permutation.  To check that
+this behavior is not specific to deterministic full-batch optimization, we
+observe it with both full-batch gradient descent (GD) and minibatch SGD.  We then
 enlarge the exact symmetry class using positive ReLU scaling.  Starting from
 the exhaustive best permutation and optimizing scales alone identifies gains
 that cannot be attributed to better correspondence search.  Finally, nonlinear
