@@ -515,8 +515,8 @@ P^\star\in\arg\min_{P_1,\ldots,P_{L-1}}
 \left\lVert\theta_A-\pi_P(\theta_B)\right\rVert_2^2,
 \label{eq:weight-matching}
 \end{equation}
-where $P_0=P_L=I$ and $\pi_P$ applies
-Eq.~\ref{eq:hard-permutation-action} at every layer.  The standard solver
+where $\pi_P$ applies the hidden-layer relabelings of
+Eq.~\ref{eq:hard-permutation-action}.  The standard solver
 cycles through layers, solving one linear assignment problem while holding the
 remaining permutations fixed~\citep{ainsworth2023git}.  For WM with scale
 refinement, we fix the resulting permutation and optimize only the
