@@ -142,15 +142,16 @@ outperform its endpoints.
 
 \paragraph{Permutation action.}
 For a network with $L$ affine layers, let
-$h_\ell=\sigma(W_\ell h_{\ell-1}+b_\ell)$ for hidden layers and let $P_\ell$
-relabel hidden layer $\ell$.  The induced action on adjacent weights and
-biases is
+$h_\ell=\sigma(W_\ell h_{\ell-1}+b_\ell)$ for hidden layers, where $\sigma$
+acts coordinatewise, and let $P_\ell$ relabel hidden layer $\ell$.  The induced
+action on adjacent weights and biases is
 \begin{equation}
 \widetilde W_\ell=P_\ell W_\ell P_{\ell-1}^{\top},\qquad
 \widetilde b_\ell=P_\ell b_\ell.
 \label{eq:hard-permutation-action}
 \end{equation}
-Because $P_\ell^{-1}=P_\ell^\top$ and ReLU commutes with permutation,
+Because $P_\ell^{-1}=P_\ell^\top$ and coordinatewise activations satisfy
+$\sigma(P_\ell z)=P_\ell\sigma(z)$,
 Eq.~\ref{eq:hard-permutation-action} preserves the network function.
 
 \paragraph{Original Sinkhorn re-basing.}
