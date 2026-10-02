@@ -269,14 +269,6 @@ permutation work?  We first answer this in the smallest nontrivial setting,
 width $h=2$.  There are only $2!=2$ hidden-unit permutations, so the symmetry
 class can be searched exactly.
 
-\paragraph{Training and evaluation.}
-As a robustness check against the interpretation that the effect is specific
-to deterministic optimization, we repeat the default full-batch protocol with
-minibatch SGD using minibatches containing two of the four XOR examples and
-reshuffling each epoch.  For each
-protocol, eight successful endpoints give $28$ pairs.  We enumerate identity
-and swap and evaluate classification error along each interpolation.
-
 \begin{figure*}[t]
     \centering
     \begin{subfigure}[t]{0.49\linewidth}
@@ -298,6 +290,14 @@ and swap and evaluate classification error along each interpolation.
     error despite perfectly accurate endpoints.}
     \label{fig:xor-counterexample}
 \end{figure*}
+
+\paragraph{Training and evaluation.}
+As a robustness check against the interpretation that the effect is specific
+to deterministic optimization, we repeat the default full-batch protocol with
+minibatch SGD using minibatches containing two of the four XOR examples and
+reshuffling each epoch.  For each
+protocol, eight successful endpoints give $28$ pairs.  We enumerate identity
+and swap and evaluate classification error along each interpolation.
 
 \paragraph{Result.}
 For both training protocols, only $6/28$ pairs preserve $100\%$ accuracy along
@@ -459,8 +459,6 @@ a nontrivial connection between distinct width-$2$ solutions.  A plausible
 explanation for the remaining failures is that width $2$ is
 capacity-tight for XOR.  The nontrivial endpoint pairs have different decision-
 boundary geometries, each constructed from only two ReLU boundary pieces.
-Within the tested path families, continuously transforming one geometry into
-the other with no spare hidden unit requires an
 
 \begin{figure}[H]
     \centering
@@ -472,9 +470,11 @@ the other with no spare hidden unit requires an
     aggregate the same endpoint pairs at each width.}
     \label{fig:nonlinear-scale-width}
 \end{figure}
-\vspace{-2ex}
+\vspace{-3.5ex}
 
-\noindent intermediate arrangement that misclassifies at least one XOR point.
+\noindent Within the tested path families, continuously transforming one
+geometry into the other with no spare hidden unit requires an intermediate
+arrangement that misclassifies at least one XOR point.
 After adding a third unit, all studied pairs admit low-loss paths, consistent
 with the extra unit providing the
 temporary representational freedom needed during this transformation.  This
@@ -482,7 +482,7 @@ supports a distinction that endpoint alignment alone cannot make: symmetry
 selects among equivalent representatives at fixed capacity, whereas width
 changes the representational resources available along a path.
 
-\vspace{-2ex}
+\vspace{-0.5ex}
 \paragraph{Endpoint-scaling result.}
 Endpoint scaling does not remove the minimal-width obstruction.  With one
 interior control point, both polygonal and B\'ezier searches find low-loss
