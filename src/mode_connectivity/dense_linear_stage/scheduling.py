@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .protocol import protocol_hash, root, verify_protocol, write_json
 from .runner import CPU_OPERATIONS, completed, validate_config
-from .tasks import build_dag, select_tasks
+from .tasks import build_dag
 
 
 def queued_state(job_ref):
@@ -162,14 +162,13 @@ def main():
     from omegaconf import OmegaConf
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("prepare", "pilot", "calibration", "main", "evaluate", "all"), default="all")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--concurrency", type=int, default=3)
     parser.add_argument("--partition", default=os.environ.get("MC_PARTITION", "general"))
     parser.add_argument("--qos", default=os.environ.get("MC_QOS", "short"))
     parser.add_argument("--gres", default=os.environ.get("MC_GRES", "gpu:a40:1"))
     parser.add_argument("--account", default=os.environ.get("MC_ACCOUNT"))
-    parser.add_argument("--config-name", default="dense_linear_stage/vgg11")
+    parser.add_argument("--config-name", default="dense_linear_stage/final_vgg11")
     args, overrides = parser.parse_known_args()
     cfg = OmegaConf.to_container(
         compose_experiment_config(
@@ -180,13 +179,8 @@ def main():
     cfg["output_root"] = str(root(cfg))
     cfg["data_root"] = str(Path(cfg["data_root"]).resolve())
     cfg["source_roots"] = {str(k): str(Path(v).resolve()) for k, v in cfg["source_roots"].items()}
-    reuse = cfg.get("reuse", {})
-    for source in reuse.get("wm_sources", []):
-        source["root"] = str(Path(source["root"]).resolve())
-    if reuse.get("vgg_alignment_grid"):
-        reuse["vgg_alignment_grid"] = str(Path(reuse["vgg_alignment_grid"]).resolve())
     validate_config(cfg)
-    tasks = select_tasks(build_dag(cfg), args.mode)
+    tasks = build_dag(cfg)
     kwargs = dict(
         dry_run=args.dry_run, concurrency=args.concurrency, partition=args.partition,
         qos=args.qos, gres=args.gres, account=args.account,

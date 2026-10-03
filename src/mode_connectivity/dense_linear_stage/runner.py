@@ -28,16 +28,17 @@ from .tasks import build_dag
 
 
 CPU_OPERATIONS = {
-    "prepare", "reuse", "freeze_choices", "endpoints_complete", "report",
+    "prepare", "freeze_choices", "endpoints_complete", "report",
 }
 
 
 def validate_config(cfg):
+    if cfg.get("benchmark_mode") != "final_alignment":
+        raise ValueError("Only the paper's final_alignment benchmark is supported.")
     if cfg["dataset"] not in ("cifar10", "fashion_mnist"):
         raise ValueError("dataset must be cifar10 or fashion_mnist")
-    expected_stages = 1 if cfg.get("benchmark_mode") == "final_alignment" else 12
-    if len(cfg["stages"]) != expected_stages or cfg["stages"] != sorted(set(cfg["stages"])):
-        raise ValueError(f"Exactly {expected_stages} distinct ordered stages are required.")
+    if len(cfg["stages"]) != 1:
+        raise ValueError("Exactly one final endpoint epoch is required.")
     if len(cfg["seed_pairs"]) != 3 or any(len(pair) != 2 for pair in cfg["seed_pairs"]):
         raise ValueError("Exactly three independent seed pairs are required.")
     seeds = sum(cfg["seed_pairs"], [])
@@ -46,8 +47,8 @@ def validate_config(cfg):
     if int(cfg["profile_points_all"]) < 3 or int(cfg["profile_points_selected"]) < int(cfg["profile_points_all"]):
         raise ValueError("Selected profiles must be at least as dense as all-method profiles.")
     for key in (
-        "calibration_pairs_per_task", "replication_pairs_per_task",
-        "calibration_evaluation_pairs_per_task", "endpoint_pairs_per_task",
+        "calibration_pairs_per_task", "calibration_evaluation_pairs_per_task",
+        "endpoint_pairs_per_task",
     ):
         if int(cfg[key]) < 1:
             raise ValueError(f"{key} must be positive")
@@ -71,9 +72,6 @@ def validate_config(cfg):
             )
         if not 2 <= len(shards) <= 3 or any(not shard for shard in shards):
             raise ValueError(f"{method} must use two or three nonempty grid shards.")
-    for method, values in cfg.get("fixed_hyperparameter_values", {}).items():
-        if method not in cfg["method_hyperparameters"] or not isinstance(values, dict):
-            raise ValueError(f"Invalid fixed hyperparameters for {method}.")
 
 
 def completed(cfg, task):
@@ -94,10 +92,6 @@ def dispatch(cfg, task, stop):
         prepare(cfg)
         return {}, [root(cfg) / "protocol.json", root(cfg) / "subsets.json", root(cfg) / "endpoints.json"]
     verify_protocol(cfg)
-    if operation == "reuse":
-        from .reuse import reuse_existing
-        result = reuse_existing(cfg)
-        return result, [root(cfg) / "reuse_inventory.json", root(cfg) / "hyperparameter_priors.json"]
     if operation == "calibrate_wm":
         from .alignment import artifact_path
         from .calibration import fit_wm_cell
@@ -138,30 +132,6 @@ def dispatch(cfg, task, stop):
             result = select_branch_cell(cfg, rep, left, right, stop)
             output = root(cfg) / "calibration" / f"r{rep}" / f"{left:03d}_{right:03d}" / "choice.json"
         return result, [output]
-    if operation == "calibrate_base":
-        from .calibration import calibrate_base_cell
-        outputs, results = [], []
-        for item in task["chunk"]["items"]:
-            left, right = int(item["left_epoch"]), int(item["right_epoch"])
-            replicate = int(item.get("replicate", 0))
-            results.append(calibrate_base_cell(cfg, left, right, stop, replicate))
-            cell = root(cfg) / "calibration"
-            if cfg.get("calibrate_all_replicates", False):
-                cell = cell / f"r{replicate}"
-            outputs.append(cell / f"{left:03d}_{right:03d}" / "base_choice.json")
-        return dict(pairs=len(results), results=results), outputs
-    if operation == "calibrate_branch":
-        from .calibration import calibrate_branch_cell
-        outputs, results = [], []
-        for item in task["chunk"]["items"]:
-            left, right = int(item["left_epoch"]), int(item["right_epoch"])
-            replicate = int(item.get("replicate", 0))
-            results.append(calibrate_branch_cell(cfg, left, right, stop, replicate))
-            cell = root(cfg) / "calibration"
-            if cfg.get("calibrate_all_replicates", False):
-                cell = cell / f"r{replicate}"
-            outputs.append(cell / f"{left:03d}_{right:03d}" / "choice.json")
-        return dict(pairs=len(results), results=results), outputs
     if operation == "freeze_choices":
         from .calibration import freeze_cell_choices
         result = freeze_cell_choices(cfg)
@@ -184,26 +154,8 @@ def dispatch(cfg, task, stop):
             for i in task["chunk"]["items"]
         ]
         return result, outputs
-    if operation == "replicate_selected_evaluation":
-        from .alignment import fit_selected_methods
-        from .evaluation import full_profiles
-        from .protocol import pair_dir
-        outputs, results = [], []
-        for item in task["chunk"]["items"]:
-            rep, left, right = (
-                int(item["replicate"]), int(item["left_epoch"]), int(item["right_epoch"])
-            )
-            fitted, produced = fit_selected_methods(cfg, rep, left, right, stop)
-            full_profiles(cfg, rep, left, right, stop)
-            results.append(fitted)
-            outputs.extend(produced)
-            outputs.append(pair_dir(cfg, rep, left, right) / "full_profiles.json")
-        return dict(pairs=len(results), results=results), outputs
     if operation == "report":
-        if cfg.get("benchmark_mode") == "final_alignment":
-            from .final_reporting import report
-        else:
-            from .reporting import report
+        from .final_reporting import report
         result = report(cfg)
         return result, [root(cfg) / "report" / "summary.json", root(cfg) / "report" / "barriers.csv"]
     raise ValueError(operation)

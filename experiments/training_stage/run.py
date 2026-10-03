@@ -1,4 +1,4 @@
-"""Run one training-stage operation with Hydra configuration overrides."""
+"""Prepare CIFAR-10 or train one VGG endpoint."""
 
 from mode_connectivity.training_stage.runner import main
 

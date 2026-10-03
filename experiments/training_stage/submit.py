@@ -1,4 +1,4 @@
-"""Submit or preview the training-stage Slurm DAG."""
+"""Submit or preview the independent VGG endpoint jobs."""
 
 from mode_connectivity.training_stage.scheduling import main
 

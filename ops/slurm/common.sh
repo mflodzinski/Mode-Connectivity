@@ -15,7 +15,7 @@ mc_repo_root() {
 }
 
 mc_activate_venv() {
-  local activate_path="${VENV_ACTIVATE:-$HOME/venvs/mode-connectivity/bin/activate}"
+  local activate_path="${VENV_ACTIVATE:-${PROJECT_ROOT}/.venv/bin/activate}"
   if [ -f "${activate_path}" ]; then
     # shellcheck disable=SC1090
     source "${activate_path}"

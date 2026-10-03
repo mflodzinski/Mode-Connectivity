@@ -24,7 +24,7 @@ from .protocol import (
     verify_protocol,
     write_json,
 )
-from .reporting import METHOD_LABELS, METRICS
+from .reporting_common import METHOD_LABELS, METRICS
 
 
 METHOD_SHARDS = (

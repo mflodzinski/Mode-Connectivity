@@ -1,4 +1,4 @@
-"""Show completion and failure counts for a dense linear-stage root."""
+"""Show completion and failure counts for a final-alignment result root."""
 
 from __future__ import annotations
 
@@ -38,4 +38,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

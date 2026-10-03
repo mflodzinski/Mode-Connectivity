@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - fashion_mnist
+  - _base/fashion_mnist
   - _self_
 
 output_root: results/final_alignment_fashion_mnist
@@ -11,13 +11,6 @@ stages: [100]
 stage_progress: [1.0]
 profile_points_all: 61
 profile_points_selected: 61
-reuse:
-  wm_sources:
-    - {kind: fashion_stage, root: results/fashion_mnist_mlp10x512}
-  use_hyperparameter_priors: false
-fixed_hyperparameter_values: {}
-fixed_hyperparameter_evidence: {}
-
 # Use the same broad validation-only search as the VGG benchmark. Candidate
 # budgets are scaled to the 55,000-example Fashion-MNIST training split.
 calibration_candidates:
@@ -86,7 +79,6 @@ endpoint_pairs_per_task: 6
 slurm_resources:
   cpu: {cpus: 1, mem: 1GB, time: "00:10:00"}
   prepare: {cpus: 1, mem: 1GB, time: "00:10:00"}
-  reuse: {cpus: 1, mem: 2GB, time: "00:20:00"}
   calibrate_base: {cpus: 1, mem: 3GB, time: "03:50:00"}
   calibrate_branch: {cpus: 1, mem: 3GB, time: "03:50:00"}
   endpoint_chunk: {cpus: 1, mem: 2GB, time: "00:10:00"}

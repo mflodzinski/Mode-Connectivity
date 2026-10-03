@@ -1,1 +1,1 @@
-"""Training-stage experiment entry points."""
+"""CIFAR-10 VGG endpoint-training entry points."""

@@ -1,2 +1,1 @@
-"""Dense, full-data linear training-stage connectivity experiment."""
-
+"""Final-endpoint alignment benchmark (historical package name)."""

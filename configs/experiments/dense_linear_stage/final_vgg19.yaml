@@ -18,4 +18,3 @@ source_roots:
   "3": results/training_stage_vgg19_final
   "4": results/training_stage_vgg19_final
   "5": results/training_stage_vgg19_final
-reuse: {wm_sources: [], use_hyperparameter_priors: false}

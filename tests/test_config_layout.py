@@ -24,13 +24,13 @@ LEGACY_CONFIG_SNIPPETS = (
     "configs/config.yaml",
 )
 RUN_CONFIGS = [
-    "curves/runs/curve_seed0_seed1_reg",
-    "curves/runs/polygon_seed0_seed1",
-    "curves/runs/random_plane_midpoint_seed0_seed1",
-    "curves/runs/symmetry_plane_seed0_seed1",
-    "lmc/runs/split_30",
-    "lmc/runs/resume_shared_checkpoint",
-    "sinkhorn/runs/vgg11_cifar_perm_only",
+    "training_stage/default",
+    "fashion_mnist/default",
+    "dense_linear_stage/final_vgg11",
+    "dense_linear_stage/final_vgg13",
+    "dense_linear_stage/final_vgg16",
+    "dense_linear_stage/final_vgg19",
+    "dense_linear_stage/final_fashion_mnist",
 ]
 XOR_CONFIGS = [
     "xor/runners/permutation_scale.yaml",

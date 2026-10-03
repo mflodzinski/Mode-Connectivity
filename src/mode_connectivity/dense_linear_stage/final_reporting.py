@@ -10,7 +10,7 @@ import numpy as np
 
 from .alignment import METHODS
 from .protocol import pair_dir, root, write_json
-from .reporting import METHOD_LABELS, METRICS, SUBSETS
+from .reporting_common import METHOD_LABELS, METRICS, SUBSETS
 
 
 def _rows(cfg):

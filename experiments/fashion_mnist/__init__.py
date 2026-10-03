@@ -1,1 +1,1 @@
-"""Fashion-MNIST experiment entrypoints."""
+"""Fashion-MNIST endpoint-training entry points."""

@@ -15,9 +15,6 @@ operation="$2"
 if [ "${operation}" = "train" ]; then
   seed=$(python -c 'import json,os,sys; c=json.load(open(sys.argv[1]))["config"]; print(sum(c["seed_pairs"], [])[int(os.environ["SLURM_ARRAY_TASK_ID"])])' "${manifest}")
   srun python -m experiments.fashion_mnist.run train --manifest "${manifest}" --seed "${seed}"
-elif [ "${operation}" = "analyze" ] || [ "${operation}" = "linear" ] || [ "${operation}" = "nonlinear" ]; then
-  read -r replicate epoch < <(python -c 'import json,os,sys; c=json.load(open(sys.argv[1]))["config"]; a=[(r,e) for r in range(len(c["seed_pairs"])) for e in c["stages"]]; print(*a[int(os.environ["SLURM_ARRAY_TASK_ID"])])' "${manifest}")
-  srun python -m experiments.fashion_mnist.run "${operation}" --manifest "${manifest}" --replicate "${replicate}" --epoch "${epoch}"
 else
   echo "Unsupported GPU operation: ${operation}" >&2
   exit 2

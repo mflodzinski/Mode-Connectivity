@@ -1,66 +1,62 @@
-# Mode-Connectivity
+# Scaling Symmetries and Mode Connectivity
 
-This repository contains the active code, configs, and operator scripts for the mode-connectivity thesis workflows: Garipov-style curves, linear mode connectivity, Sinkhorn-based alignment, and smaller XOR studies. The reusable implementation lives under `src/mode_connectivity`, while repo-facing runners, Slurm launchers, and plotting or verification utilities live alongside it in dedicated top-level directories.
+This is the reproducibility repository for **“The Role of Scaling Symmetries in Linear and Nonlinear Mode Connectivity of Neural Networks.”** The paper source of truth is [`weekly_thesis_update(4)/paper_aistats2027/main.tex`](<weekly_thesis_update(4)/paper_aistats2027/main.tex>), with the compiled manuscript at [`main.pdf`](<weekly_thesis_update(4)/paper_aistats2027/main.pdf>).
 
-## Setup
+The repository reproduces four reported experiment groups:
 
-- Python: `>=3.10,<3.12`
-- Dependency management: Poetry
-- External code: vendored third-party directories under `external/`
+1. exhaustive permutation tests for width-2 XOR networks, including the minibatch-SGD robustness check;
+2. exhaustive permutation and positive-scale alignment for XOR widths 3, 5, and 7;
+3. nonlinear polygonal and quadratic Bézier paths, with and without endpoint scaling;
+4. final-endpoint alignment for VGG11/13/16/19 on CIFAR-10 and a 10-layer, width-512 MLP on Fashion-MNIST.
 
-Typical setup:
+The exact paper-to-code/result mapping and end-to-end commands are in [REPRODUCIBILITY.md](REPRODUCIBILITY.md).
+
+## Installation
+
+Python 3.10 or 3.11 and Poetry are supported.
 
 ```bash
 poetry install
-poetry run pytest
+PYTHONPATH=.:src poetry run pytest -q
 ```
 
-Notes:
+The lockfile is committed. XOR data are generated in code. CIFAR-10 and Fashion-MNIST are downloaded through `torchvision`; no private data or pretrained checkpoints are required. Vendored third-party code and pinned revisions are documented in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
-- `poetry.toml` is configured for an in-project virtual environment, so Poetry will create `.venv/`.
-- `data/`, `results/`, and `plots/` are working directories for datasets and generated artifacts, not the primary source tree.
-- `external/` contains vendored upstream code. Treat it as dependency code, not the main place to edit repo logic. Third-party license details are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+## Quick checks
 
-## Where To Start
+Run the CPU-only XOR smoke suite:
 
-- Run an experiment:
-  See [experiments/README.md](experiments/README.md) and [configs/experiments/README.md](configs/experiments/README.md).
-- Inspect reusable library code:
-  Start at [src/mode_connectivity/README.md](src/mode_connectivity/README.md).
-- Use local or cluster operator scripts:
-  See [ops/README.md](ops/README.md) and [ops/slurm/README.md](ops/slurm/README.md).
-- Use plotting or verification utilities:
-  See [tools/README.md](tools/README.md).
+```bash
+bash ops/local/smoke/run_xor_smoke_suite.sh
+```
 
-Common active entry surfaces:
+Inspect cluster commands without submitting jobs:
 
-- `python -m experiments...`
-- `python tools/...`
-- `bash ops/local/...`
-- `sbatch` or `bash` under `ops/slurm/...`
+```bash
+bash ops/slurm/training_stage/submit_endpoints.sh --dry-run \
+  output_root=results/training_stage_vgg11_final model=VGG11
 
-## Top-Level Layout
+bash ops/slurm/dense_linear_stage/submit_all.sh --dry-run \
+  --config-name dense_linear_stage/final_vgg11
+```
 
-- `src/`
-  Active reusable Python library code.
-- `experiments/`
-  Repo-facing runnable entrypoints for experiment families.
-- `configs/`
-  Canonical configuration trees, primarily under `configs/experiments/`.
-- `ops/`
-  Local smoke scripts and Slurm launcher wrappers.
-- `tools/`
-  Operator-facing plotting and verification utilities.
-- `tests/`
-  Active structure and behavior smoke tests for the retained layout.
-- `external/`
-  Vendored upstream repositories used by active workflows.
+## Layout
 
-## Directory Guides
+- `experiments/`: thin runnable entry points for the paper experiments.
+- `configs/experiments/`: frozen scientific configurations and XOR search grids.
+- `src/mode_connectivity/`: reusable training, alignment, evaluation, and reporting code.
+- `ops/`: local smoke tests and resumable Slurm launchers.
+- `tools/plotting/`: scripts that regenerate every empirical paper figure.
+- `tests/`: unit, import, config-composition, and shell-syntax checks.
+- `external/`: vendored upstream dependencies.
+- `results/`: retained reported artifacts in this working copy (ignored for normal Git commits).
+- `archive/`: historical code and non-paper results; nothing there is imported by active code.
+- `weekly_thesis_update(4)/paper_aistats2027/`: manuscript, bibliography, styles, and paper figures.
 
-- [src/mode_connectivity/README.md](src/mode_connectivity/README.md)
-- [experiments/README.md](experiments/README.md)
-- [configs/experiments/README.md](configs/experiments/README.md)
-- [ops/README.md](ops/README.md)
-- [ops/slurm/README.md](ops/slurm/README.md)
-- [tools/README.md](tools/README.md)
+The historical module name `dense_linear_stage` now contains only the paper's
+final-endpoint alignment workflow; the cross-training-stage mode has been
+removed from the active tree. Generated datasets, checkpoints, results, plots,
+and new manuscript build artifacts are intentionally ignored by Git. Existing
+tracked manuscript sources remain tracked. Use a new `output_root` whenever a
+scientific configuration changes; the cluster pipelines freeze a protocol hash
+and reject incompatible reuse.

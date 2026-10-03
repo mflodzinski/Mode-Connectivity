@@ -41,7 +41,9 @@ def get_permuted_param(
         # None means no permutation for that axis
         if p is not None:
             # torch.index_select equivalent to jnp.take
-            perm_indices = torch.tensor(perm[p], dtype=torch.long, device=w.device)
+            perm_indices = torch.as_tensor(
+                perm[p], dtype=torch.long, device=w.device
+            )
             w = torch.index_select(w, dim=axis, index=perm_indices)
 
     return w

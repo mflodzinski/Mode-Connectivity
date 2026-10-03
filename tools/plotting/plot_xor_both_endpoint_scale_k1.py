@@ -369,12 +369,23 @@ def main() -> None:
         type=Path,
         default=Path("results/xor/nonlinear_both_endpoints_k1_summary"),
     )
+    parser.add_argument(
+        "--paper-figure",
+        type=Path,
+        default=Path(
+            "weekly_thesis_update(4)/paper_aistats2027/figures/"
+            "nonlinear_scale_by_width_polygonal.png"
+        ),
+    )
     args = parser.parse_args()
     results = load_results(args.root)
     rows = summarize(results)
     write_summary(rows, args.output_dir / "summary.csv")
     plot_connectivity(results, args.output_dir / "connectivity_rate.png")
     plot_mean_barriers(results, args.output_dir / "mean_barrier_by_width.png")
+    polygonal_figure = args.output_dir / "mean_barrier_by_width_polygonal.png"
+    args.paper_figure.parent.mkdir(parents=True, exist_ok=True)
+    args.paper_figure.write_bytes(polygonal_figure.read_bytes())
     plot_paired_change_with_std(
         results, args.output_dir / "paired_barrier_change_with_std.png"
     )

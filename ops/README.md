@@ -5,21 +5,21 @@ This directory contains operator-facing shell entrypoints for running and valida
 ## Layout
 
 - `local/`
-  Local scripts, primarily lightweight smoke checks that can run without cluster infrastructure.
+  Lightweight XOR smoke checks that run without cluster infrastructure.
 - `slurm/`
-  Cluster launcher wrappers and helper scripts for the active experiment families.
+  Cluster launchers for the XOR and larger-network paper experiments.
 
 ## When To Use Which
 
 - Use `ops/local/` when you want a quick local validation pass, especially for small CPU-friendly workflows such as the XOR smoke checks.
-- Use `ops/slurm/` when you want the maintained cluster execution surface for the active experiments and verification jobs.
+- Use `ops/slurm/` for the maintained cluster execution surface for endpoint training, final alignment, and XOR sweeps.
 
 ## Existing Smoke Documentation
 
 The smoke-specific directories already have their own focused guides:
 
 - [local/smoke/README.md](local/smoke/README.md)
-- [slurm/smoke/README.md](slurm/smoke/README.md)
+- [../REPRODUCIBILITY.md](../REPRODUCIBILITY.md)
 
 ## Related Guides
 

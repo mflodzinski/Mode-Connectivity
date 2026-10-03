@@ -1,1 +1,1 @@
-"""Independent-training checkpoint connectivity experiments."""
+"""Independent CIFAR-10 VGG endpoint training."""

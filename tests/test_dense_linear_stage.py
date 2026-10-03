@@ -8,19 +8,15 @@ from torch.func import functional_call
 from mode_connectivity.common.hydra_compat import compose_experiment_config
 from mode_connectivity.dense_linear_stage.models import positive_scaled_state
 from mode_connectivity.dense_linear_stage.alignment import artifact_aligned_state
-from mode_connectivity.dense_linear_stage.calibration import (
-    _fixed_choice,
-    select_method_choices,
-)
+from mode_connectivity.dense_linear_stage.calibration import select_method_choices
 from mode_connectivity.dense_linear_stage.full_train import (
     METHOD_SHARDS,
     evaluation_tasks,
 )
 from mode_connectivity.dense_linear_stage.protocol import _stratified_subset
 from mode_connectivity.dense_linear_stage.runner import validate_config
-from mode_connectivity.dense_linear_stage.reuse import _best_grid_rows
 from mode_connectivity.dense_linear_stage.tasks import (
-    build_dag, calibration_rows, pair_rows, replication_rows, select_tasks,
+    build_dag, calibration_rows,
 )
 from mode_connectivity.fashion_mnist.model import FashionMLP
 from mode_connectivity.alignment.permutation_spec import mlp_permutation_spec
@@ -39,27 +35,6 @@ def config(name):
     )
 
 
-def test_complete_ordered_pair_matrix_and_bundling():
-    for name, calibration_bundle, replication_bundle, evaluation_bundle in (
-        ("vgg11", 1, 2, 1), ("fashion_mnist", 3, 6, 3)
-    ):
-        cfg = config(name)
-        validate_config(cfg)
-        assert cfg["train_report_size"] == 10_000
-        rows = pair_rows(cfg)
-        assert len(rows) == 12 * 12 * 3
-        assert any(row["left_epoch"] == cfg["stages"][0] and row["right_epoch"] == cfg["stages"][-1] for row in rows)
-        assert any(row["left_epoch"] == cfg["stages"][-1] and row["right_epoch"] == cfg["stages"][0] for row in rows)
-        counts = Counter(task["operation"] for task in build_dag(cfg))
-        assert counts["reuse"] == 1
-        calibration = calibration_rows(cfg)
-        replication = replication_rows(cfg)
-        assert len(calibration) == 12 * 12
-        assert len(replication) == 12 * 12 * 2
-        assert counts["calibrate_base"] == (len(calibration) + calibration_bundle - 1) // calibration_bundle
-        assert counts["calibrate_branch"] == counts["calibrate_base"]
-        assert counts["replicate_selected_evaluation"] == (len(replication) + replication_bundle - 1) // replication_bundle
-        assert counts["calibration_evaluation"] == (len(calibration) + evaluation_bundle - 1) // evaluation_bundle
 
 
 def test_final_alignment_calibrates_and_evaluates_every_seed_pair():
@@ -74,7 +49,6 @@ def test_final_alignment_calibrates_and_evaluates_every_seed_pair():
         assert cfg["evaluate_all_methods"] is True
         assert len(cfg["stages"]) == 1
         assert len(calibration_rows(cfg)) == 3
-        assert replication_rows(cfg) == []
         counts = Counter(task["operation"] for task in build_dag(cfg))
         assert counts["calibrate_wm"] == 3
         assert counts["calibrate_base_grid"] == 18
@@ -84,7 +58,6 @@ def test_final_alignment_calibrates_and_evaluates_every_seed_pair():
         assert counts["calibrate_base"] == 0
         assert counts["calibrate_branch"] == 0
         assert counts["calibration_evaluation"] == 3
-        assert counts["replicate_selected_evaluation"] == 0
         assert all(
             len(cfg["calibration_candidates"][method]) >= 12
             for method in (
@@ -136,23 +109,11 @@ def test_training_report_subset_is_exact_balanced_and_deterministic():
     )
 
 
-def test_resource_presets_follow_daic_feedback():
-    vgg, fashion = config("vgg11"), config("fashion_mnist")
-    assert vgg["slurm_resources"]["replicate_selected_evaluation"] == {
-        "cpus": 2, "mem": "4GB", "time": "01:00:00"
-    }
-    assert fashion["slurm_resources"]["replicate_selected_evaluation"] == {
-        "cpus": 1, "mem": "2GB", "time": "03:00:00"
-    }
-    assert fashion["slurm_resources"]["calibration_evaluation"] == {
-        "cpus": 1, "mem": "2GB", "time": "02:00:00"
-    }
-    assert vgg["replication_pairs_per_task"] == 2
-    assert fashion["replication_pairs_per_task"] == 6
-
-
-def test_example_budgets_replace_subset_pass_counts():
-    for name, train_size in (("vgg11", 45000), ("fashion_mnist", 55000)):
+def test_example_budgets_match_full_training_splits():
+    for name, train_size in (
+        ("final_vgg11", 45_000),
+        ("final_fashion_mnist", 55_000),
+    ):
         cfg = config(name)
         assert cfg["expected_train_examples"] == train_size
         assert cfg["method_hyperparameters"]["sinkhorn"]["max_examples"] == 1_000_000
@@ -172,50 +133,6 @@ def test_permutation_only_and_overall_selections_are_distinct():
     choices = select_method_choices(scores)
     assert choices["permutation_only"]["method"] == "sinkhorn"
     assert choices["overall"]["method"] == "sinkhorn_scale_finetune"
-
-
-def test_pilot_is_representative_and_does_not_freeze_all_cells():
-    for name in ("vgg11", "fashion_mnist"):
-        cfg = config(name)
-        pilot = select_tasks(build_dag(cfg), "pilot")
-        counts = Counter(task["operation"] for task in pilot)
-        assert 3 <= counts["calibrate_base"] <= 5
-        assert counts["calibrate_branch"] == counts["calibrate_base"]
-        assert counts["freeze_choices"] == 0
-
-
-def test_legacy_grid_prior_selects_each_cell_independently(tmp_path):
-    for tag, lr, score in (("slow", 0.01, 0.4), ("fast", 0.05, 0.2)):
-        path = tmp_path / "base" / tag / "grid_status" / "0_001_200.json"
-        path.parent.mkdir(parents=True)
-        path.write_text(
-            '{"status":"complete","pair":[0,1,200],'
-            f'"combo":{{"base_lr":{lr},"tau":1.0,"sinkhorn_l":1.0}},'
-            f'"result":{{"selected_score":[{score},0.8,20]}}}}'
-        )
-    best = _best_grid_rows(tmp_path, "base")
-    assert best[(1, 200)][1]["base_lr"] == 0.05
-
-
-def test_reuse_settings_match_legacy_wm_seeds():
-    vgg, fashion = config("vgg11"), config("fashion_mnist")
-    assert vgg["alignment_seed"] == 0
-    assert fashion["alignment_seed"] == 1729
-    assert vgg["reuse"]["use_hyperparameter_priors"] is True
-    assert fashion["reuse"]["use_hyperparameter_priors"] is False
-
-
-def test_only_historically_supported_vgg_hyperparameters_are_fixed():
-    vgg, fashion = config("vgg11"), config("fashion_mnist")
-    assert vgg["fixed_hyperparameter_values"] == {
-        "sinkhorn": {"lr": 0.05, "tau": 1.5, "sinkhorn_l": 1.0},
-        "sinkhorn_scale_finetune": {
-            "lr": 0.05, "scale_penalty": 0.0001, "weight_decay": 0.01,
-        },
-    }
-    assert _fixed_choice(vgg, "sinkhorn")["index"] == "historical_global_prior"
-    assert _fixed_choice(vgg, "wm_scale") is None
-    assert fashion["fixed_hyperparameter_values"] == {}
 
 
 def test_reused_weight_permutation_materializes_lazily(tmp_path):

@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - vgg11
+  - _base/vgg_cifar10
   - _self_
 
 output_root: results/final_alignment_vgg11_cifar10
@@ -9,18 +9,17 @@ calibrate_all_replicates: true
 evaluate_all_methods: true
 stages: [200]
 stage_progress: [1.0]
+source_roots:
+  "0": results/training_stage_vgg11_final
+  "1": results/training_stage_vgg11_final
+  "2": results/training_stage_vgg11_final
+  "3": results/training_stage_vgg11_final
+  "4": results/training_stage_vgg11_final
+  "5": results/training_stage_vgg11_final
 
 # Final benchmarking deliberately retunes every optimized method for every
 # endpoint pair. Historical results may supply context, but never freeze a
 # winner or candidate in this benchmark.
-reuse:
-  wm_sources:
-    - {kind: training_stage, root: results/training_stage_vgg11_pair01_atol2e5}
-    - {kind: training_stage, root: results/training_stage_vgg11_pairs2345}
-  use_hyperparameter_priors: false
-fixed_hyperparameter_values: {}
-fixed_hyperparameter_evidence: {}
-
 calibration_candidates:
   wm_scale:
     - {lr: 0.005, scale_penalty: 0.0001, calibration_max_examples: 150000}
@@ -91,7 +90,6 @@ profile_points_selected: 61
 slurm_resources:
   cpu: {cpus: 1, mem: 1GB, time: "00:10:00"}
   prepare: {cpus: 1, mem: 1GB, time: "00:10:00"}
-  reuse: {cpus: 1, mem: 2GB, time: "00:20:00"}
   calibrate_base: {cpus: 2, mem: 6GB, time: "03:50:00"}
   calibrate_branch: {cpus: 2, mem: 6GB, time: "03:50:00"}
   endpoint_chunk: {cpus: 2, mem: 2GB, time: "00:10:00"}

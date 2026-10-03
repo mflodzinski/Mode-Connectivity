@@ -7,7 +7,6 @@ import time
 import torch
 
 from .model import make_model
-from .profiles import evaluate
 from .protocol import (
     Data,
     checkpoint,
@@ -20,6 +19,21 @@ from .protocol import (
     seed_all,
     write_json,
 )
+
+
+@torch.no_grad()
+def evaluate(net, loader, device):
+    net.eval()
+    total, wrong, count = 0.0, 0, 0
+    for x, y in loader:
+        x, y = x.to(device), y.to(device)
+        logits = net(x)
+        total += torch.nn.functional.cross_entropy(
+            logits, y, reduction="sum"
+        ).item()
+        wrong += (logits.argmax(1) != y).sum().item()
+        count += len(y)
+    return dict(loss=total / count, error=100.0 * wrong / count, count=count)
 
 
 def train(cfg, seed: int, stop):

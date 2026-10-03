@@ -1,3 +1,7 @@
 argv:
-  - --output-dir
-  - results/xor/basin_test
+  - --hidden-neurons
+  - "2"
+  - --seeds
+  - 2,4,5,9,10,11,12,14
+  - --output
+  - results/xor/xor_2h_15seeds

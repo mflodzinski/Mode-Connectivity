@@ -1,4 +1,4 @@
-"""Run the Fashion-MNIST deep-MLP connectivity benchmark."""
+"""Prepare Fashion-MNIST or train one deep-MLP endpoint."""
 
 from mode_connectivity.fashion_mnist.runner import main
 

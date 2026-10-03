@@ -1,71 +1,13 @@
-# Experiment Config Tree
+# Frozen paper configurations
 
-This directory is the canonical configuration tree for active experiment runs. The main experiment families use Hydra-style composition, while the XOR wrappers use smaller OmegaConf-loaded preset files.
+- `xor/runners/`: argv presets for the thin XOR entry points.
+- `xor/search/`: bounded Sinkhorn and positive-scale fallback grids.
+- `training_stage/default.yaml`: CIFAR-10 VGG endpoint protocol.
+- `fashion_mnist/default.yaml`: 10-layer, width-512 Fashion-MNIST endpoint protocol.
+- `dense_linear_stage/final_vgg{11,13,16,19}.yaml`: final CIFAR-10 alignment benchmarks.
+- `dense_linear_stage/final_fashion_mnist.yaml`: final Fashion-MNIST alignment benchmark.
+- `dense_linear_stage/_base/`: shared final-endpoint settings inherited by the five public configs; these are not standalone experiment entry points.
 
-## Layout Conventions
-
-- `_base/`
-  Shared defaults and reusable config fragments for a family.
-- `runs/`
-  Concrete runnable experiment configs.
-- `pairs/`
-  Endpoint-pair definitions for curve experiments.
-- `geometry/`
-  Geometry or path-shape variants for curve experiments.
-- `presets/`
-  Reusable named parameter presets, currently used by Sinkhorn runs.
-- `splits/`
-  Reusable split definitions for LMC workflows.
-- `runners/`
-  XOR runner presets that define argv-like defaults for thin wrapper modules.
-- `search/`
-  XOR search-space or sweep-oriented preset files.
-
-## Family Notes
-
-- `curves/`
-  Uses composition across `_base/`, `geometry/`, `pairs/`, and `runs/`.
-- `lmc/`
-  Uses `_base/`, `splits/`, `analysis/`, and `runs/`.
-- `sinkhorn/`
-  Uses `_base/`, `presets/`, and `runs/`.
-- `training_stage/`
-  Defines the frozen split, checkpoints, budgets, and evaluation protocol for
-  the independent-training checkpoint matrix.
-- `fashion_mnist/`
-  Defines the reusable endpoint, alignment, nonlinear-path, and reporting
-  protocol for the deep Fashion-MNIST MLP validation.
-- `xor/`
-  Stores preset files consumed directly by the thin XOR wrappers rather than full Hydra family composition.
-
-## Typical Composition Pattern
-
-A representative curve run such as `curves/runs/curve_seed0_seed1_reg.yaml` composes:
-
-- shared defaults from `curves/_base/common`
-- curve-training settings from `curves/_base/curve_training`
-- a geometry choice from `curves/geometry/...`
-- an endpoint pair from `curves/pairs/...`
-- final run-specific overrides in `runs/...`
-
-## Where To Edit
-
-- Shared defaults:
-  edit the family `_base/` directory.
-- Dataset or model pairings for curve-style runs:
-  edit `curves/pairs/`.
-- Concrete runnable experiment definitions:
-  edit the relevant family `runs/` directory.
-- Geometry-specific curve behavior:
-  edit `curves/geometry/`.
-- Sinkhorn reusable presets:
-  edit `sinkhorn/presets/`.
-- LMC split definitions:
-  edit `lmc/splits/`.
-- XOR CLI argument presets:
-  edit `xor/runners/`.
-
-## Related Guides
-
-- [../../README.md](../../README.md)
-- [../../experiments/README.md](../../experiments/README.md)
+Hydra composition is tested for every public final config. The historical
+12-by-12 training-stage configurations are archived and cannot be selected
+from the active config tree. See [../../REPRODUCIBILITY.md](../../REPRODUCIBILITY.md).

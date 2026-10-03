@@ -1,46 +1,10 @@
-# Experiment Runners
+# Paper experiment entry points
 
-This directory contains the repo-facing runnable entrypoints for the active experiment families. These modules are the intended `python -m experiments...` surface and delegate most reusable logic to `src/mode_connectivity`.
+These modules are the runnable surface for the experiments reported in the AISTATS paper. Reusable implementation lives in `src/mode_connectivity/`.
 
-## Families
+- `xor/`: exhaustive permutation, permutation/scale, and nonlinear-path studies.
+- `training_stage/`: independent CIFAR-10 VGG endpoint training used by the final benchmark.
+- `fashion_mnist/`: independent Fashion-MNIST MLP endpoint training.
+- `dense_linear_stage/`: final-endpoint validation search, frozen evaluation, status reporting, and full-training-split evaluation for the five larger-network settings. The directory name is retained for import compatibility; it no longer exposes cross-stage experiments.
 
-- `curves/`
-  Garipov-style curve training, endpoint preparation, and constrained geometry variants.
-- `lmc/`
-  Linear mode-connectivity training, packaging, benchmarking, and evaluation flows.
-- `sinkhorn/`
-  VGG/CIFAR alignment sweeps and comparison runs built around Sinkhorn-based rebasining.
-- `training_stage/`
-  Independent configurable VGG training (VGG11 by default), checkpoint-pair alignment,
-  evaluation, and Slurm submission.
-- `fashion_mnist/`
-  Shared endpoint training plus same-stage linear, symmetry-aligned, and nonlinear
-  connectivity evaluation for the 10-hidden-layer width-512 Fashion-MNIST MLP.
-- `xor/`
-  Thin wrappers around retained argparse-heavy XOR experiments.
-
-## How Runners Pair With Configs
-
-- Config-driven families:
-  `curves/`, `lmc/`, `sinkhorn/`, `training_stage/`, and `fashion_mnist/`
-  compose defaults from `configs/experiments/...` and then execute through
-  reusable library helpers.
-- Thin CLI wrapper family:
-  `xor/` loads preset argv-style settings from `configs/experiments/xor/runners/` and forwards them to the retained XOR implementations.
-
-See [../configs/experiments/README.md](../configs/experiments/README.md) for the config tree layout.
-
-## Outputs
-
-At a high level, these runners write generated artifacts under `results/`, typically grouped by experiment family:
-
-- curve and geometry outputs under `results/.../curves/...`
-- LMC outputs under `results/.../lmc/...`
-- Sinkhorn outputs under `results/.../sinkhorn/...`
-- XOR outputs under `results/xor/...`
-
-## Related Guides
-
-- [../README.md](../README.md)
-- [../src/mode_connectivity/README.md](../src/mode_connectivity/README.md)
-- [../ops/slurm/README.md](../ops/slurm/README.md)
+Run modules as `python -m experiments.<family>.<entrypoint>`. See [../REPRODUCIBILITY.md](../REPRODUCIBILITY.md) for the exact command and config associated with each figure and table.

@@ -64,7 +64,7 @@ def positive_scaled_state(state, log_scales, spec):
 
 
 def interpolated_profile(template, left, right, loader, alphas, stop=None, cached=None):
-    from mode_connectivity.training_stage.geometry import barriers
+    from mode_connectivity.training_stage.endpoint_utils import barriers
 
     losses, errors = [], []
     cached = cached or {}

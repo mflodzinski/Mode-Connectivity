@@ -1,11 +1,11 @@
-# AISTATS 2027 paper draft
+# AISTATS 2027 paper
 
-This is the AISTATS 2027 version of the paper distilled from
-`../evaluation/new_main.tex`. It uses the official anonymous AISTATS submission
-style and packages its figures and bibliography locally.  Author names and
-affiliations must remain absent during double-blind review; add the `accepted`
-option and restore the author metadata only when preparing a camera-ready
-version.
+`main.tex` and `main.pdf` are the source of truth for this reproducibility
+repository. This directory contains the manuscript, its bibliography, the
+AISTATS style files, the figures referenced by the manuscript, and two retained
+source panels used to assemble Figure 2. The
+paper is currently configured for anonymous review; author names and
+affiliations must remain absent until the camera-ready version.
 
 Build with:
 
@@ -18,5 +18,8 @@ mandatory AI Use Statement, reproducibility checklist, and single-column
 supplementary appendix do not count toward that limit.
 
 Before submission, reconcile the AI Use Statement and checklist with the full
-author team's actual workflow, add an anonymized code artifact if available,
-and complete any checklist items currently marked `No`.
+author team's actual workflow and complete any checklist items currently
+marked `No`.
+
+Experiment commands and the paper-to-code map are in the repository-level
+[`REPRODUCIBILITY.md`](../../REPRODUCIBILITY.md).

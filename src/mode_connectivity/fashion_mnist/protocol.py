@@ -72,12 +72,7 @@ def protocol_hash(cfg) -> str:
 def code_hash() -> str:
     project = Path(__file__).resolve().parents[3]
     files = sorted((project / "src/mode_connectivity/fashion_mnist").glob("*.py"))
-    files += sorted((project / "external/sinkhorn-rebasin/rebasin").rglob("*.py"))
-    files += [
-        project / "src/mode_connectivity/alignment/permutation_spec.py",
-        project / "src/mode_connectivity/alignment/weight_matching.py",
-        project / "src/mode_connectivity/training_stage/geometry.py",
-    ]
+    files.append(project / "src/mode_connectivity/alignment/permutation_spec.py")
     return digest({str(path.relative_to(project)): file_hash(path) for path in files})
 
 
