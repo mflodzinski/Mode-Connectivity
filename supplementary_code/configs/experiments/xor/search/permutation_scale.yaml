@@ -1,0 +1,10 @@
+target_epsilon: 0.01
+search_steps:
+  - 500
+search_lrs:
+  - 0.01
+  - 0.005
+search_regs:
+  - 0.0
+search_patience: 50
+search_min_delta: 1.0e-3

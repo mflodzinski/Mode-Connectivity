@@ -1,0 +1,4 @@
+defaults:
+  - /lmc/_base/common
+  - /lmc/splits/split_8
+  - _self_

@@ -1,0 +1,12 @@
+defaults: []
+
+experiment_name: "garipov_vgg16_endpoints"
+output_root: "results/vgg16/cifar10/endpoints/standard"
+
+epochs: 200
+save_intermediate: true
+save_freq: 50
+lr: 0.05
+wd: 5e-4
+
+seeds: [0, 1]

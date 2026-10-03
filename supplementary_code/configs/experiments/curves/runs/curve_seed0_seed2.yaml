@@ -1,0 +1,9 @@
+defaults:
+  - /curves/_base/common
+  - /curves/_base/curve_training
+  - /curves/geometry/curve_bezier
+  - /curves/pairs/seed0_seed2
+  - _self_
+
+experiment_name: "vgg16_curve_${pair_slug}_bezier"
+output_root: "results/vgg16/cifar10/curves/standard/${pair_slug}_bezier/checkpoints"

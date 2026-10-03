@@ -6,7 +6,7 @@
     "VGG19\nCIFAR-10",
     "MLP-10\u00d7512\nFashion-MNIST"
   ],
-  "metric": "training loss barrier above the endpoint chord",
+  "metric": "training loss barrier",
   "subset": "train_fit",
   "subset_description": "complete endpoint-training split",
   "examples": [

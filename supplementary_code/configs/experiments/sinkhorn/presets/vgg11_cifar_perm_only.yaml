@@ -1,0 +1,22 @@
+defaults: []
+
+experiment_name: "sinkhorn_vgg11_cifar_alignment_sweep_dist_l2_perm_only"
+vgg_name: "VGG11"
+
+model_a_checkpoint: "external/pytorch-vgg-cifar10/save_vgg11_seed0/model_final_state_dict.pth"
+model_b_checkpoint: "external/pytorch-vgg-cifar10/save_vgg11_seed1/model_final_state_dict.pth"
+base_output_root: "results/vgg11/cifar10/raw_pth_align_sweep_dist_l2_perm_only"
+
+sweep:
+  alignment_iterations:
+    - 150
+  loss_name:
+    - "dist_l2"
+  tau:
+    - 1.0
+    - 1.5
+  lr:
+    - 0.01
+    - 0.005
+  sinkhorn_l:
+    - 1.0

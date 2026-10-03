@@ -15,7 +15,6 @@
 \usepackage{url}
 
 \graphicspath{{figures/}}
-\setlength{\textfloatsep}{10pt}
 
 \begin{document}
 
@@ -25,12 +24,6 @@
 \aistatsauthor{Anonymous Authors}
 \aistatsaddress{Anonymous Institution}
 ]
-
-% TEMPORARY: remove these four lines for submission if page numbers are disallowed.
-\setlength{\footskip}{12pt}
-\pagestyle{fancy}
-\fancyfoot[C]{\thepage}
-\thispagestyle{fancy}
 
 \begin{abstract}
 To analyze the loss landscape of neural networks, one has to take the weight symmetries into account. Neurons can be permuted without changing the function represented by the network. Therefore, when assessing whether two networks are similar, one must account for these symmetries. If, even after reparametrization or re-basing, interpolated networks show high loss (i.e. a high barrier), this may indicate that they lie in separate basins of the loss landscape and represent fundamentally different solutions. However, it has been conjectured that, for independently trained neural networks, some permutation re-basing removes such barriers entirely. We test this claim in ReLU networks using exhaustive experiments where permutation-search error can be ruled out. We find in small networks trained on the XOR problem perfectly accurate solutions that are fundamentally in different basins, providing a concrete counterexample to a universal permutation-based account of linear mode connectivity. We then enlarge the symmetry class with function-preserving positive scaling. We introduce both a joint Sinkhorn permutation-and-scaling method and a method-agnostic refinement that holds a chosen permutation fixed and optimizes only its weight scales. In these small networks, for which all permutations can be enumerated, scaling improves even the best permutation; across VGG/CIFAR-10 and MLP/Fashion-MNIST, it consistently reduces both weight-matching and Sinkhorn training-loss barriers. Nonlinear path experiments further separate weight symmetry from architectural redundancy: the same small XOR networks stay separated even when nonlinear Bézier and polygonal loss paths are used, whereas adding hidden units creates low-loss paths and makes weight scaling useful for path optimization. These results show that permutation symmetry is an incomplete explanation of the connectivity of neural-network loss basins and that both the optimization of functionally equivalent model representatives and the available model capacity determine whether low-loss paths are found.
@@ -397,7 +390,7 @@ Appendix Figure~\ref{fig:xor-profiles} shows the corresponding mean
 interpolation profiles.  The curves visualize the width trend and method
 ranking summarized more completely by Table~\ref{tab:xor-scale}.
 
-\subsection{Width Enables Nonlinear Connectivity}
+\subsection{Width Enables, Scaling Refines Nonlinear Connectivity}
 \label{sec:nonlinear}
 
 Residual linear barriers need not imply disconnected low-loss sets, so we test
@@ -407,10 +400,10 @@ interior control point $v$, their one-control-point parameterizations are
 \begin{equation}
 \phi^{\mathrm{poly}}_{v}(\lambda)=
 \begin{cases}
-2\bigl(\lambda v+(\tfrac12-\lambda)\theta_A\bigr),
-    & 0\leq\lambda\leq\tfrac12,\\
-2\bigl((\lambda-\tfrac12)\theta_B+(1-\lambda)v\bigr),
-    & \tfrac12\leq\lambda\leq1,
+(1-2\lambda)\theta_A+2\lambda v,
+    & \lambda\in[0,\tfrac12],\\
+2(1-\lambda)v+(2\lambda-1)\theta_B,
+    & \lambda\in[\tfrac12,1],
 \end{cases}
 \label{eq:polygonal-path}
 \end{equation}
@@ -420,14 +413,16 @@ interior control point $v$, their one-control-point parameterizations are
 \label{eq:bezier-path}
 \end{equation}
 The polygonal path consists of two line segments meeting at $v$; the B\'ezier
-path bends smoothly under its influence.  We keep the endpoints fixed and
-optimize the control points to minimize the maximum loss over $31$ sampled
-path locations, using up to ten interior points.  To test whether width affects
-available routes rather than only alignment, we apply these paths to endpoints
-from the shared protocol.  At widths $h\in\{2,3,5,7\}$, we also
-compare a one-control-point path with joint optimization of that path and
-independent positive scales at both endpoints.  Scaling preserves the endpoint
-functions; no permutation alignment is applied in this comparison.
+path bends smoothly under its influence.  For the path-only searches, we keep
+the endpoints fixed and optimize the control points to minimize the maximum
+loss over $31$ sampled path locations, using up to ten interior points.  To
+test whether width affects available routes rather than only alignment, we
+apply these paths to endpoints from the shared protocol.  At widths
+$h\in\{2,3,5,7\}$, we also compare a one-control-point path with joint
+optimization of that path and independent positive scales at both raw
+endpoints.  No permutation alignment is applied in this comparison.  The
+transformed endpoints and joint optimization objective are given in
+Appendix~\ref{app:nonlinear-endpoint-scale}.
 
 \begin{figure}[t]
     \centering
@@ -444,21 +439,31 @@ functions; no permutation alignment is applied in this comparison.
 \end{figure}
 
 \paragraph{Result.}
-At $h=2$, extensive searches find low-loss nonlinear paths only between
+At $h=2$, searches find low-loss nonlinear paths only between
 essentially identical endpoints; additional interior points do not recover
 nontrivial connections.  At $h=3$, all studied endpoint pairs are connected by
 low-loss paths that retain $100\%$ accuracy throughout interpolation.
-Figure~\ref{fig:nonlinear-width} contrasts representative outcomes.  This
+Figure~\ref{fig:nonlinear-width} contrasts outcomes.  This
 result is empirical, not a proof that no width-$2$ path exists
 outside the tested families.  The only two successful width-$2$ endpoint pairs
-correspond to seed pairs $(2,9)$ and $(5,12)$.  These pairs are nearly duplicate
+correspond to pairs $(2,9)$ and $(5,12)$.  These pairs are nearly duplicate
 parameter solutions: their Euclidean endpoint
 separations are only about $0.6\%$ of the corresponding parameter norms, and
 both path families attain barriers at numerical zero, providing no evidence of
-a nontrivial connection between distinct width-$2$ solutions.  A plausible
-explanation for the remaining failures is that width $2$ is
-capacity-tight for XOR.  The nontrivial endpoint pairs have different decision-
-boundary geometries, each constructed from only two ReLU boundary pieces.
+a nontrivial connection between distinct width-$2$ solutions.
+
+\noindent A plausible explanation for the remaining failures is that width
+$2$ is capacity-tight for XOR.  The nontrivial endpoint pairs have different
+decision-boundary geometries, each constructed from only two ReLU boundary
+pieces.  Within the tested path families, continuously transforming one
+geometry into the other with no spare hidden unit requires an intermediate
+arrangement that misclassifies at least one XOR point.
+After adding a third unit, all studied pairs admit low-loss paths, consistent
+with the extra unit providing the
+temporary representational freedom needed during this transformation.  This
+supports a distinction that endpoint alignment alone cannot make: symmetry
+selects among equivalent representatives at fixed capacity, whereas width
+changes the representational resources available along a path.
 
 \begin{figure}[H]
     \centering
@@ -470,53 +475,37 @@ boundary geometries, each constructed from only two ReLU boundary pieces.
     aggregate the same endpoint pairs at each width.}
     \label{fig:nonlinear-scale-width}
 \end{figure}
-\vspace{-1ex}
-
-\noindent Within the tested path families, continuously transforming one
-geometry into the other with no spare hidden unit requires an intermediate
-arrangement that misclassifies at least one XOR point.
-After adding a third unit, all studied pairs admit low-loss paths, consistent
-with the extra unit providing the
-temporary representational freedom needed during this transformation.  This
-supports a distinction that endpoint alignment alone cannot make: symmetry
-selects among equivalent representatives at fixed capacity, whereas width
-changes the representational resources available along a path.
-
-\vspace{-1ex}
 \paragraph{Endpoint-scaling result.}
 Endpoint scaling does not remove the minimal-width obstruction.  With one
 interior control point, both polygonal and B\'ezier searches find low-loss
 connections for only $2/28$ width-$2$ pairs, with or without jointly optimized
 endpoint scales.  At larger widths, scaling nevertheless improves path
-finding.  For polygonal
-paths, it lowers the mean barrier by $1.3\%$, $4.7\%$, and $94.9\%$ at widths
-$3$, $5$, and $7$, respectively.  Quadratic B\'ezier paths show the same
-qualitative higher-width pattern: little change at width $3$, a modest
-reduction at width $5$, and a reduction of more than $90\%$ at width $7$.
-The two path families also give identical low-loss connection counts at every
-width.  At width $2$, their mean-barrier details differ slightly---scaling
-improves the polygonal mean but worsens the B\'ezier mean---yet neither finds
-additional low-loss connections.  Figure~\ref{fig:nonlinear-scale-width}
-shows the polygonal comparison; the visually near-identical B\'ezier profile,
-which supports the same conclusions, is omitted.
+finding (Figure~\ref{fig:nonlinear-scale-width}), with quadratic B\'ezier paths
+behaving similarly.  Geometrically, joint optimization fits the nonlinear
+curve while allowing each endpoint to move continuously along its
+loss-preserving symmetry orbit.  Thus, lower-loss routes exist but may be
+easier to express or find after selecting suitable functionally equivalent endpoint
+representatives.
 
-\vspace*{2ex}
 \section{Larger-Network Validation}
 \label{sec:vgg}
 
-\paragraph{Setup.}
-We evaluate VGG11, VGG13, VGG16, and VGG19 on CIFAR-10, and a ten-layer
-width-512 MLP on Fashion-MNIST.  For every architecture--dataset combination,
-six independently trained models form three disjoint endpoint pairs: runs
+Following the permutation-aligned connectivity benchmarks of
+\citet{jordan2023repair}, we evaluate VGG11, VGG13, VGG16, and VGG19 on
+CIFAR-10, and a ten-layer width-512 MLP on Fashion-MNIST.
+For every architecture--dataset
+combination, six independently trained models form three disjoint endpoint pairs: runs
 initialized with seeds $(0,1)$, $(2,3)$, and $(4,5)$.
 As a data-independent permutation baseline, weight matching (WM) approximately
-solves
+solves the compact sum of bilinear assignments problem (SOBLAP)
 \begin{equation}
-P^\star\in\arg\min_{P_1,\ldots,P_{L-1}}
+(P_1^\star,\ldots,P_{L-1}^\star)
+\in\arg\min_{P_1,\ldots,P_{L-1}}
 \left\lVert\theta_A-\pi_P(\theta_B)\right\rVert_2^2,
 \label{eq:weight-matching}
 \end{equation}
-where $\pi_P$ applies the hidden-layer relabelings of
+where $\theta$ concatenates all weights and biases, and $\pi_P$ applies the
+hidden-layer relabelings of
 Eq.~\ref{eq:hard-permutation-action}.  The standard solver
 cycles through layers, solving one linear assignment problem while holding the
 remaining permutations fixed~\citep{ainsworth2023git}.  For WM with scale
@@ -526,14 +515,8 @@ function-preserving positive scales.
 We compare raw
 interpolation, weight matching, weight matching followed by positive-scale
 refinement, Sinkhorn alignment, joint Sinkhorn--scale optimization, and
-positive-scale refinement of the projected Sinkhorn permutation.  Each
-optimized method receives a pair-specific 12-candidate search: fitting and
-early stopping use one validation half, selection uses the other, and the
-selected configuration is refit at full budget.  Alignment fitting uses the
-complete endpoint-training split (45,000 examples for CIFAR-10 and 55,000 for
-Fashion-MNIST).  Figure~\ref{fig:vgg} evaluates the resulting paths on a fixed,
-class-balanced 10,000-example subset of that split.  The test set is first
-accessed after all choices are frozen and is reported separately in
+positive-scale refinement of the projected Sinkhorn permutation.
+The complete hyperparameter-selection and evaluation protocol is given in
 Appendix~\ref{app:larger-network}.
 Because the datasets and architectures differ, comparisons are made between
 methods within each model rather than between absolute barrier magnitudes
@@ -542,38 +525,36 @@ across groups.
 \begin{figure*}[t]
     \centering
     \includegraphics[width=0.92\linewidth]{barplot_vggs_train.png}
-    \caption{Training-loss barrier for independently trained VGG models on
-    CIFAR-10 and a ten-layer width-512 MLP on Fashion-MNIST.  Bars show the
-    mean over three disjoint independently trained endpoint pairs, and error
-    bars show the sample standard deviation.  All six methods are evaluated
-    for every architecture.  Hyperparameters are selected separately for each
-    pair using validation data only; barriers are evaluated on a fixed,
-    class-balanced 10,000-example subset of the endpoint-training split.}
+    \caption{Training-loss barriers across the studied architecture--dataset
+    combinations.  Bars show the mean over three disjoint independently
+    trained endpoint pairs, and error bars show the sample standard deviation.
+    Hyperparameters are selected separately for each pair using validation
+    data only.}
     \label{fig:vgg}
 \end{figure*}
 
 \paragraph{Result.}
-Figure~\ref{fig:vgg} reports the mean training-loss barrier across the three
-pairs.  Positive-scale refinement reduces the WM barrier from
-$0.531\mathbin{\pm}0.057$, $0.975\mathbin{\pm}0.045$,
-$1.157\mathbin{\pm}0.138$, and $1.677\mathbin{\pm}0.184$ to
-$0.187\mathbin{\pm}0.006$, $0.156\mathbin{\pm}0.012$,
-$0.206\mathbin{\pm}0.018$, and $0.277\mathbin{\pm}0.030$ on
-VGG11/13/16/19, respectively.  Refining a fixed Sinkhorn permutation also
-consistently outperforms joint optimization: its VGG11/13/16/19 means are
-$0.625$, $0.787$, $0.912$, and $0.957$, compared with $0.760$, $0.911$,
-$1.089$, and $1.089$ for the joint variant.  On Fashion-MNIST, scale refinement
-reduces WM from $1.971\mathbin{\pm}0.810$ to
-$0.259\mathbin{\pm}0.052$ and Sinkhorn from
-$0.584\mathbin{\pm}0.068$ to $0.382\mathbin{\pm}0.188$.  Thus scaling selects
-substantially better representatives, but none of the tested methods eliminates
-the sampled training-loss barrier.
+Across all five architecture--dataset settings in Figure~\ref{fig:vgg},
+positive-scale refinement reduces the mean WM barrier by $64$--$87\%$.  It
+also consistently improves a fixed Sinkhorn permutation.  Under the reported
+hyperparameter grid, WM followed by scale refinement outperforms joint
+Sinkhorn--scale optimization and performs best in every setting.
+Sinkhorn-based methods are more sensitive to hyperparameter selection, and
+broader exploratory searches produced better alignments in some settings.
+The comparison therefore characterizes performance under the standardized
+search protocol rather than establishing a definitive ranking of the
+alignment methods.  None of the reported configurations eliminates the
+sampled training-loss barrier.
 
-These results transfer the controlled XOR finding, although permutation search
-is non-exhaustive, three pairs only coarsely estimate variability, and
-hyperparameters are selected per method and pair.  Still, the cross-model
-pattern supports scaling beyond XOR.
+Across the studied architecture--dataset combinations, this extends the
+controlled XOR finding beyond small networks.  The consistent gains after both
+WM and Sinkhorn alignment show that permutation and positive-scaling
+symmetries are complementary: permutation-aligned endpoints need not be the
+functionally equivalent representatives with the lowest linear barrier.  The
+remaining barriers show that the tested searches improve, but do not recover,
+barrier-free linear connectivity.
 
+\FloatBarrier
 \section{Discussion and Limitations}
 
 \paragraph{Symmetry and redundancy play different roles.}
@@ -584,54 +565,45 @@ exists.  In the nonlinear experiments, it can only make such a connection
 easier to express or find within the tested path families and optimization
 procedures.  Width, by contrast, changes the architecture's representational
 freedom and can create routes unavailable to a narrower network; curved paths
-relax the separate requirement that such a route be straight.
+relax the separate requirement that such a route be straight.  These
+mechanisms are complementary but not interchangeable: selecting a better
+representative cannot create missing capacity, while additional capacity does
+not by itself select a favorable representative.
 
-The minimal-width experiment also sharpens the interpretation of
-\citet{ainsworth2023git}.  Their hand-constructed counterexample using the XOR
-problem shows that architecture alone does not guarantee permutation-based LMC, and they suggest
-that LMC may be an artifact of SGD.  Our result rules out a broad reading under
-which standard gradient-based training itself guarantees alignable endpoints:
-neither minibatch SGD nor full-batch GD prevents permutation-incompatible
-successful solutions.  It does not rule out an SGD bias toward compatibility
-in wider or typical modern networks.  Indeed, the rapid fall in the exhaustive
-permutation barrier with increasing width is consistent with the sufficiently-wide, high-probability
-form of the single-basin-modulo-permutation
-conjecture~\citep{entezari2021role,ainsworth2023git}.
-
-\paragraph{Optimization versus existence.}
+\paragraph{Implications for alignment studies.}
 The exhaustive protocol is central to this interpretation.  Without it, a high
 barrier after Sinkhorn or weight matching could always be ascribed to search
 failure.  Conversely, the gap between joint Sinkhorn and fixed-permutation
 scale refinement warns against treating a failed continuous relaxation as
 evidence that a good functionally equivalent representative does not exist.
-Future work should distinguish the
-expressivity of a transformation class from the solver used to search it.
+Thus, the results do not reject a broader single-basin intuition; they show
+that its permutation-only formulation is too narrow, since positive scaling
+can lower barriers even after permutation alignment.
+Moreover, weight and activation matching use parameter or representation
+similarity as
+proxies for linear connectivity, but these proxies need not select the
+lowest-barrier representatives.  Sinkhorn directly optimizes a data-dependent
+interpolation objective, but remains sensitive to relaxation and optimization
+choices~\citep{ainsworth2023git,guerrero2023rebasin}.  Better objectives will
+require identifying which properties of the endpoints and loss landscape
+determine linear compatibility.
 
-\paragraph{Implications for alignment studies.}
-A residual barrier should be interpreted in stages.  Search error must first
-be separated from limitations of the transformation class.  If permutation is
-insufficient, richer exact symmetries should be tested before inferring distinct
-basins.  Linear and nonlinear paths should then be distinguished, and width
-should be treated as a change in representational resources rather than merely
-a larger matching problem.
-
-\paragraph{Limitations.}
+\paragraph{Limitations and future work.}
 The exact conclusions come from small one-hidden-layer networks trained on the
-XOR problem.  The
-minibatch and full-batch protocols are robustness replications, not a controlled
-estimate of stochasticity: with the same number of epochs, minibatches containing
-two of the four XOR examples yield two optimizer updates per epoch, whereas
-full-batch GD yields one.  The larger-network study is non-exhaustive, uses
-only three disjoint pairs per architecture, and relies on pair- and
-method-specific hyperparameter selection.  Our nonlinear path searches can
+XOR problem.  The larger-network study is non-exhaustive, uses only three
+disjoint pairs per architecture, and relies on pair- and method-specific
+hyperparameter selection.  Our nonlinear path searches can
 certify found paths but cannot certify nonexistence.  The scale-aware soft
 transformation is exactly function preserving only after projection; during
 Sinkhorn optimization it is a relaxation.  Finally, we consider ReLU networks,
 for which positive homogeneity holds, and do not address normalization layers,
 residual architectures, attention symmetries, or approximate functional
-equivalences.  Larger multi-seed studies and comparisons with activation repair
-are needed before drawing broad architectural conclusions.
+equivalences.  Larger multi-seed studies are needed before drawing broad
+architectural conclusions.  A promising direction is to combine positive-scale
+refinement with activation repair~\citep{jordan2023repair}, which may yield
+still lower barriers.
 
+\clearpage
 \section{Conclusion}
 
 A central problem in studying neural-network loss landscapes is determining
@@ -651,16 +623,14 @@ simple: symmetry determines which representatives we compare; redundancy
 determines which paths are available.
 
 \subsection*{AI Use Statement}
-Generative AI tools were used to brainstorm presentation choices, improve the
-organization and readability of draft text, and assist with programming tasks
-including debugging, refactoring, plotting, and \LaTeX{} editing.  They were
-not used to generate experimental data, select the reported results, or make
-the final scientific interpretations.  The research questions, experimental
-design, implementation decisions, analysis, and conclusions were determined by
-the authors.  All AI-assisted text and code were reviewed and checked before
-inclusion.  The authors take responsibility for the final content, claims,
-citations, and artifacts.  This statement must be reconciled with the complete
-author team's actual use before submission.
+Generative AI tools were used to edit and organize manuscript text, brainstorm
+presentation and interpretation choices, assist with literature searches, and
+support programming tasks including implementation, debugging, refactoring,
+plotting, and \LaTeX{} editing.  They were not used to generate experimental
+data or autonomously select the reported results.  All AI-assisted text, code,
+analyses, citations, and interpretations were reviewed and verified by the
+authors.  The authors made the final methodological and scientific decisions
+and take responsibility for all content and artifacts in this work.
 
 \bibliographystyle{apalike}
 \bibliography{references}
@@ -680,7 +650,9 @@ useful by a short justification.
     size) of any algorithm. [No; empirical behavior rather than asymptotic
     complexity is the focus.]
     \item (Optional) Anonymized source code, with specification of all
-    dependencies, including external libraries. [No.]
+    dependencies, including external libraries. [Yes; the supplemental
+    material includes anonymized source code, a dependency lockfile, and
+    vendored external libraries.]
   \end{enumerate}
 
   \item For any theoretical claim, check if you include:
@@ -696,8 +668,8 @@ useful by a short justification.
   \begin{enumerate}
     \item The code, data, and instructions needed to reproduce the main
     experimental results (either in the supplemental material or as a URL).
-    [No; experimental settings are included, but an anonymized code release is
-    not yet linked.]
+    [Yes; the supplemental material includes the implementation, frozen
+    configurations, public-dataset preparation, and reproduction instructions.]
     \item All the training details (e.g., data splits, hyperparameters, how they
     were chosen). [Yes; Appendix~\ref{app:details}.]
     \item A clear definition of the specific measure or statistics and error
@@ -705,18 +677,22 @@ useful by a short justification.
     multiple times). [Yes; Eq.~\ref{eq:barrier}, Table~\ref{tab:xor-scale}, and
     the limitations in Section~\ref{sec:vgg}.]
     \item A description of the computing infrastructure used. (e.g., type of
-    GPUs, internal cluster, or cloud provider). [No.]
+    GPUs, internal cluster, or cloud provider). [Yes; the supplemental
+    instructions give the GPU, CPU, memory, and scheduler requirements.]
   \end{enumerate}
 
   \item If you are using existing assets (e.g., code, data, models) or
   curating/releasing new assets, check if you include:
   \begin{enumerate}
     \item Citations of the creator If your work uses existing assets. [Yes.]
-    \item The license information of the assets, if applicable. [No.]
+    \item The license information of the assets, if applicable. [Yes; licenses
+    and pinned revisions for vendored code are included in the supplement.]
     \item New assets either in the supplemental material or as a URL, if
-    applicable. [Not Applicable.]
+    applicable. [Yes; anonymized source code is included in the supplemental
+    material.]
     \item Information about consent from data providers/curators. [Not
-    Applicable; only synthetic XOR and the public CIFAR-10 benchmark are used.]
+    Applicable; only synthetic XOR and the public CIFAR-10 and Fashion-MNIST
+    benchmarks are used.]
     \item Discussion of sensible content if applicable, e.g., personally
     identifiable information or offensive content. [Not Applicable.]
   \end{enumerate}
@@ -771,11 +747,45 @@ uses the primary full-batch-GD endpoints.
 For nonlinear paths, both quadratic B\'ezier curves and polygonal chains are
 optimized for $1500$ steps at learning rate $0.05$, with no weight decay and
 $31$ path samples.  The default path has one trainable interior point; harder
-pairs use up to ten.  The endpoint-scaling comparison uses one interior point,
-raw endpoints without permutation, and independently optimized positive scales
-at both endpoints.  Path parameters and endpoint log-scales are optimized
-jointly with Adam for $1500$ steps at learning rate $0.05$; the scale penalty
-is $10^{-4}$, and final barriers are evaluated on $501$ path locations.
+pairs use up to ten.
+
+\subsection{Nonlinear path optimization with endpoint scaling}
+\label{app:nonlinear-endpoint-scale}
+
+Let $T_u$ denote the function-preserving positive-scaling action in
+Eq.~\ref{eq:hard-monomial-action}, with all permutations set to the identity.
+We assign separate log-scales $u_A$ and $u_B$ to the two endpoints, producing
+the scaled representatives $T_{u_A}(\theta_A)$ and $T_{u_B}(\theta_B)$.
+For $q\in\{\mathrm{poly},\mathrm{B\acute ezier}\}$, let
+$\phi^q_v(\lambda;T_{u_A}(\theta_A),T_{u_B}(\theta_B))$ denote the
+corresponding path in Eqs.~\ref{eq:polygonal-path}--\ref{eq:bezier-path}.  The
+path control point and endpoint log-scales are optimized jointly using
+\begin{equation}
+\begin{aligned}
+\min_{v,u_A,u_B}\quad
+&\max_{\lambda\in\Lambda}
+\Big[
+C\!\left(\phi^q_v\!\left(
+\lambda;T_{u_A}(\theta_A),T_{u_B}(\theta_B)
+\right)\right)\\
+&\qquad-\big((1-\lambda)C(\theta_A)+\lambda C(\theta_B)\big)
+\Big]_+
++\lambda_s\big(\lVert u_A\rVert_2^2+\lVert u_B\rVert_2^2\big),
+\end{aligned}
+\label{eq:nonlinear-endpoint-scale-objective}
+\end{equation}
+where $\Lambda$ is the set of sampled path locations and $[z]_+=\max(z,0)$.
+Because $T_u$ preserves the represented function, the endpoint losses and
+therefore the baseline term in
+Eq.~\ref{eq:nonlinear-endpoint-scale-objective} remain unchanged.  The first
+term minimizes the largest sampled loss excess, while the quadratic penalty
+discourages extreme scales.
+
+The endpoint-scaling comparison uses one interior point, raw endpoints without
+permutation, and independently optimized positive scales at both endpoints.
+Path parameters and endpoint log-scales are optimized jointly with Adam for
+$1500$ steps at learning rate $0.05$; the scale penalty is $10^{-4}$, and final
+barriers are evaluated on $501$ path locations.
 
 \subsection{XOR scale-aware optimization}
 
@@ -814,15 +824,26 @@ Sinkhorn targets that pair's exhaustive barrier.
 \subsection{Larger-network experiments}
 \label{app:larger-network}
 
+The VGG architectures and endpoint-training code are adapted from the
+\texttt{pytorch-vgg-cifar10} implementation of
+\citet{fu2017pytorchvgg}.  We modified the training code for deterministic independent
+runs and checkpoint generation, and trained all endpoints from scratch; no
+pretrained upstream checkpoints are used.
+
 For every architecture, Figure~\ref{fig:vgg} uses the final--final cell for
 three disjoint run pairs, $(0,1)$, $(2,3)$, and $(4,5)$, where each integer is
 the random seed of a complete independent training run.  Weight matching is
 computed for each pair, and every data-dependent alignment or scale-refinement
-method is fitted separately.  Every
-optimized method uses a 12-candidate grid over its relevant learning rate,
-temperature, and scale-regularization parameters.  A frozen validation split
-is divided into disjoint tuning and selection halves; the official test set is
-not loaded until the winning configuration for every pair has been frozen.
+method is fitted separately.
+
+Endpoint models are trained only on the endpoint-training split.  For each
+optimized method and endpoint pair, hyperparameter candidates are fitted and
+early-stopped on the tuning half of the validation set, then compared on the
+disjoint selection half.  The selected configuration is refit at full budget
+on the tuning split.  Training and test barriers are evaluated only after the
+hyperparameters and alignment artifacts are frozen; the official test set is
+used solely for final evaluation.
+
 The permutation-then-scale methods optimize only log-scales after fixing the
 corresponding hard permutation.  All six methods are evaluated on the same
 $61$-point interpolation grid.  Figure~\ref{fig:vgg} reports the mean and
@@ -830,22 +851,129 @@ sample standard deviation across the three independent pairs on the fixed
 training-report subset; Figure~\ref{fig:vgg-test} reports the corresponding
 official-test-set result.
 
+The validation grids are listed in Table~\ref{tab:larger-network-hparams}.
+Selection is performed independently for every endpoint pair, so the chosen
+tuple can differ across pairs.
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabular}{lccc}
+        \toprule
+        Method & $\eta$ & $\tau$ & $\lambda_s$ \\
+        \midrule
+        Weight matching + scale refinement
+        & $\{0.005,0.02,0.08\}$ & --
+        & $\{10^{-4},10^{-3},3\!\times\!10^{-3},10^{-2}\}$ \\
+        Permutation only (Sinkhorn)
+        & $\{0.03,0.10,0.30,0.75\}$ & $\{1,2.5,5\}$ & -- \\
+        Permutation + scale (joint Sinkhorn)
+        & $\{0.01,0.05,0.20\}$ & $\{1,2.5\}$
+        & $\{3\!\times\!10^{-4},3\!\times\!10^{-3}\}$ \\
+        Sinkhorn + scale refinement
+        & $\{0.005,0.02,0.08\}$ & --
+        & $\{10^{-4},10^{-3},3\!\times\!10^{-3},10^{-2}\}$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{Hyperparameter grids for the larger-network alignment methods.
+    Here $\eta$ is the optimizer learning rate, $\tau$ is the Sinkhorn
+    temperature, and $\lambda_s$ is the coefficient of the quadratic
+    log-scale penalty.  A dash denotes a parameter that does not apply.  All
+    applicable combinations are evaluated separately for each endpoint pair.}
+    \label{tab:larger-network-hparams}
+\end{table}
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.80\linewidth]{barplot_vggs.png}
-    \caption{Test-loss chord barrier for the same frozen alignments and three
+    \caption{Test-loss barrier for the same frozen alignments and three
     endpoint pairs as Figure~\ref{fig:vgg}.  Bars show the mean and error bars
     show the sample standard deviation.  The complete official test set is
     accessed only after hyperparameters and alignment artifacts are frozen.}
     \label{fig:vgg-test}
 \end{figure}
 
+Tables~\ref{tab:larger-network-train-values}
+and~\ref{tab:larger-network-test-values} give the exact aggregates underlying
+the training and test bar plots, respectively.
+
+\begin{table}[H]
+    \centering
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{lccccc}
+        \toprule
+        Method & \shortstack{VGG11\\CIFAR-10} & \shortstack{VGG13\\CIFAR-10}
+        & \shortstack{VGG16\\CIFAR-10} & \shortstack{VGG19\\CIFAR-10}
+        & \shortstack{MLP\\Fashion-MNIST} \\
+        \midrule
+        No alignment & $2.320\pm0.005$ & $2.325\pm0.002$ & $2.320\pm0.002$
+            & $2.334\pm0.018$ & $2.423\pm0.019$ \\
+        Permutation only (weight matching)
+            & $0.536\pm0.059$ & $0.976\pm0.042$ & $1.157\pm0.141$
+            & $1.681\pm0.183$ & $1.976\pm0.807$ \\
+        Weight matching + scale refinement
+            & $0.191\pm0.006$ & $0.159\pm0.011$ & $0.209\pm0.021$
+            & $0.281\pm0.028$ & $0.258\pm0.051$ \\
+        Permutation only (Sinkhorn)
+            & $1.077\pm0.056$ & $1.555\pm0.021$ & $1.630\pm0.087$
+            & $1.675\pm0.159$ & $0.587\pm0.071$ \\
+        Permutation + scale (joint Sinkhorn)
+            & $0.769\pm0.064$ & $0.915\pm0.057$ & $1.093\pm0.183$
+            & $1.092\pm0.153$ & $0.487\pm0.031$ \\
+        Sinkhorn + scale refinement
+            & $0.633\pm0.061$ & $0.790\pm0.036$ & $0.918\pm0.117$
+            & $0.961\pm0.135$ & $0.382\pm0.191$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{Train-loss barrier by architecture and alignment method,
+    reported as mean $\pm$ sample standard deviation over three disjoint
+    endpoint pairs.  These values underlie Figure~\ref{fig:vgg}.}
+    \label{tab:larger-network-train-values}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{lccccc}
+        \toprule
+        Method & \shortstack{VGG11\\CIFAR-10} & \shortstack{VGG13\\CIFAR-10}
+        & \shortstack{VGG16\\CIFAR-10} & \shortstack{VGG19\\CIFAR-10}
+        & \shortstack{MLP\\Fashion-MNIST} \\
+        \midrule
+        No alignment & $1.899\pm0.010$ & $1.953\pm0.015$ & $1.913\pm0.003$
+            & $1.859\pm0.010$ & $1.685\pm0.041$ \\
+        Permutation only (weight matching)
+            & $0.253\pm0.061$ & $0.684\pm0.051$ & $0.813\pm0.139$
+            & $1.252\pm0.178$ & $1.291\pm0.806$ \\
+        Weight matching + scale refinement
+            & $0.000\pm0.000$ & $0.000\pm0.000$ & $0.000\pm0.000$
+            & $0.019\pm0.034$ & $0.000\pm0.000$ \\
+        Permutation only (Sinkhorn)
+            & $0.695\pm0.052$ & $1.196\pm0.017$ & $1.235\pm0.089$
+            & $1.211\pm0.160$ & $0.000\pm0.000$ \\
+        Permutation + scale (joint Sinkhorn)
+            & $0.412\pm0.053$ & $0.588\pm0.039$ & $0.736\pm0.167$
+            & $0.655\pm0.161$ & $0.000\pm0.000$ \\
+        Sinkhorn + scale refinement
+            & $0.292\pm0.051$ & $0.475\pm0.022$ & $0.570\pm0.109$
+            & $0.542\pm0.127$ & $0.000\pm0.000$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{Test-loss barrier by architecture and alignment method,
+    reported as mean $\pm$ sample standard deviation over the same three
+    endpoint pairs as Table~\ref{tab:larger-network-train-values}.  These values
+    underlie Figure~\ref{fig:vgg-test}.}
+    \label{tab:larger-network-test-values}
+\end{table}
+
 Test-loss barriers are generally smaller than their training-loss counterparts.
-This comparison is relative to the endpoint chord, not to zero loss.  In the
+The barrier is measured relative to the linear interpolation of the endpoint
+losses, not to zero loss.  In the
 Fashion-MNIST pairs, for example, endpoint training losses are
 $0.020$--$0.041$, whereas endpoint test losses are $0.681$--$0.809$; an
-interior test-loss curve can therefore remain below its much higher endpoint
-chord even while the same path rises far above the near-zero training chord.
+interior test-loss curve can therefore remain below this much higher baseline
+even while the same path rises far above the near-zero training baseline.
 Consequently, the zero sampled Fashion-MNIST test-loss barriers in
 Figure~\ref{fig:vgg-test} do not imply zero training-loss barrier or constant
 classification error along the path.

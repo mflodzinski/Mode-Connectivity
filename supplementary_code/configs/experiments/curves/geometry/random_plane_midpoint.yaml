@@ -1,0 +1,9 @@
+defaults: []
+
+curve: "PolyChain"
+num_bends: 3
+geometry_slug: "random_plane_midpoint"
+project_random_plane: true
+random_plane_seed: 42
+random_plane_codim: 1
+random_anchor: false

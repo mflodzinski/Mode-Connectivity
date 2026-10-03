@@ -71,6 +71,14 @@ url={https://openreview.net/forum?id=dNigytemkL}
   url       = {https://papers.nips.cc/paper/8095-loss-surfaces-mode-connectivity-and-fast-ensembling-of-dnns}
 }
 
+@misc{fu2017pytorchvgg,
+  author       = {Fu, Cheng-Yang},
+  title        = {\texttt{pytorch-vgg-cifar10}},
+  year         = {2017},
+  howpublished = {GitHub repository,
+                  \url{https://github.com/chengyangfu/pytorch-vgg-cifar10}}
+}
+
 @article{zhao2025understanding,
   title   = {Understanding Mode Connectivity via Parameter Space Symmetry},
   author  = {Zhao, Bo and Dehmamy, Nima and Walters, Robin and Yu, Rose},
@@ -87,7 +95,8 @@ url={https://openreview.net/forum?id=dNigytemkL}
     month     = {June},
     year      = {2023},
     pages     = {20237--20246},
-    url       = {https://openaccess.thecvf.com/content/CVPR2023/html/Pena_Re-Basin_via_Implicit_Sinkhorn_Differentiation_CVPR_2023_paper.html}
+    url       = {https://openaccess.thecvf.com/content/CVPR2023/html/Pena_Re-Basin_via_Implicit_Sinkhorn_Differentiation_CVPR_2023_paper.html},
+    note      = {Companion implementation: \url{https://github.com/fagp/sinkhorn-rebasin}}
 }
 
 
@@ -127,7 +136,7 @@ url={https://openreview.net/forum?id=dNigytemkL}
   publisher =    {PMLR},
   pdf = 	 {https://proceedings.mlr.press/v162/wortsman22a/wortsman22a.pdf},
   url = 	 {https://proceedings.mlr.press/v162/wortsman22a.html},
-  abstract = 	 {The conventional recipe for maximizing model accuracy is to (1) train multiple models with various hyperparameters and (2) pick the individual model which performs best on a held-out validation set, discarding the remainder. In this paper, we revisit the second step of this procedure in the context of fine-tuning large pre-trained models, where fine-tuned models often appear to lie in a single low error basin. We show that averaging the weights of multiple models fine-tuned with different hyperparameter configurations often improves accuracy and robustness. Unlike a conventional ensemble, we may average many models without incurring any additional inference or memory costs—we call the results “model soups.” When fine-tuning large pre-trained models such as CLIP, ALIGN, and a ViT-G pre-trained on JFT, our soup recipe provides significant improvements over the best model in a hyperparameter sweep on ImageNet. The resulting ViT-G model, which attains 90.94% top-1 accuracy on ImageNet, achieved a new state of the art. Furthermore, we show that the model soup approach extends to multiple image classification and natural language processing tasks, improves out-of-distribution performance, and improves zero-shot performance on new downstream tasks. Finally, we analytically relate the performance similarity of weight-averaging and logit-ensembling to flatness of the loss and confidence of the predictions, and validate this relation empirically. Code is available at https://github.com/mlfoundations/model-soups.}
+  abstract = 	 {The conventional recipe for maximizing model accuracy is to (1) train multiple models with various hyperparameters and (2) pick the individual model which performs best on a held-out validation set, discarding the remainder. In this paper, we revisit the second step of this procedure in the context of fine-tuning large pre-trained models, where fine-tuned models often appear to lie in a single low error basin. We show that averaging the weights of multiple models fine-tuned with different hyperparameter configurations often improves accuracy and robustness. Unlike a conventional ensemble, we may average many models without incurring any additional inference or memory costs; we call the results “model soups.” When fine-tuning large pre-trained models such as CLIP, ALIGN, and a ViT-G pre-trained on JFT, our soup recipe provides significant improvements over the best model in a hyperparameter sweep on ImageNet. The resulting ViT-G model, which attains 90.94% top-1 accuracy on ImageNet, achieved a new state of the art. Furthermore, we show that the model soup approach extends to multiple image classification and natural language processing tasks, improves out-of-distribution performance, and improves zero-shot performance on new downstream tasks. Finally, we analytically relate the performance similarity of weight-averaging and logit-ensembling to flatness of the loss and confidence of the predictions, and validate this relation empirically. Code is available at https://github.com/mlfoundations/model-soups.}
 }
 
 @misc{DAIC,

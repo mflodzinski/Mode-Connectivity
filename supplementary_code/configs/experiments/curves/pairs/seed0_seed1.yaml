@@ -1,0 +1,6 @@
+defaults: []
+
+pair_name: "seed0_seed1"
+pair_slug: "seed0-seed1"
+endpoint0: "results/vgg16/cifar10/endpoints/standard/seed0/checkpoints/checkpoint-200.pt"
+endpoint1: "results/vgg16/cifar10/endpoints/standard/seed1/checkpoints/checkpoint-200.pt"

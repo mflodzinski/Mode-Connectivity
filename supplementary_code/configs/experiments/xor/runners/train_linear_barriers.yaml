@@ -1,0 +1,3 @@
+argv:
+  - --output
+  - results/xor/train_linear_barriers

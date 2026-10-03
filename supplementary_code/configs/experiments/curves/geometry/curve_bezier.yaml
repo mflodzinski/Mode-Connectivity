@@ -1,0 +1,5 @@
+defaults: []
+
+curve: "Bezier"
+num_bends: 3
+geometry_slug: "curves"

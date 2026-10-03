@@ -1,0 +1,4 @@
+defaults:
+  - /lmc/_base/common
+  - /lmc/_base/resume_shared_checkpoint
+  - _self_

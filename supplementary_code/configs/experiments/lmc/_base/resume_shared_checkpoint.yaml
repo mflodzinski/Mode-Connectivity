@@ -1,0 +1,6 @@
+defaults: []
+
+experiment_name: "pytorch_vgg16_lmc_connected"
+output_root: "results/vgg16/cifar10/endpoints/pytorch_vgg_lmc_connected"
+shared_checkpoint: "external/pytorch-vgg-cifar10/save_vgg16_seed1/checkpoint_150.tar"
+shared_epochs: 150
