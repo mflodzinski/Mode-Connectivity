@@ -2,10 +2,8 @@
 
 This is the official reproducibility repository for the paper **“The Role of
 Scaling Symmetries in Linear and Nonlinear Mode Connectivity of Neural
-Networks.”** The manuscript is available as
-[`main.pdf`](<weekly_thesis_update(4)/paper_aistats2027/main.pdf>), and its
-[`main.tex`](<weekly_thesis_update(4)/paper_aistats2027/main.tex>) is the source
-of truth for the experimental protocol and reported claims.
+Networks.”** It contains the code, frozen configurations, and documentation
+needed to reproduce the paper's experiments and reported results.
 
 ## Overview
 
@@ -35,7 +33,7 @@ classification along their best-permuted linear interpolation; **22 of 28
 pairs fail under every permutation**. The failure therefore cannot be
 attributed to an approximate alignment algorithm.
 
-![A width-2 XOR endpoint pair that remains disconnected under both hidden-unit permutations](weekly_thesis_update%284%29/paper_aistats2027/figures/identity_swap/failed_pair_seeds_9_12.png)
+![A width-2 XOR endpoint pair that remains disconnected under both hidden-unit permutations](docs/readme-assets/xor-permutation-counterexample.png)
 
 *A representative width-2 failure. Both endpoints solve XOR, but neither the
 identity nor swapped hidden-unit ordering preserves correct classification
@@ -67,13 +65,13 @@ studied pairs admit low-loss paths that retain 100% accuracy. Scaling the
 endpoints does not remove the width-2 obstruction, but lowers the mean
 nonlinear-path barrier at every tested width above two.
 
-![Representative nonlinear XOR paths at hidden widths two and three](weekly_thesis_update%284%29/paper_aistats2027/figures/nonlinear_xor_paths_hidden_sizes.png)
+![Representative nonlinear XOR paths at hidden widths two and three](docs/readme-assets/nonlinear-xor-paths.png)
 
 *Representative optimized quadratic Bézier paths. The width-2 path crosses a
 high-loss region, while the width-3 network has enough redundancy to maintain
 the XOR solution along the learned path.*
 
-![Effect of endpoint scaling on polygonal paths across XOR widths](weekly_thesis_update%284%29/paper_aistats2027/figures/nonlinear_scale_by_width_polygonal.png)
+![Effect of endpoint scaling on polygonal paths across XOR widths](docs/readme-assets/nonlinear-scaling-by-width.png)
 
 *Mean polygonal-path barrier with and without positive scaling of both
 endpoints. Scaling helps once sufficient architectural capacity is available.*
@@ -94,7 +92,7 @@ configuration removes the sampled training-loss barrier entirely.
 Each value is the mean over three disjoint independently trained endpoint
 pairs. VGG models use CIFAR-10; the MLP uses Fashion-MNIST.
 
-![Training-loss barriers for the larger-network experiments](weekly_thesis_update%284%29/paper_aistats2027/figures/barplot_vggs_train.png)
+![Training-loss barriers for the larger-network experiments](docs/readme-assets/larger-network-training-barriers.png)
 
 *Training-loss barriers across the larger architectures. Error bars show the
 sample standard deviation over three endpoint pairs.*
@@ -165,7 +163,7 @@ bash ops/slurm/dense_linear_stage/submit_all.sh --dry-run \
 - `external/`: vendored upstream dependencies.
 - `results/`: retained reported artifacts in this working copy (ignored for normal Git commits).
 - `archive/`: historical code and non-paper results; nothing there is imported by active code.
-- `weekly_thesis_update(4)/paper_aistats2027/`: manuscript, bibliography, styles, and paper figures.
+- `docs/readme-assets/`: the key paper figures displayed in this README.
 
 The historical module name `dense_linear_stage` now contains only the paper's
 final-endpoint alignment workflow; the cross-training-stage mode has been
